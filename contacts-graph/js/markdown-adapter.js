@@ -6,7 +6,10 @@
  * practical YAML subset the app writes: maps, nested maps, arrays, arrays of
  * maps, quoted strings, numbers, booleans, and null.
  */
-class MarkdownAdapter {
+import { ContactRecord } from './contact-record.js';
+import { VCFParser } from './vcf-parser.js';
+
+export class MarkdownAdapter {
   constructor() {
     this.id = 'markdown';
     this.label = 'Markdown';

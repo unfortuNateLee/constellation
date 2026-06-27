@@ -1,10 +1,19 @@
+import { ContactRelationshipApp } from './app.js';
+import { RelationshipBuilder } from './relationship-builder.js';
+import './app-notes.js'; // side effect: mixes notes/autocomplete methods into the prototype
+
 /**
- * Browser startup and modal wiring.
+ * Browser startup and modal wiring. Entry module — index.html loads only this.
  * Kept separate from ContactRelationshipApp so app.js remains focused on controller behavior.
  */
 document.addEventListener('DOMContentLoaded', () => {
   window.app = new ContactRelationshipApp();
   void window.app._updateSessionButtons();
+
+  // "Choose file" button in the drop zone opens the hidden file input.
+  document.getElementById('btn-import-drop').addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
 
   // Close modal
   document.getElementById('modal-cancel').addEventListener('click', () => {

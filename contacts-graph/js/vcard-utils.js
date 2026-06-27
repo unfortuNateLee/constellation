@@ -2,7 +2,7 @@
  * Shared vCard helpers.
  * Keeps parser and writer behavior aligned for escaped values, parameters, and folding.
  */
-class VCardUtils {
+export class VCardUtils {
   static unfold(text) {
     return String(text || '')
       .replace(/\r\n[ \t]/g, '')

@@ -16,7 +16,7 @@
  *              used to detect reciprocal "downgrades"
  *   vcardLabel optional override for the X-ABLabel text (defaults to label)
  */
-class RelationshipTaxonomy {
+export class RelationshipTaxonomy {
   static TYPES = {
     // Spouse / partner
     spouse: { label: 'Spouse', category: 'family', reciprocal: 'spouse' },

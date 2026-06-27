@@ -1,8 +1,12 @@
+import { VCardUtils } from './vcard-utils.js';
+import { ContactRecord } from './contact-record.js';
+import { RelationshipTaxonomy } from './relationship-taxonomy.js';
+
 /**
  * VCF / vCard parser
  * Handles vCard 3.0 and 4.0 with Apple-specific extensions
  */
-class VCFParser {
+export class VCFParser {
   parse(text) {
     // Pre-extract raw blocks and photos as ordered arrays (one entry per vCard, in file order).
     // Keying by position instead of FN avoids silent overwrites when two contacts share a

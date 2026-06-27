@@ -1,8 +1,23 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+// The app source is now native ES modules; import the classes directly.
+// Importing app-notes for its side effect (it mixes methods into the prototype).
+import { VCardUtils } from '../../js/vcard-utils.js';
+import { Palette } from '../../js/palette.js';
+import { ContactRecord } from '../../js/contact-record.js';
+import { RelationshipTaxonomy } from '../../js/relationship-taxonomy.js';
+import { VCFParser } from '../../js/vcf-parser.js';
+import { VCardAdapter } from '../../js/vcard-adapter.js';
+import { MarkdownAdapter } from '../../js/markdown-adapter.js';
+import { RelationshipBuilder } from '../../js/relationship-builder.js';
+import { ContactRelationshipApp } from '../../js/app.js';
+import '../../js/app-notes.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..', '..');
+const realConsole = console;
 
 function createFakeDocument() {
   const elements = new Map();
@@ -81,74 +96,60 @@ function createFakeDocument() {
   };
 }
 
-function loadBrowserClasses() {
+/**
+ * Install fake browser globals and return the app classes plus the fakes.
+ * Modules resolve `document`/`window`/`console`/`indexedDB` against globalThis
+ * at call time, so re-installing fresh fakes per call keeps tests isolated.
+ * (Blob, URL, TextEncoder, setTimeout already exist as Node globals.)
+ */
+export function loadBrowserClasses() {
   const document = createFakeDocument();
-  const context = {
-    console: {
-      ...console,
-      warn() {},
-    },
-    Blob,
-    URL,
-    TextEncoder,
+  const consoleFake = { ...realConsole, warn() {} };
+  const windowFake = {
+    confirm: () => true,
     setTimeout,
     clearTimeout,
-    document,
-    window: {
-      confirm: () => true,
-      setTimeout,
-      clearTimeout,
-      innerWidth: 1200,
-      innerHeight: 800,
-      addEventListener() {},
-    },
-    indexedDB: {
-      open() {
-        throw new Error('IndexedDB is not available in unit tests');
-      },
+    getComputedStyle: () => ({ getPropertyValue: () => '' }),
+    innerWidth: 1200,
+    innerHeight: 800,
+    addEventListener() {},
+  };
+  const indexedDB = {
+    open() {
+      throw new Error('IndexedDB is not available in unit tests');
     },
   };
-  context.globalThis = context;
-  vm.createContext(context);
 
-  const files = [
-    'js/vcard-utils.js',
-    'js/palette.js',
-    'js/contact-record.js',
-    'js/relationship-taxonomy.js',
-    'js/vcf-parser.js',
-    'js/vcard-adapter.js',
-    'js/markdown-adapter.js',
-    'js/relationship-builder.js',
-    'js/app.js',
-    'js/app-notes.js',
-  ];
-  const source = files.map((file) => fs.readFileSync(path.join(root, file), 'utf8')).join('\n\n');
-  vm.runInContext(
-    `${source}
-this.VCardUtils = VCardUtils;
-this.Palette = Palette;
-this.ContactRecord = ContactRecord;
-this.RelationshipTaxonomy = RelationshipTaxonomy;
-this.VCFParser = VCFParser;
-this.VCardAdapter = VCardAdapter;
-this.MarkdownAdapter = MarkdownAdapter;
-this.RelationshipBuilder = RelationshipBuilder;
-this.ContactRelationshipApp = ContactRelationshipApp;`,
-    context,
-  );
-  return context;
+  globalThis.document = document;
+  globalThis.window = windowFake;
+  globalThis.console = consoleFake;
+  globalThis.indexedDB = indexedDB;
+
+  return {
+    VCardUtils,
+    Palette,
+    ContactRecord,
+    RelationshipTaxonomy,
+    VCFParser,
+    VCardAdapter,
+    MarkdownAdapter,
+    RelationshipBuilder,
+    ContactRelationshipApp,
+    document,
+    window: windowFake,
+    console: consoleFake,
+  };
 }
 
-function fixturePath(name) {
+export function fixturePath(name) {
   return path.join(root, 'test', 'fixtures', name);
 }
 
-function readFixture(name) {
+export function readFixture(name) {
   return fs.readFileSync(fixturePath(name), 'utf8');
 }
 
-function makeTestApp(context, contacts) {
+export function makeTestApp(context, contacts) {
   const app = Object.create(context.ContactRelationshipApp.prototype);
   app.vcardAdapter = new context.VCardAdapter();
   app.markdownAdapter = new context.MarkdownAdapter();
@@ -220,10 +221,3 @@ function makeTestApp(context, contacts) {
   app._rebuildGraph();
   return app;
 }
-
-module.exports = {
-  fixturePath,
-  loadBrowserClasses,
-  makeTestApp,
-  readFixture,
-};

@@ -1,10 +1,12 @@
+import { RelationshipTaxonomy } from './relationship-taxonomy.js';
+
 /**
  * Builds graph nodes and edges from parsed contacts.
  * Handles:
  *   1. Explicit relationships (X-ABRELATEDNAMES)
  *   2. Inferred relationships (shared ORG)
  */
-class RelationshipBuilder {
+export class RelationshipBuilder {
   constructor(contacts) {
     this.contacts = contacts;
     this._nameIndex = this._buildNameIndex(contacts);

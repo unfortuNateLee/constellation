@@ -518,27 +518,12 @@
     </div>
 
     <!-- ── Dependencies ───────────────────────────────────────────────── -->
-    <script src="js/vendor/d3.v7.min.js?v=20260315c"></script>
+    <!-- D3 is a classic (non-module) vendored global; it must load before the
+         app module, which references the global `d3`. -->
+    <script src="js/vendor/d3.v7.min.js"></script>
 
-    <!-- ── App Scripts ───────────────────────────────────────────────── -->
-    <script src="js/vcard-utils.js?v=20260315c"></script>
-    <script src="js/palette.js?v=20260315c"></script>
-    <script src="js/contact-record.js?v=20260315c"></script>
-    <script src="js/relationship-taxonomy.js?v=20260315c"></script>
-    <script src="js/vcf-parser.js?v=20260315c"></script>
-    <script src="js/vcard-adapter.js?v=20260315c"></script>
-    <script src="js/markdown-adapter.js?v=20260315c"></script>
-    <script src="js/relationship-builder.js?v=20260315c"></script>
-    <script src="js/graph.js?v=20260315c"></script>
-    <script src="js/app.js?v=20260315c"></script>
-    <script src="js/app-notes.js?v=20260315c"></script>
-    <script src="js/app-bootstrap.js?v=20260315c"></script>
-
-    <script>
-      // Wire up the "choose file" button in drop zone
-      document.getElementById('btn-import-drop').addEventListener('click', () => {
-        document.getElementById('file-input').click();
-      });
-    </script>
+    <!-- App entry point. ES modules resolve the rest of the dependency graph.
+         NOTE: ES modules don't load over file:// — serve the app (see README). -->
+    <script type="module" src="js/app-bootstrap.js"></script>
   </body>
 </html>

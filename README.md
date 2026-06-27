@@ -24,17 +24,19 @@ vCard or Markdown. Everything runs client-side — no server, no backend, no CDN
 
 ## Running the app
 
-It's a static site — no build step.
-
-**Option A — open directly:** open `contacts-graph/index.html` in a desktop
-browser. Works over `file://` with the network disabled.
-
-**Option B — local server** (avoids some `file://` restrictions):
+It's a static site — no build step — but it uses **native ES modules**, which
+browsers don't load over `file://`. So serve it from a local static server and
+open it over `http://` (no internet connection required once served):
 
 ```sh
 python3 -m http.server 7891 --directory contacts-graph
 # then visit http://localhost:7891
 ```
+
+Any static file server works; the bundled `.claude/launch.json` runs exactly the
+command above. (Opening `index.html` directly from disk will fail to load the
+modules — this changed when the app moved from classic global scripts to ES
+modules.)
 
 ## Development
 
@@ -55,7 +57,7 @@ npm run format:check
 
 ```
 contacts-graph/
-  index.html                 App shell (loads scripts as classic globals, in order)
+  index.html                 App shell (loads d3 + the app-bootstrap.js ES module)
   css/styles.css             All styling (dark theme)
   js/
     vendor/d3.v7.min.js      Vendored D3 v7
@@ -76,18 +78,17 @@ contacts-graph/
 
 ## Architecture notes & direction
 
-The app currently loads as **classic browser globals** via ordered `<script>`
-tags (no bundler). The data layer is mid-migration toward a **format-neutral
-`ContactRecord` model** with pluggable **format adapters** (`VCardAdapter`,
-`MarkdownAdapter`) so new formats become sibling adapters.
+The app loads as **native ES modules** (no bundler): `index.html` includes the
+vendored D3 as a classic script, then `js/app-bootstrap.js` as a
+`<script type="module">`, and the import graph resolves the rest. The data layer
+uses a **format-neutral `ContactRecord` model** with pluggable **format
+adapters** (`VCardAdapter`, `MarkdownAdapter`) so new formats become sibling
+adapters. Relationship semantics and category colors each have a single source
+of truth (`RelationshipTaxonomy`, CSS `--cat-*` via `Palette`).
 
 Planned direction (tracked work):
 
-- Migrate to **ES modules** (and a lightweight dev/bundle setup), removing the
-  load-order coupling and the cross-file global classes.
-- Stable, deterministic contact IDs (derived from UID/FN rather than random).
-- Per-record parse error isolation.
-- Single canonical definition of the contact shape and the relationship
-  taxonomy / color palette (currently duplicated across several files).
+- Split the monolithic controller (`app.js`) into focused modules.
 - Incremental graph rebuilds instead of full rebuild-on-every-edit.
+- UID-aware relationship resolution (now that contact IDs are stable).
 - Split the monolithic controller (`app.js`) into focused modules.

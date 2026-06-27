@@ -6,7 +6,7 @@
  * target ContactRecord without forcing graph/detail/table code to know the
  * original file format.
  */
-class ContactRecord {
+export class ContactRecord {
   static CURRENT_VERSION = 1;
 
   /**

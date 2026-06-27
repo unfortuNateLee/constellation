@@ -1,6 +1,6 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { loadBrowserClasses } = require('./helpers/load-app.cjs');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { loadBrowserClasses } from './helpers/load-app.js';
 
 test('taxonomy is the single source of truth that the legacy methods delegate to', () => {
   const ctx = loadBrowserClasses();

@@ -1,6 +1,6 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { loadBrowserClasses, readFixture } = require('./helpers/load-app.cjs');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { loadBrowserClasses, readFixture } from './helpers/load-app.js';
 
 test('createEmptyContact returns the full standard shape at defaults', () => {
   const { ContactRecord } = loadBrowserClasses();

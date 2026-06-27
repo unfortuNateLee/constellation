@@ -4,7 +4,7 @@
   "description": "Browser-only, offline contact relationship explorer and editor (vCard + Markdown import, D3 graph, table view, bulk-normalize, IndexedDB session persistence).",
   "license": "UNLICENSED",
   "private": true,
-  "type": "commonjs",
+  "type": "module",
   "engines": {
     "node": ">=20"
   },

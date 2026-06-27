@@ -1,8 +1,13 @@
+import { Palette } from './palette.js';
+
+// `d3` is the vendored UMD global, loaded as a classic script before this module
+// (declared as a global in eslint.config.js).
+
 /**
  * ContactGraph — D3 force-directed graph renderer
  * Requires D3 v7 (vendored locally in HTML for offline use)
  */
-class ContactGraph {
+export class ContactGraph {
   constructor(container) {
     this.container = container;
     this.width = container.clientWidth;

@@ -1,6 +1,6 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { loadBrowserClasses, makeTestApp, readFixture } = require('./helpers/load-app.cjs');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { loadBrowserClasses, makeTestApp, readFixture } from './helpers/load-app.js';
 
 function byUid(contacts, uid) {
   const contact = contacts.find((c) => c.uid === uid);

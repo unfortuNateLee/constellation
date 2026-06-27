@@ -1,3 +1,7 @@
+import { VCFParser } from './vcf-parser.js';
+import { ContactRecord } from './contact-record.js';
+import { VCardUtils } from './vcard-utils.js';
+
 /**
  * vCard format adapter.
  *
@@ -5,7 +9,7 @@
  * same shape future file formats can implement. The app still edits legacy
  * contact objects for now; this adapter is the format boundary.
  */
-class VCardAdapter {
+export class VCardAdapter {
   constructor(parser = new VCFParser()) {
     this.id = 'vcard';
     this.label = 'vCard';

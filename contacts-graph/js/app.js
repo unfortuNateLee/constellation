@@ -1,8 +1,17 @@
+import { VCardAdapter } from './vcard-adapter.js';
+import { MarkdownAdapter } from './markdown-adapter.js';
+import { RelationshipBuilder } from './relationship-builder.js';
+import { RelationshipTaxonomy } from './relationship-taxonomy.js';
+import { Palette } from './palette.js';
+import { ContactGraph } from './graph.js';
+import { VCardUtils } from './vcard-utils.js';
+import { ContactRecord } from './contact-record.js';
+
 /**
  * Main application controller
  * Orchestrates: VCF import → parse → build graph data → render
  */
-class ContactRelationshipApp {
+export class ContactRelationshipApp {
   constructor() {
     this.vcardAdapter = new VCardAdapter();
     this.markdownAdapter = new MarkdownAdapter();

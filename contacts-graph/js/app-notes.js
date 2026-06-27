@@ -1,3 +1,6 @@
+import { ContactRelationshipApp } from './app.js';
+import { RelationshipBuilder } from './relationship-builder.js';
+
 /**
  * Notes editing, inline save, and hashtag autocomplete behavior.
  * Loaded after app.js and attached mechanically to ContactRelationshipApp.

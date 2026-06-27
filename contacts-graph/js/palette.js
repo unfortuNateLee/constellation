@@ -8,7 +8,7 @@
  * the Node test harness, where there is no real stylesheet) every lookup falls
  * back to a neutral gray — colors aren't asserted there.
  */
-class Palette {
+export class Palette {
   static NEUTRAL = '#8395a7';
   static _cache = null;
 
