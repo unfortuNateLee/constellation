@@ -5,7 +5,10 @@ Use this checklist for changes that affect vCard import, editing, serialization,
 ## Setup
 
 1. Run `npm test` from the repository root.
-2. Open `contacts-graph/index.html` locally with network access disabled or ignored.
+2. Serve the app locally and open it over `http://` (the app uses ES modules, so
+   it won't load from `file://`): from `contacts-graph/`, run
+   `python3 -m http.server 7891`, then open `http://localhost:7891`. No network
+   access beyond localhost is needed.
 3. Import `contacts-graph/test/fixtures/comprehensive.vcf`.
 4. Export all contacts from the app to a temporary `.vcf` file.
 
