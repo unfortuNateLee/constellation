@@ -1,5 +1,6 @@
 import { ContactRelationshipApp } from './app-controller.js';
 import { RelationshipBuilder } from './relationship-builder.js';
+import { RelationshipTaxonomy } from './relationship-taxonomy.js';
 
 /**
  * Browser startup and modal wiring. Entry module — index.html loads only this.
@@ -73,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const finalType = relType === 'custom' ? custom : relType;
+    const finalType = relType === RelationshipTaxonomy.CUSTOM_OPTION_VALUE ? custom : relType;
     if (!finalType) {
       window.app._showToast('Please enter a relationship type', 'error');
       return;
@@ -142,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('modal-rel-type').addEventListener('change', (e) => {
     document
       .getElementById('modal-custom-row')
-      .classList.toggle('hidden', e.target.value !== 'custom');
+      .classList.toggle('hidden', e.target.value !== RelationshipTaxonomy.CUSTOM_OPTION_VALUE);
   });
 
   document.getElementById('modal-target-mode').addEventListener('change', (e) => {

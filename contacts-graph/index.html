@@ -387,39 +387,9 @@
           <div class="form-group">
             <label class="form-label" for="modal-rel-type">Relationship Type</label>
             <select class="form-control" id="modal-rel-type">
+              <!-- Options (and the Custom… escape hatch) are generated from
+                   RelationshipTaxonomy on init — see app.js _init. -->
               <option value="">— Select type —</option>
-              <optgroup label="Family">
-                <option value="husband">Husband</option>
-                <option value="wife">Wife</option>
-                <option value="spouse">Spouse (generic)</option>
-                <option value="partner">Partner</option>
-                <option value="mother">Mother</option>
-                <option value="father">Father</option>
-                <option value="parent">Parent (generic)</option>
-                <option value="son">Son</option>
-                <option value="daughter">Daughter</option>
-                <option value="child">Child (generic)</option>
-                <option value="brother">Brother</option>
-                <option value="sister">Sister</option>
-                <option value="sibling">Sibling (generic)</option>
-                <option value="step-parent">Step-Parent</option>
-                <option value="step-child">Step-Child</option>
-                <option value="grandparent">Grandparent</option>
-                <option value="grandchild">Grandchild</option>
-                <option value="uncle/aunt">Uncle / Aunt</option>
-                <option value="cousin">Cousin</option>
-                <option value="nephew/niece">Nephew / Niece</option>
-              </optgroup>
-              <optgroup label="Social">
-                <option value="friend">Friend</option>
-                <option value="neighbor">Neighbor</option>
-              </optgroup>
-              <optgroup label="Professional">
-                <option value="colleague">Colleague</option>
-                <option value="manager">Manager</option>
-                <option value="assistant">Assistant</option>
-              </optgroup>
-              <option value="custom">Custom…</option>
             </select>
           </div>
           <div class="form-group hidden" id="modal-custom-row">

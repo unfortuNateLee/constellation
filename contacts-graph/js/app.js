@@ -71,6 +71,12 @@ export class ContactRelationshipApp {
       .getElementById('btn-theme-toggle')
       .addEventListener('click', () => this._toggleTheme());
 
+    // Populate the add-relationship modal's type picker from the taxonomy
+    // (single source of truth) rather than a hand-maintained option list.
+    document
+      .getElementById('modal-rel-type')
+      .insertAdjacentHTML('beforeend', this._relTypeOptionsHtml(''));
+
     // Graph container
     const graphContainer = document.getElementById('graph-container');
     this.graph = new ContactGraph(graphContainer);
