@@ -19,5 +19,6 @@ import './app-detail.js';
 import './app-suggestions.js';
 import './app-editing.js';
 import './app-relationship-edit.js';
+import './app-theme.js';
 
 export { ContactRelationshipApp };

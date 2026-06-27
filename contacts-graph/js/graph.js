@@ -39,8 +39,15 @@ export class ContactGraph {
     this._listeners = {};
 
     // Colors come from the CSS category tokens via Palette (single source).
+    this._colorScheme = this._buildColorScheme();
+
+    this._init();
+  }
+
+  // Node/edge colors derived from the CSS `--cat-*` tokens (via Palette).
+  _buildColorScheme() {
     const cat = (name) => Palette.category(name);
-    this._colorScheme = {
+    return {
       node: {
         family: cat('family'),
         friend: cat('friend'),
@@ -65,8 +72,32 @@ export class ContactGraph {
         inferred: Palette.inferred,
       },
     };
+  }
 
-    this._init();
+  /**
+   * Re-read the palette (after a theme switch) and recolor the existing graph
+   * in place — node fills, selected ring, link strokes, and arrow markers —
+   * without re-running the force simulation (so nodes don't jump). Label/hull
+   * text colors flip automatically via CSS. Caller must Palette.refresh() first.
+   */
+  refreshColors() {
+    this._colorScheme = this._buildColorScheme();
+    if (!this._svg) return;
+    const scheme = this._colorScheme;
+    this._nodeG.selectAll('circle.node-circle').attr('fill', (d) => this._nodeColor(d));
+    this._nodeG.selectAll('circle.node-ring').attr('stroke', scheme.node.selected);
+    this._linkG.selectAll('g.link line').attr('stroke', (d) => this._edgeColor(d));
+    this._svg.selectAll('defs marker').each((_, i, nodesArr) => {
+      const marker = nodesArr[i];
+      const category = String(marker.id || '').replace('arrow-', '');
+      d3.select(marker)
+        .select('path')
+        .attr('fill', scheme.edge[category] || scheme.edge.other);
+    });
+  }
+
+  _edgeColor(d) {
+    return this._colorScheme.edge[d.category] || this._colorScheme.edge.other;
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────
@@ -319,7 +350,6 @@ export class ContactGraph {
             .attr('text-anchor', 'middle')
             .attr('dy', -4)
             .attr('font-size', '9px')
-            .attr('fill', '#aaa')
             .attr('pointer-events', 'none')
             .text((d) => (d.inferred ? '' : d.label));
           // Target-side label (near the target node) — only shown when labels differ
@@ -328,7 +358,6 @@ export class ContactGraph {
             .attr('text-anchor', 'middle')
             .attr('dy', -4)
             .attr('font-size', '9px')
-            .attr('fill', '#aaa')
             .attr('pointer-events', 'none')
             .text((d) => (d.reverseLabel && d.reverseLabel !== d.label ? d.reverseLabel : ''));
           return g;
@@ -527,7 +556,6 @@ export class ContactGraph {
             .attr('text-anchor', 'middle')
             .attr('dy', (d) => nodeRadius(d) + 14)
             .attr('font-size', '11px')
-            .attr('fill', '#ccc')
             .attr('pointer-events', 'none')
             .text((d) => d.name || ''),
         (update) => update.text((d) => d.name || '').attr('dy', (d) => nodeRadius(d) + 14),

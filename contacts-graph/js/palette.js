@@ -12,6 +12,11 @@ export class Palette {
   static NEUTRAL = '#8395a7';
   static _cache = null;
 
+  /** Drop the cached values so the next read re-reads CSS (e.g. after a theme switch). */
+  static refresh() {
+    this._cache = null;
+  }
+
   static _read() {
     if (this._cache) return this._cache;
     const css =

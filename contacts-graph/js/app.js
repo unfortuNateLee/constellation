@@ -65,6 +65,12 @@ export class ContactRelationshipApp {
   }
 
   _init() {
+    // Apply the saved theme before the graph reads its colors.
+    this._applyInitialTheme();
+    document
+      .getElementById('btn-theme-toggle')
+      .addEventListener('click', () => this._toggleTheme());
+
     // Graph container
     const graphContainer = document.getElementById('graph-container');
     this.graph = new ContactGraph(graphContainer);
