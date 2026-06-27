@@ -1,0 +1,75 @@
+BEGIN:VCARD
+VERSION:3.0
+UID:jane-doe-smith
+N:Doe\;Smith;Jane\, Q.;;Dr.;
+FN:Dr. Jane\, Q. Doe\;Smith
+ORG:Example\; Labs;Research
+TITLE:Principal\, Contacts
+EMAIL;type=INTERNET;type=HOME;type=pref:jane@example.com
+EMAIL;TYPE=X-CUSTOM-LABEL:jane.custom@example.com
+TEL;type=CELL;type=VOICE;type=pref:555-0101
+TEL;TYPE=HOME,VOICE:555-0102
+ADR;TYPE=HOME;TYPE=pref:;;123 Main\; Apt 4;Arlington;VA;22201;USA
+URL;TYPE=WORK:https://example.com/jane
+BDAY:1980-04-15
+item1.X-ABDATE:2005-06-20
+item1.X-ABLabel:_$!<Anniversary>!$_
+item2.X-ABRELATEDNAMES:John Smith
+item2.X-ABLabel:_$!<Husband>!$_
+PHOTO;ENCODING=b;TYPE=JPEG:/9j/4AAQSkZJRgABAQAAAQABAAD
+NOTE:Line one\nLine two with #MITRE and #neighbor\, plus escaped\; punctuation.
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+UID:john-smith
+N:Smith;John;;;
+FN:John Smith
+EMAIL;type=INTERNET;type=WORK:john@example.com
+TEL;type=CELL;type=VOICE:555-0103
+ADR;TYPE=HOME:;;123 Main Street;Arlington;VA;22201;USA
+item1.X-ABRELATEDNAMES:Dr. Jane\, Q. Doe\;Smith
+item1.X-ABLabel:_$!<Wife>!$_
+NOTE:#family #neighbor
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+UID:duplicate-a
+N:Duplicate;Alex;;;
+FN:Alex Duplicate
+EMAIL;type=INTERNET;type=HOME:alex.a@example.com
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+UID:duplicate-b
+N:Duplicate;Alex;;;
+FN:Alex Duplicate
+EMAIL;type=INTERNET;type=WORK:alex.b@example.com
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+UID:company-acme
+N:Acme Corporation;;;;
+FN:Acme Corporation International Research and Development Holdings
+ORG:Acme Corporation
+X-ABSHOWAS:COMPANY
+URL;TYPE=WORK:https://acme.example.com
+NOTE:#vendor
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+UID:geo-work
+N:Geo;Taylor;;;
+FN:Taylor Geo
+ORG:Geo Works
+ADR;TYPE=WORK:;;400 Market Street;San Francisco;CA;94105;USA
+NOTE:#work
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+UID:virtual-parent
+N:Parent;Virtual;;;
+FN:Virtual Parent
+item1.X-ABRELATEDNAMES:Missing Child
+item1.X-ABLabel:_$!<Daughter>!$_
+NOTE:#family
+END:VCARD

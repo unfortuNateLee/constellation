@@ -1,0 +1,828 @@
+/**
+ * ContactGraph — D3 force-directed graph renderer
+ * Requires D3 v7 (vendored locally in HTML for offline use)
+ */
+class ContactGraph {
+  constructor(container) {
+    this.container = container;
+    this.width = container.clientWidth;
+    this.height = container.clientHeight;
+
+    this._nodes = [];
+    this._edges = [];
+    this._nodeById = new Map();
+    this._edgesByNodeId = new Map();
+    this._simulation = null;
+    this._svg = null;
+    this._zoomG = null;
+    this._linkG = null;
+    this._hullG = null;
+    this._hullLabelG = null;
+    this._nodeG = null;
+    this._labelG = null;
+    this._zoom = null;
+    this._zoomScale = 1;
+
+    this._selectedNode = null;
+    this._hoveredNode = null;
+    this._showInferred = true;
+    this._showLabels = true;
+    this._filterCategories = new Set();
+    this._mode = 'connections';
+    this._hulls = [];
+
+    this._listeners = {};
+
+    this._colorScheme = {
+      node: {
+        family: '#e17055',
+        friend: '#00b894',
+        mitre: '#0984e3',
+        work: '#74b9ff',
+        neighbor: '#fdcb6e',
+        church: '#a29bfe',
+        school: '#fd79a8',
+        medical: '#55efc4',
+        company: '#636e72',
+        virtual: '#b2bec3',
+        other: '#dfe6e9',
+        group: '#8e9aaf',
+        selected: '#ffd32a',
+      },
+      edge: {
+        family: '#e17055',
+        friend: '#00b894',
+        work: '#74b9ff',
+        neighbor: '#fdcb6e',
+        other: '#636e72',
+      },
+    };
+
+    this._init();
+  }
+
+  // ── Lifecycle ──────────────────────────────────────────────────
+
+  _init() {
+    const el = this.container;
+
+    this._zoom = d3.zoom()
+      .scaleExtent([0.05, 4])
+      .on('zoom', (e) => {
+        this._zoomG.attr('transform', e.transform);
+        this._zoomScale = e.transform.k || 1;
+        const k = e.transform.k;
+        this._showLabels = k > 0.6;
+        this._labelG.attr('opacity', this._showLabels ? 1 : 0);
+        this._updateHullLabelScale();
+      });
+
+    this._svg = d3.select(el)
+      .append('svg')
+      .attr('width', '100%')
+      .attr('height', '100%')
+      .style('background', 'transparent')
+      .call(this._zoom)
+      .on('click', (e) => {
+        if (e.target === this._svg.node() || e.target.tagName === 'svg') {
+          this._deselectAll();
+        }
+      });
+
+    // Defs: arrow markers per edge category
+    const defs = this._svg.append('defs');
+    for (const [cat, color] of Object.entries(this._colorScheme.edge)) {
+      defs.append('marker')
+        .attr('id', `arrow-${cat}`)
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 20)
+        .attr('refY', 0)
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('fill', color)
+        .attr('opacity', 0.6);
+    }
+
+    // Filter: drop shadow for selected nodes
+    const filter = defs.append('filter').attr('id', 'glow');
+    filter.append('feGaussianBlur').attr('stdDeviation', 4).attr('result', 'coloredBlur');
+    const feMerge = filter.append('feMerge');
+    feMerge.append('feMergeNode').attr('in', 'coloredBlur');
+    feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    this._zoomG = this._svg.append('g').attr('class', 'zoom-root');
+    this._hullG = this._zoomG.append('g').attr('class', 'hulls');
+    this._hullLabelG = this._zoomG.append('g').attr('class', 'hull-labels');
+    this._linkG = this._zoomG.append('g').attr('class', 'links');
+    this._nodeG = this._zoomG.append('g').attr('class', 'nodes');
+    this._labelG = this._zoomG.append('g').attr('class', 'labels');
+
+    // Tooltip
+    this._tooltip = d3.select(document.body)
+      .append('div')
+      .attr('class', 'graph-tooltip')
+      .style('opacity', 0)
+      .style('pointer-events', 'none');
+
+    window.addEventListener('resize', () => this._onResize());
+  }
+
+  _onResize() {
+    this.width = this.container.clientWidth;
+    this.height = this.container.clientHeight;
+    if (this._simulation) {
+      this._simulation.force('center', d3.forceCenter(this.width / 2, this.height / 2));
+      this._simulation.alpha(0.3).restart();
+    }
+  }
+
+  // ── Public API ──────────────────────────────────────────────────
+
+  on(event, handler) {
+    this._listeners[event] = handler;
+    return this;
+  }
+
+  emit(event, data) {
+    if (this._listeners[event]) this._listeners[event](data);
+  }
+
+  render(nodes, edges, meta = {}) {
+    this._allNodes = nodes;
+    this._allEdges = edges;
+    this._mode = meta.mode || 'connections';
+    this._allHulls = meta.hulls || [];
+    this._applyFilters();
+  }
+
+  setShowInferred(val) {
+    this._showInferred = val;
+    this._applyFilters();
+  }
+
+  setFilterCategories(cats) {
+    this._filterCategories = new Set(cats);
+    this._applyFilters();
+  }
+
+  highlightContact(id) {
+    this._selectNode(id, false);
+    this._zoomToNode(id);
+  }
+
+  resetView() {
+    this._svg.transition().duration(600)
+      .call(this._zoom.transform, d3.zoomIdentity);
+  }
+
+  // ── Internal render pipeline ───────────────────────────────────
+
+  _applyFilters() {
+    let nodes = this._allNodes || [];
+    let edges = this._allEdges || [];
+    let hulls = this._allHulls || [];
+    let nodeById = this._indexNodes(nodes);
+
+    // Filter out inferred edges if disabled
+    if (!this._showInferred && (this._mode === 'connections' || this._mode === 'family-explicit')) {
+      edges = edges.filter(e => !(e.inferred && !e.edgeKind));
+    }
+
+    // Filter by category
+    if (this._filterCategories.size > 0) {
+      const matchingIds = new Set(
+        nodes
+          .filter(n => !n.isGroupNode && (n.filterTags || []).some(tag => this._filterCategories.has(tag)))
+          .map(n => n.id)
+      );
+      const visibleIds = new Set(matchingIds);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const e of edges) {
+          const s = typeof e.source === 'object' ? e.source.id : e.source;
+          const t = typeof e.target === 'object' ? e.target.id : e.target;
+          const sNode = nodeById.get(s);
+          const tNode = nodeById.get(t);
+          if (visibleIds.has(s) && tNode?.isGroupNode && !visibleIds.has(t)) {
+            visibleIds.add(t);
+            changed = true;
+          }
+          if (visibleIds.has(t) && sNode?.isGroupNode && !visibleIds.has(s)) {
+            visibleIds.add(s);
+            changed = true;
+          }
+        }
+      }
+      nodes = nodes.filter(n => visibleIds.has(n.id));
+      edges = edges.filter(e => {
+        const s = typeof e.source === 'object' ? e.source.id : e.source;
+        const t = typeof e.target === 'object' ? e.target.id : e.target;
+        return visibleIds.has(s) && visibleIds.has(t);
+      });
+      hulls = hulls.filter(h => (h.memberIds || []).some(id => visibleIds.has(id)));
+    }
+
+    this._nodes = nodes;
+    this._edges = edges;
+    this._hulls = hulls;
+    this._nodeById = this._indexNodes(nodes);
+    this._edgesByNodeId = this._indexEdgesByNode(edges);
+    this._renderGraph(nodes, edges, hulls);
+  }
+
+  _renderGraph(nodes, edges, hulls = []) {
+    // Stop old simulation
+    if (this._simulation) this._simulation.stop();
+
+    const nodeIds = new Set(nodes.map(n => n.id));
+    const validEdges = edges.filter(e => {
+      const s = typeof e.source === 'object' ? e.source.id : e.source;
+      const t = typeof e.target === 'object' ? e.target.id : e.target;
+      return nodeIds.has(s) && nodeIds.has(t);
+    });
+
+    const hull = this._hullG.selectAll('path.cluster-hull')
+      .data(hulls, d => d.id)
+      .join(
+        enter => enter.append('path')
+          .attr('class', d => `cluster-hull hull-${d.kind || 'default'}`)
+          .attr('fill', d => d.color || '#74b9ff')
+          .attr('fill-opacity', d => this._hullOpacity(d))
+          .attr('stroke', d => d.color || '#74b9ff')
+          .attr('stroke-opacity', d => Math.min(this._hullOpacity(d) + 0.08, 0.28))
+          .attr('stroke-width', 1.5),
+        update => update
+          .attr('fill', d => d.color || '#74b9ff')
+          .attr('fill-opacity', d => this._hullOpacity(d))
+          .attr('stroke', d => d.color || '#74b9ff')
+          .attr('stroke-opacity', d => Math.min(this._hullOpacity(d) + 0.08, 0.28)),
+        exit => exit.remove()
+      );
+
+    const hullLabel = this._hullLabelG.selectAll('text.hull-label')
+      .data(hulls, d => d.id)
+      .join(
+        enter => enter.append('text')
+          .attr('class', d => `hull-label hull-label-${d.kind || 'default'}`)
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'middle')
+          .attr('font-size', '11px')
+          .attr('pointer-events', 'none')
+          .text(d => d.label || ''),
+        update => update.text(d => d.label || ''),
+        exit => exit.remove()
+      );
+
+    // ── Links ──
+    const link = this._linkG.selectAll('g.link')
+      .data(validEdges, d => d.id)
+      .join(
+        enter => {
+          const g = enter.append('g').attr('class', d => `link link-${d.category}`);
+          g.append('line')
+            .attr('stroke', d => this._colorScheme.edge[d.category] || this._colorScheme.edge.other)
+            .attr('stroke-width', d => this._edgeWidth(d))
+            .attr('stroke-dasharray', d => this._edgeDashArray(d))
+            .attr('stroke-opacity', 0.5);
+          // Source-side label (near the source node)
+          g.append('text')
+            .attr('class', 'edge-label edge-label-src')
+            .attr('text-anchor', 'middle')
+            .attr('dy', -4)
+            .attr('font-size', '9px')
+            .attr('fill', '#aaa')
+            .attr('pointer-events', 'none')
+            .text(d => d.inferred ? '' : d.label);
+          // Target-side label (near the target node) — only shown when labels differ
+          g.append('text')
+            .attr('class', 'edge-label edge-label-tgt')
+            .attr('text-anchor', 'middle')
+            .attr('dy', -4)
+            .attr('font-size', '9px')
+            .attr('fill', '#aaa')
+            .attr('pointer-events', 'none')
+            .text(d => (d.reverseLabel && d.reverseLabel !== d.label) ? d.reverseLabel : '');
+          return g;
+        },
+        update => {
+          // Refresh labels in case edge data changed between renders
+          update.select('text.edge-label-src')
+            .text(d => d.inferred ? '' : d.label);
+          update.select('text.edge-label-tgt')
+            .text(d => (d.reverseLabel && d.reverseLabel !== d.label) ? d.reverseLabel : '');
+          update.select('line')
+            .attr('stroke', d => this._colorScheme.edge[d.category] || this._colorScheme.edge.other)
+            .attr('stroke-width', d => this._edgeWidth(d))
+            .attr('stroke-dasharray', d => this._edgeDashArray(d));
+          return update;
+        },
+        exit => exit.remove()
+      );
+
+    // ── Nodes ──
+    const nodeRadius = d => {
+      if (d.isGroupNode) return Math.max(12, 18 - ((d.groupDepth || 1) * 1.5));
+      const base = d.isCompany ? 12 : d.isVirtual ? 6 : 10;
+      const bonus = Math.min(d.connectionCount * 1.5, 10);
+      return base + bonus;
+    };
+
+    const node = this._nodeG.selectAll('g.node')
+      .data(nodes, d => d.id)
+      .join(
+        enter => {
+          const g = enter.append('g')
+            .attr('class', d => `node node-${d.category}`)
+            .style('cursor', 'pointer')
+            .call(d3.drag()
+              .on('start', (e, d) => this._dragStarted(e, d))
+              .on('drag', (e, d) => this._dragged(e, d))
+              .on('end', (e, d) => this._dragEnded(e, d)))
+            .on('click', (e, d) => {
+              e.stopPropagation();
+              this._selectNode(d.id);
+            })
+            .on('mouseover', (e, d) => this._onHover(e, d, true))
+            .on('mouseout', (e, d) => this._onHover(e, d, false));
+
+          // Outer glow ring (shown on select)
+          g.append('circle')
+            .attr('class', 'node-ring')
+            .attr('r', d => nodeRadius(d) + 5)
+            .attr('fill', 'none')
+            .attr('stroke', '#ffd32a')
+            .attr('stroke-width', 2)
+            .attr('opacity', 0);
+
+          // Main circle
+          g.append('circle')
+            .attr('class', 'node-circle')
+            .attr('r', d => nodeRadius(d))
+            .attr('fill', d => this._nodeColor(d))
+            .attr('stroke', '#1a1a2e')
+            .attr('stroke-width', d => d.isGroupNode ? 2 : 1.5)
+            .attr('stroke-dasharray', d => d.isGroupNode ? '5 3' : null);
+
+          // Clip path for circular photo crop
+          g.append('clipPath')
+            .attr('id', d => `node-clip-${d.id}`)
+            .append('circle')
+            .attr('r', d => nodeRadius(d));
+
+          // Photo (shown instead of initials when available)
+          g.filter(d => d.photo)
+            .append('image')
+            .attr('href', d => d.photo)
+            .attr('x', d => -nodeRadius(d))
+            .attr('y', d => -nodeRadius(d))
+            .attr('width', d => nodeRadius(d) * 2)
+            .attr('height', d => nodeRadius(d) * 2)
+            .attr('clip-path', d => `url(#node-clip-${d.id})`)
+            .attr('preserveAspectRatio', 'xMidYMid slice')
+            .attr('pointer-events', 'none');
+
+          // Initials text (only when no photo)
+          g.filter(d => !d.isCompany && !d.photo && !d.isGroupNode)
+            .append('text')
+            .attr('class', 'node-initials')
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'central')
+            .attr('font-size', d => Math.max(7, nodeRadius(d) * 0.55) + 'px')
+            .attr('fill', 'rgba(255,255,255,0.85)')
+            .attr('pointer-events', 'none')
+            .attr('font-weight', '600')
+            .text(d => this._initials(d.name));
+
+          // Company icon (only when no photo)
+          g.filter(d => d.isCompany && !d.photo && !d.isGroupNode)
+            .append('text')
+            .attr('class', 'node-company-icon')
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'central')
+            .attr('font-size', d => nodeRadius(d) * 0.9 + 'px')
+            .attr('fill', '#fff')
+            .attr('pointer-events', 'none')
+            .text('🏢');
+
+          g.filter(d => d.isGroupNode)
+            .append('text')
+            .attr('class', 'node-group-icon')
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'central')
+            .attr('font-size', d => Math.max(11, nodeRadius(d) * 0.62) + 'px')
+            .attr('fill', '#fff')
+            .attr('pointer-events', 'none')
+            .text(d => this._groupGlyph(d));
+
+          return g;
+        },
+        update => {
+          update.select('.node-circle')
+            .attr('r', d => nodeRadius(d))
+            .attr('fill', d => this._nodeColor(d));
+          update.select('.node-ring')
+            .attr('r', d => nodeRadius(d) + 5);
+          update.select('clipPath circle')
+            .attr('r', d => nodeRadius(d));
+
+          update.each((d, i, nodes) => {
+            const g = d3.select(nodes[i]);
+
+            g.selectAll('image').remove();
+            g.selectAll('text.node-initials').remove();
+            g.selectAll('text.node-company-icon').remove();
+            g.selectAll('text.node-group-icon').remove();
+
+            if (d.photo) {
+              g.append('image')
+                .attr('href', d => d.photo)
+                .attr('x', d => -nodeRadius(d))
+                .attr('y', d => -nodeRadius(d))
+                .attr('width', d => nodeRadius(d) * 2)
+                .attr('height', d => nodeRadius(d) * 2)
+                .attr('clip-path', d => `url(#node-clip-${d.id})`)
+                .attr('preserveAspectRatio', 'xMidYMid slice')
+                .attr('pointer-events', 'none');
+            } else if (d.isGroupNode) {
+              g.append('text')
+                .attr('class', 'node-group-icon')
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'central')
+                .attr('font-size', d => Math.max(11, nodeRadius(d) * 0.62) + 'px')
+                .attr('fill', '#fff')
+                .attr('pointer-events', 'none')
+                .text(d => this._groupGlyph(d));
+            } else if (d.isCompany) {
+              g.append('text')
+                .attr('class', 'node-company-icon')
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'central')
+                .attr('font-size', d => nodeRadius(d) * 0.9 + 'px')
+                .attr('fill', '#fff')
+                .attr('pointer-events', 'none')
+                .text('🏢');
+            } else {
+              g.append('text')
+                .attr('class', 'node-initials')
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'central')
+                .attr('font-size', d => Math.max(7, nodeRadius(d) * 0.55) + 'px')
+                .attr('fill', 'rgba(255,255,255,0.85)')
+                .attr('pointer-events', 'none')
+                .attr('font-weight', '600')
+                .text(d => this._initials(d.name));
+            }
+          });
+          return update;
+        },
+        exit => exit.remove()
+      );
+
+    // ── Labels ──
+    const label = this._labelG.selectAll('text.node-label')
+      .data(nodes, d => d.id)
+      .join(
+        enter => enter.append('text')
+          .attr('class', 'node-label')
+          .attr('text-anchor', 'middle')
+          .attr('dy', d => nodeRadius(d) + 14)
+          .attr('font-size', '11px')
+          .attr('fill', '#ccc')
+          .attr('pointer-events', 'none')
+          .text(d => d.name || ''),
+        update => update
+          .text(d => d.name || '')
+          .attr('dy', d => nodeRadius(d) + 14),
+        exit => exit.remove()
+      );
+
+    // ── Simulation ──
+    this._simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(validEdges)
+        .id(d => d.id)
+        .distance(d => {
+          if (d.edgeKind === 'geographic-hierarchy') return 58;
+          if (d.edgeKind === 'geographic-membership') return 70;
+          if (['likely-surname', 'likely-tag', 'likely-family'].includes(d.edgeKind)) return 65;
+          if (d.category === 'family') return 80;
+          if (d.category === 'work') return 100;
+          return 120;
+        })
+        .strength(d => {
+          if (d.edgeKind === 'geographic-hierarchy') return 0.9;
+          if (d.edgeKind === 'geographic-membership') return 0.82;
+          if (['likely-surname', 'likely-tag', 'likely-family'].includes(d.edgeKind)) return 0.76;
+          return 0.4;
+        }))
+      .force('charge', d3.forceManyBody()
+        .strength(d => d.isGroupNode ? -520 : d.isCompany ? -400 : -150)
+        .distanceMax(400))
+      .force('center', d3.forceCenter(this.width / 2, this.height / 2))
+      .force('collide', d3.forceCollide(d => nodeRadius(d) + 8))
+      .on('tick', () => {
+        hull.attr('d', d => this._hullPath(d, nodes, nodeRadius));
+        hullLabel
+          .attr('transform', d => this._hullLabelTransform(d, nodes))
+          .attr('opacity', d => this._hullLabelOpacity(d, nodes));
+        link.select('line')
+          .attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y);
+
+        // Position source label near source node (32% along) when dual labels,
+        // or centered (50%) when there is only one label
+        link.select('text.edge-label-src')
+          .attr('x', d => {
+            const f = (d.reverseLabel && d.reverseLabel !== d.label) ? 0.32 : 0.5;
+            return d.source.x + f * (d.target.x - d.source.x);
+          })
+          .attr('y', d => {
+            const f = (d.reverseLabel && d.reverseLabel !== d.label) ? 0.32 : 0.5;
+            return d.source.y + f * (d.target.y - d.source.y);
+          });
+        // Position target label near target node (68% along)
+        link.select('text.edge-label-tgt')
+          .attr('x', d => d.source.x + 0.68 * (d.target.x - d.source.x))
+          .attr('y', d => d.source.y + 0.68 * (d.target.y - d.source.y));
+
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+        label.attr('transform', d => `translate(${d.x},${d.y})`);
+      });
+
+    this._updateHullLabelScale();
+  }
+
+  // ── Selection & Highlighting ────────────────────────────────────
+
+  _selectNode(id, emit = true) {
+    this._selectedNode = id;
+
+    const connectedNodeIds = new Set([id]);
+    (this._edgesByNodeId.get(id) || []).forEach(e => {
+      const s = typeof e.source === 'object' ? e.source.id : e.source;
+      const t = typeof e.target === 'object' ? e.target.id : e.target;
+      if (s === id) connectedNodeIds.add(t);
+      if (t === id) connectedNodeIds.add(s);
+    });
+
+    // Fade non-connected
+    this._nodeG.selectAll('g.node')
+      .attr('opacity', d => connectedNodeIds.has(d.id) ? 1 : 0.15);
+
+    this._linkG.selectAll('g.link')
+      .attr('opacity', e => {
+        const s = typeof e.source === 'object' ? e.source.id : e.source;
+        const t = typeof e.target === 'object' ? e.target.id : e.target;
+        return s === id || t === id ? 1 : 0.05;
+      });
+
+    this._labelG.selectAll('text.node-label')
+      .attr('opacity', d => connectedNodeIds.has(d.id) ? 1 : 0.1);
+    this._hullG.selectAll('path.cluster-hull')
+      .attr('opacity', d => (d.memberIds || []).some(memberId => connectedNodeIds.has(memberId)) ? 1 : 0.2);
+    this._hullLabelG.selectAll('text.hull-label')
+      .attr('opacity', d => (d.memberIds || []).some(memberId => connectedNodeIds.has(memberId)) ? 1 : 0.18);
+
+    // Ring
+    this._nodeG.selectAll('g.node .node-ring')
+      .attr('opacity', d => d.id === id ? 1 : 0);
+
+    if (emit) {
+      const nodeData = this._nodeById.get(id);
+      if (nodeData) this.emit('nodeSelect', nodeData);
+    }
+  }
+
+  _deselectAll() {
+    this._selectedNode = null;
+    this._nodeG.selectAll('g.node').attr('opacity', 1);
+    this._linkG.selectAll('g.link').attr('opacity', 1);
+    this._labelG.selectAll('text.node-label').attr('opacity', 1);
+    this._hullG.selectAll('path.cluster-hull').attr('opacity', 1);
+    this._hullLabelG.selectAll('text.hull-label')
+      .attr('opacity', d => this._hullLabelOpacity(d, this._nodes));
+    this._nodeG.selectAll('.node-ring').attr('opacity', 0);
+    this.emit('nodeDeselect', null);
+  }
+
+  _zoomToNode(id) {
+    const node = this._nodeById.get(id);
+    if (!node || !node.x) return;
+    const t = d3.zoomIdentity
+      .translate(this.width / 2, this.height / 2)
+      .scale(1.5)
+      .translate(-node.x, -node.y);
+    this._svg.transition().duration(600)
+      .call(this._zoom.transform, t);
+  }
+
+  // ── Hover ───────────────────────────────────────────────────────
+
+  _onHover(event, d, entering) {
+    if (entering) {
+      this._hoveredNode = d.id;
+      this._tooltip
+        .html(this._tooltipHTML(d))
+        .style('opacity', 1)
+        .style('left', (event.pageX + 12) + 'px')
+        .style('top', (event.pageY - 28) + 'px');
+    } else {
+      this._hoveredNode = null;
+      this._tooltip.style('opacity', 0);
+    }
+  }
+
+  _tooltipHTML(d) {
+    const lines = [`<strong>${this._escapeHtml(d.name)}</strong>`];
+    if (d.org) lines.push(`<em>${this._escapeHtml(d.org)}</em>`);
+    if (d.connectionCount) lines.push(`${d.connectionCount} connection${d.connectionCount !== 1 ? 's' : ''}`);
+    return lines.join('<br>');
+  }
+
+  // ── Drag ────────────────────────────────────────────────────────
+
+  _dragStarted(event, d) {
+    if (!event.active) this._simulation.alphaTarget(0.3).restart();
+    d.fx = d.x;
+    d.fy = d.y;
+  }
+
+  _dragged(event, d) {
+    d.fx = event.x;
+    d.fy = event.y;
+  }
+
+  _dragEnded(event, d) {
+    if (!event.active) this._simulation.alphaTarget(0);
+    d.fx = null;
+    d.fy = null;
+  }
+
+  // ── Utility ──────────────────────────────────────────────────────
+
+  _nodeColor(d) {
+    if (d.id === this._selectedNode) return this._colorScheme.node.selected;
+    if (d.isGroupNode) return this._colorScheme.node.group;
+    return this._colorScheme.node[d.category] || this._colorScheme.node.other;
+  }
+
+  _edgeWidth(d) {
+    if (d.edgeKind === 'geographic-hierarchy') return 2.2;
+    if (d.edgeKind === 'geographic-membership') return 1.6;
+    if (['likely-surname', 'likely-tag', 'likely-family'].includes(d.edgeKind)) return 1.4;
+    return d.inferred ? 1 : 2;
+  }
+
+  _edgeDashArray(d) {
+    if (['likely-surname', 'likely-tag', 'likely-family'].includes(d.edgeKind)) return '6 4';
+    if (d.edgeKind === 'geographic-membership') return '2 2';
+    return d.inferred ? '4 3' : null;
+  }
+
+  _hullOpacity(d) {
+    if ((d.kind || '').startsWith('geo-')) {
+      const depth = d.depth || 1;
+      return Math.max(0.04, 0.1 - ((depth - 1) * 0.015));
+    }
+    return 0.12;
+  }
+
+  _hullPath(hull, nodes, nodeRadius) {
+    const members = (hull.memberIds || [])
+      .map(id => this._nodeById.get(id))
+      .filter(n => n && Number.isFinite(n.x) && Number.isFinite(n.y));
+    if (members.length < 2) return '';
+
+    const points = [];
+    for (const member of members) {
+      const r = nodeRadius(member) + 12;
+      points.push([member.x - r, member.y - r]);
+      points.push([member.x - r, member.y + r]);
+      points.push([member.x + r, member.y - r]);
+      points.push([member.x + r, member.y + r]);
+    }
+    const polygon = d3.polygonHull(points);
+    if (!polygon) return '';
+    return `M${polygon.join('L')}Z`;
+  }
+
+  _hullLabelTransform(hull, nodes) {
+    const anchor = this._hullLabelAnchor(hull, nodes);
+    if (!anchor) return 'translate(-9999,-9999)';
+    return `translate(${anchor.x},${anchor.y}) scale(${this._hullLabelScaleFactor()})`;
+  }
+
+  _hullLabelAnchor(hull, nodes) {
+    const members = (hull.memberIds || [])
+      .map(id => this._nodeById.get(id))
+      .filter(n => n && Number.isFinite(n.x) && Number.isFinite(n.y));
+    if (members.length < 2) return null;
+
+    const bounds = members.reduce((acc, node) => {
+      const r = (node.isGroupNode ? Math.max(12, 18 - ((node.groupDepth || 1) * 1.5)) : (node.isCompany ? 12 : node.isVirtual ? 6 : 10)) + Math.min((node.connectionCount || 0) * 1.5, 10) + 12;
+      acc.minX = Math.min(acc.minX, node.x - r);
+      acc.maxX = Math.max(acc.maxX, node.x + r);
+      acc.minY = Math.min(acc.minY, node.y - r);
+      acc.maxY = Math.max(acc.maxY, node.y + r);
+      return acc;
+    }, { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+
+    const offset = 12 + (10 / Math.max(this._zoomScale || 1, 0.45));
+    return {
+      x: (bounds.minX + bounds.maxX) / 2,
+      y: bounds.minY - offset,
+    };
+  }
+
+  _hullLabelScaleFactor() {
+    const k = this._zoomScale || 1;
+    return 1 / Math.max(0.45, Math.min(k, 1.2));
+  }
+
+  _hullLabelOpacity(hull, nodes) {
+    const members = (hull.memberIds || [])
+      .map(id => this._nodeById.get(id))
+      .filter(Boolean);
+    if (members.length < 2 || !hull.label) return 0;
+    return members.length >= 3 ? 0.92 : 0.84;
+  }
+
+  _updateHullLabelScale() {
+    // The labels compensate for graph zoom with an inverse scale transform
+    // applied in _hullLabelTransform(), so the base font size can stay fixed.
+  }
+
+  _groupGlyph(d) {
+    if ((d.groupKind || '').startsWith('geo-')) return '◎';
+    if (d.groupKind === 'likely-surname') return '≈';
+    if (d.groupKind === 'likely-tag') return '#';
+    return '◌';
+  }
+
+  _initials(name) {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+
+  _escapeHtml(str) {
+    return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  _indexNodes(nodes = []) {
+    return new Map((nodes || []).map(node => [node.id, node]));
+  }
+
+  _indexEdgesByNode(edges = []) {
+    const index = new Map();
+    const add = (id, edge) => {
+      if (!index.has(id)) index.set(id, []);
+      index.get(id).push(edge);
+    };
+    for (const edge of edges || []) {
+      const source = typeof edge.source === 'object' ? edge.source.id : edge.source;
+      const target = typeof edge.target === 'object' ? edge.target.id : edge.target;
+      add(source, edge);
+      add(target, edge);
+    }
+    return index;
+  }
+
+  // ── Legend data ─────────────────────────────────────────────────
+  getLegend(mode = this._mode) {
+    if (mode === 'connections' || mode === 'likely-connections' || mode === 'likely-family') {
+      return [
+        { label: 'Contact', color: '#dfe6e9', type: 'node' },
+        { label: 'Company', color: this._colorScheme.node.company, type: 'node' },
+        { label: 'Virtual', color: this._colorScheme.node.virtual, type: 'node' },
+        { label: 'Likely cluster hull', type: 'hull', style: 'background: rgba(116,185,255,0.12); border: 1px solid rgba(116,185,255,0.28);' },
+        { label: 'Likely family', type: 'line', style: 'background: repeating-linear-gradient(to right, #e17055 0, #e17055 5px, transparent 5px, transparent 9px);' },
+        { label: 'Likely connection', type: 'line', style: 'background: repeating-linear-gradient(to right, #74b9ff 0, #74b9ff 5px, transparent 5px, transparent 9px);' },
+        { label: 'Explicit relationship', type: 'line', style: 'background: #e17055;' },
+        { label: 'Organization cluster', type: 'line', style: 'background: repeating-linear-gradient(to right, #aaa 0, #aaa 4px, transparent 4px, transparent 7px);' },
+      ];
+    }
+    if (mode === 'geographic') {
+      return [
+        { label: 'Contact', color: '#dfe6e9', type: 'node' },
+        { label: 'Location group', color: this._colorScheme.node.group, type: 'node' },
+        { label: 'Geographic hull', type: 'hull', style: 'background: rgba(116,185,255,0.12); border: 1px solid rgba(116,185,255,0.28);' },
+        { label: 'Hierarchy link', type: 'line', style: 'background: #74b9ff;' },
+        { label: 'Contact membership', type: 'line', style: 'background: repeating-linear-gradient(to right, #636e72 0, #636e72 3px, transparent 3px, transparent 6px);' },
+      ];
+    }
+    return [
+      { label: 'Contact', color: this._colorScheme.node.other, type: 'node' },
+      { label: 'Company', color: this._colorScheme.node.company, type: 'node' },
+      { label: 'Virtual', color: this._colorScheme.node.virtual, type: 'node' },
+      { label: 'Family rel.', type: 'line', style: 'background: #e17055;' },
+      { label: 'Inferred (org)', type: 'line', style: 'background: repeating-linear-gradient(to right, #aaa 0, #aaa 4px, transparent 4px, transparent 7px);' },
+    ];
+  }
+}

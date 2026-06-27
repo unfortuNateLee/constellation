@@ -1,0 +1,24 @@
+# --- macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- Personal contact data (never commit real exports) ---
+# Synthetic test fixtures under contacts-graph/test/fixtures/ are intentionally
+# NOT ignored (these patterns are anchored to the repo root only).
+/*.vcf
+/*.vcard
+
+# --- Archives / snapshots ---
+*.zip
+
+# --- Node / tooling ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.eslintcache
+
+# --- Local editor / agent settings ---
+.claude/
+.vscode/
+.idea/
