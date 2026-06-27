@@ -187,3 +187,43 @@ test('vCard fallback serializes non-company tags as CATEGORIES and round-trips t
   const reparsed = vcard.parse(exported)[0];
   assert.deepEqual(plain(reparsed.tags), ['vip', 'lead']);
 });
+
+test('relationships resolve by UID when present, ignoring a mismatched name', () => {
+  const { RelationshipBuilder } = loadBrowserClasses();
+  const A = {
+    id: 'a',
+    uid: 'A',
+    fn: 'Alice',
+    related: [{ uid: 'B', name: 'Totally Wrong', type: 'friend' }],
+  };
+  const B = { id: 'b', uid: 'B', fn: 'Bob', related: [] };
+  const g = new RelationshipBuilder([A, B]).build({
+    mode: 'connections',
+    includeInferred: false,
+    includeLikelyFamily: false,
+    includeLikelyConnections: false,
+    includeIsolated: true,
+  });
+  const linked = g.edges.some(
+    (e) => (e.source === 'a' && e.target === 'b') || (e.source === 'b' && e.target === 'a'),
+  );
+  assert.ok(linked, 'A should link to B by uid despite the wrong name');
+  assert.ok(!g.nodes.some((n) => n.isVirtual), 'no virtual node for the mismatched name');
+});
+
+test('relationships fall back to name matching when no UID is present', () => {
+  const { RelationshipBuilder } = loadBrowserClasses();
+  const A = { id: 'a', uid: 'A', fn: 'Alice', related: [{ name: 'Bob', type: 'friend' }] };
+  const B = { id: 'b', uid: 'B', fn: 'Bob', related: [] };
+  const g = new RelationshipBuilder([A, B]).build({
+    mode: 'connections',
+    includeInferred: false,
+    includeLikelyFamily: false,
+    includeLikelyConnections: false,
+    includeIsolated: true,
+  });
+  const linked = g.edges.some(
+    (e) => (e.source === 'a' && e.target === 'b') || (e.source === 'b' && e.target === 'a'),
+  );
+  assert.ok(linked, 'A should link to B by name');
+});

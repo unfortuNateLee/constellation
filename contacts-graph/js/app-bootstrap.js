@@ -84,21 +84,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!fromContact) return;
 
     let relName = '';
+    let targetUid = null; // stored on the relation so it resolves by UID (rename-proof)
     let createdRealContact = false;
     if (targetMode === 'existing') {
       const toNode = window.app._node(toId);
       if (!toNode) return;
       relName = toNode.name;
+      targetUid = window.app._contact(toId)?.uid || null;
     } else {
       relName = manualName;
       if (createMode === 'real') {
         const existing = window.app._contactsByFn.get(manualName.toLowerCase().trim());
         if (existing) {
           relName = existing.fn;
+          targetUid = existing.uid || null;
         } else {
           const contact = window.app._makeMinimalContact(manualName);
           window.app.contacts.push(contact);
           relName = contact.fn;
+          targetUid = contact.uid || null;
           createdRealContact = true;
         }
       }
@@ -117,7 +121,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ]);
         fromContact.rawVCard = window.app._insertBeforeEndVCard(fromContact.rawVCard, newLines);
       }
-      fromContact.related.push({ name: relName, type: finalType, rawType: vcardLabel });
+      fromContact.related.push({
+        name: relName,
+        type: finalType,
+        rawType: vcardLabel,
+        ...(targetUid ? { uid: targetUid } : {}),
+      });
       window.app.builder = new RelationshipBuilder(window.app.contacts);
       window.app._rebuildGraph();
       void window.app._persistSession();

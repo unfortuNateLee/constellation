@@ -11,6 +11,23 @@ export class RelationshipBuilder {
   constructor(contacts) {
     this.contacts = contacts;
     this._nameIndex = this._buildNameIndex(contacts);
+    this._uidIndex = new Map();
+    for (const c of contacts) {
+      if (c.uid) this._uidIndex.set(String(c.uid), c);
+    }
+  }
+
+  /**
+   * Resolve a relationship's target contact. Prefers an explicit `uid` on the
+   * relationship (exact, rename-proof — Markdown relations can carry one), then
+   * falls back to name matching. Returns null when unresolved (→ virtual node).
+   */
+  findRelationTarget(rel) {
+    if (rel && rel.uid) {
+      const byUid = this._uidIndex.get(String(rel.uid));
+      if (byUid) return byUid;
+    }
+    return this.findContact(rel && rel.name);
   }
 
   _buildNameIndex(contacts) {
@@ -596,7 +613,7 @@ export class RelationshipBuilder {
     const edgeSet = new Set();
     for (const c of this.contacts) {
       for (const rel of c.related || []) {
-        const target = this.findContact(rel.name);
+        const target = this.findRelationTarget(rel);
         const targetId = target ? target.id : `virtual__${rel.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
         if (!target && !allowVirtualTargets) continue;
@@ -795,7 +812,7 @@ export class RelationshipBuilder {
     for (const c of this.contacts) {
       if (!adjacency.has(c.id)) adjacency.set(c.id, new Set());
       for (const rel of c.related || []) {
-        const target = this.findContact(rel.name);
+        const target = this.findRelationTarget(rel);
         if (!target) continue;
         if (!adjacency.has(target.id)) adjacency.set(target.id, new Set());
         adjacency.get(c.id).add(target.id);
