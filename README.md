@@ -101,6 +101,7 @@ contacts-graph/
     app-suggestions.js       Relationship suggestion engine
     app-editing.js           Field editors + raw-vCard regeneration
     app-relationship-edit.js Inline relationship CRUD + add-rel modal
+    app-bulk.js              Bulk-normalize modal (nested AND/OR rule engine)
     app-export.js            vCard / Markdown / TSV export + template
     app-theme.js             Light/dark theme toggle + persistence
     app-bootstrap.js         Entry module: startup + modal wiring

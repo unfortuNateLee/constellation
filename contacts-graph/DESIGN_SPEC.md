@@ -4,7 +4,7 @@
 
 This document defines the current product behavior, architecture, data contracts, and acceptance criteria for the `contacts-graph` tool so another developer can reimplement it without relying on the existing source code structure.
 
-The application is a browser-only contact explorer and editor for contact data stored in Apple-style vCards or Markdown contact files. It imports `.vcf`, `.vcard`, `.md`, and `.markdown` files, builds a relationship graph from explicit and inferred data, lets the user edit contacts and relationships in-browser, and exports edited data back out.
+The application is a browser-only contact explorer and editor for contact data stored in Apple-style vCards, Markdown contact files, or flat TSV spreadsheets. It imports `.vcf`, `.vcard`, `.md`, `.markdown`, and `.tsv` files, builds a relationship graph from explicit and inferred data, lets the user edit contacts and relationships in-browser, and exports edited data back out (vCard, Markdown, or TSV).
 
 ## 2. Product Goals
 
@@ -26,22 +26,24 @@ The application is a browser-only contact explorer and editor for contact data s
 
 ## 4. Runtime and Delivery Model
 
-- Delivery model: static frontend app.
+- Delivery model: static frontend app, no build step.
+- Module system: native ES modules (no bundler). `index.html` loads vendored D3 as a classic `<script>`, then `js/app-bootstrap.js` as `<script type="module">`; the static `import` graph resolves every other module. `package.json` declares `"type": "module"`.
 - Runtime: standard desktop browser.
 - Backend: none.
 - Persistence: browser storage only.
-- Primary local data source: imported `.vcf` file.
+- Primary local data source: imported `.vcf`, `.md`, or `.tsv` file.
 - Session restore storage: IndexedDB.
 - Network dependency: none at runtime. Third-party browser libraries must be vendored locally with the app.
-- D3 is loaded from `js/vendor/d3.v7.min.js`, not from a CDN, so `file://` use works offline.
+- D3 is loaded from `js/vendor/d3.v7.min.js`, not from a CDN, so the app runs with no internet connection.
+- Because it uses ES modules, the app **must be served over `http://`** (e.g. `python3 -m http.server` from `contacts-graph/`); browsers will not load ES modules from `file://`. Serving locally still requires no network access beyond localhost.
 
 ## 5. High-Level User Flows
 
 ### 5.1 Import
 
-1. User loads a `.vcf` file.
+1. User loads a `.vcf`, `.md`, or `.tsv` file.
 2. User may select or drop one file or multiple files in one operation.
-3. App chooses the matching format adapter for each file, parses all contacts, and builds graph data.
+3. App chooses the matching format adapter for each file (by extension), parses all contacts, and builds graph data.
 4. Sidebar list, filters, graph, and detail panel become interactive.
 5. Imported data becomes the current working set.
 
@@ -106,15 +108,23 @@ The app must support at least these graph views:
 
 ### 5.5 Export
 
-1. User exports one contact or the full dataset.
+1. User exports a single contact, the current multi-select, or the full dataset, in any of three formats (vCard, Markdown, TSV).
 2. vCard export is generated from current `rawVCard` blocks when available, or from standard contact fields for non-vCard imports.
-3. Markdown export is generated from current contact records, standard fields, custom fields, and preserved Markdown body content.
+3. Markdown export is generated from current contact records, standard fields, custom fields, and preserved Markdown body content; embedded photos are written as separate image files alongside the `.md`.
+4. TSV export writes a flat tab-separated table; a "TSV Template" action downloads a blank, column-labeled template with a worked example row.
+5. Bulk (multi-contact) export filenames carry the date.
 
 ### 5.6 Restore Last Session
 
 1. User reloads the page or reopens the app.
 2. User clicks `Restore Last`.
 3. App reloads the last saved working source data plus saved UI state.
+
+### 5.7 Switch Theme
+
+1. User toggles the theme control in the header.
+2. App switches between dark (default) and light themes and recolors the graph immediately.
+3. The choice persists across reloads (see §16.3).
 
 ## 6. Core Functional Requirements
 
@@ -124,6 +134,7 @@ The app must:
 
 - Accept Apple Contacts-compatible `.vcf` files.
 - Accept Markdown contact files with YAML-style frontmatter.
+- Accept flat TSV (`.tsv`) contact spreadsheets.
 - Accept multiple supported files in one import operation and combine their contacts into one working set.
 - Parse multiple `BEGIN:VCARD` / `END:VCARD` blocks.
 - Preserve per-contact raw card text for later rewrite/export.
@@ -131,6 +142,8 @@ The app must:
 - Parse Apple grouped `itemN` properties.
 - Preserve or reconstruct photos.
 - Support contacts that have `N:` even if `FN:` is missing.
+- Assign each contact a **deterministic, stable id** derived from its `UID` (or `FN` when no UID), with an occurrence suffix to keep duplicates distinct, so ids are identical across reparses (see §10 and `ContactRecord.assignStableId`). Ids must not be random.
+- Isolate per-record parse failures: a single malformed record is skipped with a console warning and the remaining records still import (see §17).
 
 ### 6.2 Contact Fields Supported
 
@@ -260,12 +273,14 @@ The app must persist and restore:
 
 Expected controls:
 
-- import contact file
-- export all
+- import contact file (`.vcf` / `.md` / `.tsv`)
+- export all (vCard / Markdown / TSV)
+- download TSV template
 - restore last
 - clear saved
 - reset graph view
 - graph/table mode switch
+- light/dark theme toggle
 - stats summary
 
 ## 7.3 Sidebar
@@ -455,15 +470,20 @@ The current implementations are:
 
 - `VCardAdapter`
   - delegates parsing to `VCFParser`
-  - serializes from current `rawVCard` blocks, with a standard-field fallback for contacts imported from Markdown
+  - serializes from current `rawVCard` blocks, with a standard-field fallback for contacts imported from a non-vCard format
+  - the fallback round-trips non-`company` tags via `CATEGORIES` and arbitrary custom fields via an `X-CONTACTGRAPH-FIELD` property
   - keeps the existing app-facing contact model stable
 - `MarkdownAdapter`
   - parses YAML-style frontmatter plus Markdown body content
   - maps known fields into the legacy app-facing contact model
   - preserves unknown top-level and `fields` values as typed `customFields`
-  - serializes contacts as one Markdown document or a delimiter-separated Markdown bundle
+  - serializes contacts as one Markdown document or a delimiter-separated Markdown bundle, externalizing photos as separate image files (see §13.4)
+- `TsvAdapter`
+  - parses a flat tab-separated table (one contact per row) into the contact model
+  - serializes the selected contacts back to TSV and provides a downloadable template
+  - intentionally simplified for spreadsheet editing; see §8.1.4
 
-Future formats should be implemented as sibling adapters rather than branching format-specific behavior through the controller.
+Future formats should be implemented as sibling adapters rather than branching format-specific behavior through the controller. The controller picks an adapter for an imported file by extension (`canImportFile`) and never branches on format itself.
 
 ### 8.1.3 Markdown Contact Format
 
@@ -504,6 +524,26 @@ Multiple contacts may be stored in one `.md` bundle using:
 ```
 
 as the document delimiter.
+
+### 8.1.4 TSV Contact Format
+
+TSV is a flat, spreadsheet-friendly format for bulk editing. One contact per row; the first non-empty line is a header row that names the columns. The column order is fixed (`TsvAdapter.COLUMNS`):
+
+```text
+uid  prefix  first  middle  last  suffix  display_name  organization  title
+is_company  emails  phones  street  city  state  zip  country  address_type
+birthday  anniversary  urls  relationships  tags  notes
+```
+
+Encoding rules:
+
+- Multi-valued fields (`emails`, `phones`, `urls`, `relationships`) are a `' | '`-joined list. Each item may carry a type in brackets, e.g. `[home] jane@x.com | [work] jane@y.com`; for relationships the bracket is the relationship type and the value is the target name, e.g. `[spouse] John Doe | [child] Sam`.
+- A single address is spread across the `street`/`city`/`state`/`zip`/`country`/`address_type` columns. On export the preferred (home > work > first) address is written.
+- `is_company` is `TRUE`/`FALSE` (truthy import accepts `true`/`yes`/`1`).
+- `tags` is a `' | '`-joined list; `notes` carries hashtags, which regenerate the note-tag filters on import.
+- Tabs and newlines inside any value are backslash-escaped so each contact stays on one physical row.
+
+TSV is intentionally lossy relative to vCard/Markdown: one address per contact, a single primary type per value, and no photo. vCard and Markdown remain the lossless round-trip formats. A "TSV Template" action downloads the header row plus one worked example row to fill in.
 
 ## 8.2 Graph Node Contract
 
@@ -578,6 +618,8 @@ The parser must read at least:
 - `X-ABRELATEDNAMES`
 - `X-ABLabel`
 - `X-ABDATE`
+- `CATEGORIES` (round-trips non-`company` tags)
+- `X-CONTACTGRAPH-FIELD` (round-trips arbitrary typed custom fields for contacts that originated in a non-vCard format)
 
 ### 9.2 Structured Names
 
@@ -654,6 +696,12 @@ Relationships are based on Apple related-name fields.
 
 Each outgoing related-name entry belongs to the contact whose card contains it.
 
+A relationship target is resolved **UID-first** (`RelationshipBuilder.findRelationTarget`):
+
+1. If the relationship entry carries a `uid` and a contact with that UID exists, resolve to it. This is exact and rename-proof; Markdown and TSV relationships can carry a `uid`, and the add-relationship flow stores the target's UID when the target is an existing contact.
+2. Otherwise fall back to name matching, subject to the duplicate-name rule below.
+3. If neither resolves, the target becomes a virtual node.
+
 ### 10.2 Duplicate Names
 
 Name collisions must never silently resolve to a single contact.
@@ -720,6 +768,8 @@ The sidebar contact list should visually reflect a contact's active filter tags:
 - system tags use fixed app colors
 - note hashtags use stable deterministic colors
 - multi-tag contacts may display a blended or multi-color treatment
+
+Category and tag colors have a **single source of truth**: the CSS `--cat-*` custom properties in `css/styles.css`. The `Palette` module (`js/palette.js`) reads them once via `getComputedStyle` (cached) and both the graph renderer and the sidebar consume `Palette` rather than hardcoding colors. Because the palette is CSS-driven, switching theme (§16.3) recolors everything by calling `Palette.refresh()` and re-reading the tokens.
 
 Filter tags come from two sources:
 
@@ -834,18 +884,17 @@ Example:
 N:Last;First;Middle;Prefix;Suffix
 ```
 
-## 13.3 Relationship Patch Semantics
+## 13.3 Relationship Serialization Semantics
 
-Relationship edits must patch Apple item groups robustly.
+Relationships are **model-driven**: `contact.related` is the single source of truth, and the `itemN.X-ABRELATEDNAMES` / `itemN.X-ABLabel` groups are regenerated from it by the same routine that regenerates emails/phones/addresses (`_rewriteEditableFields`), not patched in place. Add / edit / delete relationship actions mutate `contact.related` and re-run that regeneration. (Earlier versions hand-patched individual item groups with regex surgery; that dual-write is gone.)
 
-The implementation must tolerate:
+The regeneration must:
 
-- optional parameters on `itemN.X-ABRELATEDNAMES`
-- escaped values
-- existing Apple label formatting
-- folded related-name lines
-- multiple relationships with the same displayed name by preferring the relationship row/index before falling back to name lookup
-- deletion of an entire matching `itemN.*` group rather than only the `X-ABRELATEDNAMES` line
+- emit one `itemN` group per related entry, escaping the name and using the entry's raw/derived Apple label
+- preserve non-relationship item groups and unknown Apple properties verbatim (see §13.5)
+- tolerate folded and escaped input when reading the original card
+
+When the user edits a relationship to a target that is an existing contact, the relationship records that contact's `uid` so future resolution is rename-proof (§10.1). Reciprocal updates on the other contact regenerate that contact's card the same way.
 
 Saving relationship edits from the main contact `Save` action must commit any still-open inline relationship editors before serializing.
 
@@ -856,8 +905,7 @@ When rewriting editable contact fields:
 - keep unknown non-editable simple properties whenever practical
 - keep non-editable `itemN` groups whenever practical
 - keep non-anniversary `itemN.X-ABDATE` groups, such as custom Apple dates, during ordinary contact rewrites
-- keep explicit relationship `itemN` groups unless the user edits or deletes the relationship
-- regenerate editable scalar and collection fields from the current contact model
+- regenerate editable scalar and collection fields from the current contact model — including emails, phones, addresses, URLs, the anniversary item group, and the explicit relationship `itemN` groups (which are derived from `contact.related`, §13.3)
 - use shared vCard encoding/folding helpers for all generated lines
 
 ## 13.6 HTML and Link Safety
@@ -871,15 +919,22 @@ Imported contact data and user-entered freeform fields must be treated as untrus
 
 ## 13.4 Export Variants
 
-Required export operations:
+Export is **multi-scope × multi-format**. Each scope can be exported in each format:
 
-- export selected contact
-- export all contacts
-- export all contacts as Markdown
+- scopes: single contact (detail panel), current multi-selection (export bar), all contacts (header)
+- formats: vCard (`.vcf`), Markdown (`.md`), TSV (`.tsv`)
+
+Plus a standalone **TSV Template** download (header row + one worked example row).
+
+Bulk (multi-contact) export filenames carry the date, e.g. `contacts 2026-06-26.tsv`.
 
 Virtual-only contacts cannot be exported until converted into real contacts.
 
 Markdown export must include standard fields, typed custom fields, and preserved Markdown body content. Multi-contact Markdown exports use the `<!-- CONTACTGRAPH:CONTACT -->` bundle delimiter. Unknown custom field payloads must keep semantic values such as nested objects, lists, booleans, nulls, empty strings, and numeric-looking strings.
+
+Markdown export **externalizes photos**: instead of base64-embedding a photo, the `.md` references a separate, human-readably-named image file, and the image files are written alongside the `.md`. The app writes them together using the File System Access directory picker (`showDirectoryPicker`) where available, falling back to individual downloads. A photo-free export is a single `.md`.
+
+TSV export writes the flat table described in §8.1.4 for the chosen scope.
 
 ## 14. Browser Persistence
 
@@ -911,8 +966,11 @@ The graph renderer must:
 - update node content immediately after photo edits
 - distinguish inferred edges from explicit edges visually
 - support node selection without stale detail-body rendering
+- preserve node positions across rebuilds: a position cache seeds each node's `x`/`y` from its previous layout so an edit does not re-scatter the graph. When most nodes are already placed the simulation resettles gently with a low alpha; a genuinely new node set lays out fresh.
 
 Selecting a different node while the detail panel is open must fully rerender both header and body for the new node.
+
+To keep editing cheap, edits that cannot change the graph topology should avoid a full rebuild. In particular, saving a note that changes no `#hashtag` updates the contact record without rebuilding the builder/graph.
 
 ## 16. Derived / Computed UI Behavior
 
@@ -937,6 +995,14 @@ These sections are dynamic and should only appear when relevant.
 
 When the selected node is a graph group node instead of a contact, the detail panel should show a group summary and a list of member contacts rather than editable contact fields.
 
+### 16.3 Light / Dark Theme
+
+The app supports a light and a dark theme, toggled from a header control.
+
+- Themes are pure CSS: `css/styles.css` defines the dark palette on `:root` and a light override on `:root[data-theme="light"]`. The toggle only flips the `data-theme` attribute on the document element.
+- The default theme is dark. The current choice persists across reloads (localStorage key `contacts-graph:theme`); a missing or unreadable value falls back to dark.
+- Because category colors are CSS-driven (§11.2), switching theme recolors the sidebar and graph by refreshing the `Palette` cache and re-reading the `--cat-*` tokens.
+
 ## 17. Error Handling Requirements
 
 The app should degrade safely when:
@@ -944,12 +1010,14 @@ The app should degrade safely when:
 - a related name matches multiple contacts
 - a raw vCard line cannot be patched exactly
 - a card lacks expected Apple fields
+- a single record in an import is malformed
 - browser persistence fails
 
 Safe degradation means:
 
 - do not silently bind to the wrong person
 - avoid crashing the detail panel
+- isolate per-record parse failures — skip the one bad record with a console warning and still import the rest (do not abort the whole import)
 - preserve as much imported data as practical
 - surface failures via console and/or unobtrusive UI messaging if added
 
@@ -1004,13 +1072,30 @@ Responsibilities:
 - session persistence
 - maintain derived lookup indexes for graph/detail/table operations
 
-Current file split:
+Current file split. The controller is **one class** (`ContactRelationshipApp`) whose methods are split across focused ES-module files. `app.js` defines the class and core behavior; each `app-*.js` module defines a cohesive group of methods and grafts them onto the prototype via `applyMixin` (`js/apply-mixin.js`). Because they all extend the same prototype, `this._foo()` works across modules with no call-site changes.
 
-- `js/app.js`: core `ContactRelationshipApp` class and primary controller behavior.
-- `js/app-notes.js`: prototype extension for Notes inline save and hashtag autocomplete.
-- `js/app-bootstrap.js`: `DOMContentLoaded` startup plus add-relationship and bulk-normalize modal wiring.
+- `js/app.js`: core class — constructor, `_init`, file load, the rebuild/index pipeline, shared helpers (vCard escaping/folding, `_typeToVCardLabel`, etc.).
+- `js/app-notes.js`: Notes inline save and hashtag autocomplete.
+- `js/app-session.js`: IndexedDB persistence and self-contact ("me") resolution.
+- `js/app-sidebar.js`: contact list, filters, legend, stats, tag colors.
+- `js/app-table.js`: editable table view.
+- `js/app-detail.js`: detail-panel render and node selection.
+- `js/app-suggestions.js`: relationship suggestion engine.
+- `js/app-editing.js`: field editors and `_rewriteEditableFields` (raw-vCard regeneration).
+- `js/app-relationship-edit.js`: inline relationship CRUD and the add-relationship modal.
+- `js/app-export.js`: vCard / Markdown / TSV export and the TSV template.
+- `js/app-bulk.js`: bulk-normalize rule engine and modal.
+- `js/app-theme.js`: light/dark theme toggle and persistence.
+- `js/app-controller.js`: assembly point — imports `app.js` plus every mixin module (for their side effects) and re-exports `ContactRelationshipApp`. Both the browser entry and the test harness import the class from here.
+- `js/app-bootstrap.js`: entry module — `DOMContentLoaded` startup plus add-relationship and bulk-normalize modal wiring; it is the single `<script type="module">` in `index.html`.
 
-The browser script load order must keep these files after parser, builder, and graph dependencies: `app.js` first, then prototype-extension files such as `app-notes.js`, then `app-bootstrap.js` last. The split is deliberately mechanical and should not change state ownership or behavior.
+With ES modules the load order is resolved by the `import` graph rather than `<script>` order, so the mixin modules need only be imported before the app is constructed (which `app-controller.js` guarantees). The split is deliberately mechanical and does not change state ownership or behavior.
+
+The data layer additionally has three single-source modules that everything else derives from, so a fact is defined exactly once:
+
+- `RelationshipTaxonomy` (`js/relationship-taxonomy.js`): relationship types, display/vCard labels, categories, reciprocals, normalization, and the picker options. Parser, builder, and controller delegate to it.
+- `ContactRecord.STANDARD_FIELDS` + `createEmptyContact()` (`js/contact-record.js`): the canonical contact field shape; the parser, adapters, and graph node builder derive their field lists from it.
+- `Palette` (`js/palette.js`): reads the CSS `--cat-*` tokens as the single color source (§11.2).
 
 ### 18.5 Runtime Indexes and Invalidation
 
@@ -1136,6 +1221,10 @@ Automated tests must cover:
 - `ContactRecord` stays synchronized after legacy contact edits
 - `VCardAdapter` imports, serializes, filters selected contacts, and recognizes vCard file extensions
 - `MarkdownAdapter` imports frontmatter/body contacts, preserves arbitrary typed fields, supports bundle files, and serializes Markdown output
+- `TsvAdapter` parses a row into the contact model, serialize→reparse round-trips the common fields, escapes tabs/newlines, emits a header+example template, and isolates a malformed row
+- relationships resolve by `uid` when present (ignoring a mismatched name) and fall back to name matching when absent
+- deterministic contact ids are stable across reparses and distinct for duplicate names
+- non-`company` tags round-trip through the vCard fallback via `CATEGORIES`
 - robust sample Markdown fixtures import as separate single-contact files and as a multi-contact bundle
 - multi-file import combines supported Markdown files into one working set
 - Markdown import → export → reimport preserves unknown fields, unknown nested objects, null/empty values, and Markdown body content
@@ -1185,8 +1274,12 @@ At minimum, automated or manual coverage should include:
 
 Possible next steps for a new implementation:
 
+- re-import a Markdown export together with its externalized photo files, re-attaching each image by the filename referenced in the `.md` (the one remaining gap in lossless Markdown round-trip, since the externalized image is not embedded in the `.md`)
 - formal schema validation for parsed contacts
 - richer conflict UI for ambiguous duplicate-name relationships
 - better preservation of obscure Apple/private fields
+- a CSV variant of the TSV adapter (the schema/encoding already factor cleanly on a delimiter)
 - optional import/export diff view
 - browser-side undo/redo stack
+
+The following directions from earlier drafts are now **implemented** and no longer future work: native ES-module delivery, splitting the monolithic controller into mixin modules, incremental position-preserving graph rebuilds, UID-first relationship resolution, the TSV adapter, and the light/dark theme.
