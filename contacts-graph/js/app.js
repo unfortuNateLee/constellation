@@ -253,12 +253,15 @@ export class ContactRelationshipApp {
 
     document.getElementById('btn-export-md-all').addEventListener('click', () => {
       const ids = new Set(this.contacts.map((c) => c.id));
-      this._exportMarkdown(ids, 'all-contacts.md');
+      void this._exportMarkdownScope(ids, 'all-contacts');
     });
 
     // Export Selected
     document.getElementById('btn-export-selected').addEventListener('click', () => {
       this._exportVCF(this._selectedForExport, 'selected-contacts.vcf');
+    });
+    document.getElementById('btn-export-md-selected').addEventListener('click', () => {
+      void this._exportMarkdownScope(this._selectedForExport, 'selected-contacts');
     });
 
     // Clear selection
@@ -275,6 +278,13 @@ export class ContactRelationshipApp {
       if (!node) return;
       const safe = (node.name || 'contact').replace(/[^a-zA-Z0-9_-]/g, '_');
       this._exportVCF(new Set([this._selectedNodeId]), `${safe}.vcf`);
+    });
+
+    document.getElementById('btn-export-md-contact').addEventListener('click', () => {
+      if (!this._selectedNodeId) return;
+      const contact = this._contact(this._selectedNodeId);
+      const base = this.markdownAdapter._slugFor(contact || { fn: 'contact' });
+      void this._exportMarkdownScope(new Set([this._selectedNodeId]), base);
     });
 
     document.getElementById('btn-delete-contact').addEventListener('click', () => {

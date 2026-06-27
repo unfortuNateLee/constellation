@@ -133,7 +133,7 @@ export class MarkdownAdapter {
       notes: this._notes(data.notes, bodyText),
       related: this._array(data.related),
       urls: this._array(data.urls),
-      photo: data.photo || null,
+      photo: this._resolveImportedPhoto(data.photo),
       tags: this._array(data.tags),
       noteTags: [],
       customFields,
@@ -152,7 +152,7 @@ export class MarkdownAdapter {
     return contact;
   }
 
-  _serializeContact(contact) {
+  _serializeContact(contact, options = {}) {
     const fields = { ...(contact.customFields || contact.record?.fields || {}) };
     const body = fields.markdown_body?.value || (contact.notes || []).join('\n\n');
     delete fields.markdown_body;
@@ -174,7 +174,9 @@ export class MarkdownAdapter {
       notes: contact.notes || [],
       related: contact.related || [],
       urls: contact.urls || [],
-      photo: contact.photo || null,
+      // photoOverride (a filename) is used when exporting a bundle that writes
+      // the image to a sibling file; otherwise the photo is embedded inline.
+      photo: options.photoOverride || contact.photo || null,
       tags: contact.tags || [],
       noteTags: contact.noteTags || [],
       fields,
@@ -182,6 +184,72 @@ export class MarkdownAdapter {
 
     const frontmatter = this._stringifyYaml(this._dropEmpty(data));
     return `---\n${frontmatter}---\n${String(body || '').trimEnd()}`;
+  }
+
+  /**
+   * Serialize the selected contacts to one Markdown document, but externalize
+   * embedded photos: each photo becomes a human-readable, unique image filename
+   * referenced from the frontmatter, returned alongside the markdown for the
+   * caller to bundle (e.g. into a .zip). Contacts without a photo are unaffected.
+   *
+   * @returns {{ markdown: string, images: Array<{name: string, dataUrl: string}> }}
+   */
+  serializeBundle(contacts, ids = null) {
+    const selectedIds = ids ? new Set(ids) : null;
+    const selected = (contacts || []).filter(
+      (contact) => !selectedIds || selectedIds.has(contact.id),
+    );
+    if (selected.length === 0) return { markdown: '', images: [] };
+
+    const usedNames = new Set();
+    const images = [];
+    const docs = selected.map((contact) => {
+      const image = this._photoImage(contact);
+      let photoOverride;
+      if (image) {
+        const slug = this._slugFor(contact);
+        let name = `${slug}.${image.ext}`;
+        let i = 2;
+        while (usedNames.has(name)) name = `${slug}-${i++}.${image.ext}`;
+        usedNames.add(name);
+        images.push({ name, dataUrl: image.dataUrl });
+        photoOverride = name;
+      }
+      return this._serializeContact(contact, { photoOverride });
+    });
+
+    const markdown =
+      docs.length === 1
+        ? `${docs[0]}\n`
+        : `${docs.map((doc) => `${this.bundleDelimiter}\n\n${doc}`).join('\n\n')}\n`;
+    return { markdown, images };
+  }
+
+  // A base-64 data-URL photo → { ext, dataUrl }, or null if there's no embedded image.
+  _photoImage(contact) {
+    const photo = contact?.photo;
+    if (typeof photo !== 'string' || !photo.startsWith('data:image/')) return null;
+    const match = photo.match(/^data:image\/([a-z0-9.+-]+)/i);
+    const subtype = (match && match[1] ? match[1] : 'jpeg').toLowerCase();
+    const ext = subtype === 'jpeg' ? 'jpg' : subtype.replace(/[^a-z0-9]/g, '') || 'img';
+    return { ext, dataUrl: photo };
+  }
+
+  // Human-readable, filesystem-safe slug from the display name (or uid).
+  _slugFor(contact) {
+    const base = String(contact?.fn || contact?.uid || 'contact')
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return base || 'contact';
+  }
+
+  // Embedded data URLs are used as-is; an externalized filename reference (from a
+  // bundle export, with no inline data) is dropped rather than rendered broken.
+  _resolveImportedPhoto(photo) {
+    return typeof photo === 'string' && photo.startsWith('data:') ? photo : null;
   }
 
   _parseYaml(text) {
