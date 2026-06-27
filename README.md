@@ -26,17 +26,26 @@ vCard or Markdown. Everything runs client-side — no server, no backend, no CDN
 
 It's a static site — no build step — but it uses **native ES modules**, which
 browsers don't load over `file://`. So serve it from a local static server and
-open it over `http://` (no internet connection required once served):
+open it over `http://` (no internet connection required once served).
+
+From inside the `contacts-graph/` directory (the simplest, runs from anywhere):
 
 ```sh
-python3 -m http.server 7891 --directory contacts-graph
+cd contacts-graph
+python3 -m http.server 7891
 # then visit http://localhost:7891
 ```
 
-Any static file server works; the bundled `.claude/launch.json` runs exactly the
-command above. (Opening `index.html` directly from disk will fail to load the
-modules — this changed when the app moved from classic global scripts to ES
-modules.)
+Equivalently, from the repo root, point the server at the app directory
+(`--directory` is **relative to where you run it**, so don't double up the path):
+
+```sh
+python3 -m http.server 7891 --directory contacts-graph   # run from the repo root only
+```
+
+Any static file server works. (Opening `index.html` directly from disk will fail
+to load the modules — this changed when the app moved from classic global
+scripts to ES modules.)
 
 ## Development
 
