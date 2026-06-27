@@ -245,23 +245,26 @@ export class ContactRelationshipApp {
       this._createContactFromVirtual();
     });
 
-    // Export All
+    // Export All (bulk filenames carry the date, e.g. "contacts 2026-06-26")
     document.getElementById('btn-export-all').addEventListener('click', () => {
       const ids = new Set(this.contacts.map((c) => c.id));
-      this._exportVCF(ids, 'all-contacts.vcf');
+      this._exportVCF(ids, `contacts ${this._dateStamp()}.vcf`);
     });
 
     document.getElementById('btn-export-md-all').addEventListener('click', () => {
       const ids = new Set(this.contacts.map((c) => c.id));
-      void this._exportMarkdownScope(ids, 'all-contacts');
+      void this._exportMarkdownScope(ids, `contacts ${this._dateStamp()}`);
     });
 
     // Export Selected
     document.getElementById('btn-export-selected').addEventListener('click', () => {
-      this._exportVCF(this._selectedForExport, 'selected-contacts.vcf');
+      this._exportVCF(this._selectedForExport, `selected-contacts ${this._dateStamp()}.vcf`);
     });
     document.getElementById('btn-export-md-selected').addEventListener('click', () => {
-      void this._exportMarkdownScope(this._selectedForExport, 'selected-contacts');
+      void this._exportMarkdownScope(
+        this._selectedForExport,
+        `selected-contacts ${this._dateStamp()}`,
+      );
     });
 
     // Clear selection

@@ -116,6 +116,13 @@ class ExportMixin {
     return 'downloaded';
   }
 
+  // Local date as YYYY-MM-DD, for appending to bulk export filenames.
+  _dateStamp() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
   _downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
