@@ -12,8 +12,7 @@ import { VCFParser } from '../../js/vcf-parser.js';
 import { VCardAdapter } from '../../js/vcard-adapter.js';
 import { MarkdownAdapter } from '../../js/markdown-adapter.js';
 import { RelationshipBuilder } from '../../js/relationship-builder.js';
-import { ContactRelationshipApp } from '../../js/app.js';
-import '../../js/app-notes.js';
+import { ContactRelationshipApp } from '../../js/app-controller.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..', '..');

@@ -1,6 +1,5 @@
-import { ContactRelationshipApp } from './app.js';
+import { ContactRelationshipApp } from './app-controller.js';
 import { RelationshipBuilder } from './relationship-builder.js';
-import './app-notes.js'; // side effect: mixes notes/autocomplete methods into the prototype
 
 /**
  * Browser startup and modal wiring. Entry module — index.html loads only this.
