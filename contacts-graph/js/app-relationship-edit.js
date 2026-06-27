@@ -1,0 +1,298 @@
+import { ContactRelationshipApp } from './app.js';
+import { applyMixin } from './apply-mixin.js';
+import { RelationshipBuilder } from './relationship-builder.js';
+import { RelationshipTaxonomy } from './relationship-taxonomy.js';
+
+/**
+ * Inline relationship editing: the type picker, inline rel-item editor, and
+ * add / edit / delete / commit of a contact's relationships (with reciprocal
+ * updates) plus the add-relationship modal. Extracted from app.js verbatim.
+ */
+class RelationshipEditMixin {
+  /** Returns <option> HTML for all known relationship types, with selectedType pre-selected. */
+  _relTypeOptionsHtml(selectedType) {
+    return RelationshipTaxonomy.optionsHtml(selectedType);
+  }
+
+  /** Turns a rel-item into an inline editor for relationship name + type. */
+  _startInlineRelEdit(item, contact, relIdx, node) {
+    if (item.querySelector('.rel-type-select')) return;
+    item.classList.add('rel-item-editing');
+
+    const currentRel = contact.related[relIdx];
+    const currentType = currentRel.type;
+    const currentName = currentRel.name;
+    const typeSpan = item.querySelector('.rel-type');
+    const nameSpan = item.querySelector('.rel-name');
+    const editBtn = item.querySelector('.btn-edit-rel');
+
+    const select = document.createElement('select');
+    select.className = 'rel-type-select';
+    select.innerHTML = this._relTypeOptionsHtml(currentType);
+    typeSpan.replaceWith(select);
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'rel-name-input';
+    nameInput.value = currentName;
+    nameInput.placeholder = 'Related person';
+    const nameListId = `rel-name-options-${contact.id}-${relIdx}`;
+    nameInput.setAttribute('list', nameListId);
+    nameSpan.replaceWith(nameInput);
+
+    const nameOptions = document.createElement('datalist');
+    nameOptions.id = nameListId;
+    for (const otherContact of [...this.contacts].sort((a, b) => a.fn.localeCompare(b.fn))) {
+      if (otherContact.id === contact.id) continue;
+      const option = document.createElement('option');
+      option.value = otherContact.fn;
+      nameOptions.appendChild(option);
+    }
+
+    const customInput = document.createElement('input');
+    customInput.type = 'text';
+    customInput.className = 'rel-custom-input';
+    customInput.placeholder = 'e.g. mentor…';
+    customInput.value = select.value === '__custom__' ? currentType : '';
+    customInput.style.display = select.value === '__custom__' ? 'inline-block' : 'none';
+    select.insertAdjacentElement('afterend', customInput);
+
+    if (editBtn) editBtn.style.display = 'none';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn-edit-confirm';
+    confirmBtn.title = 'Save';
+    confirmBtn.textContent = '✓';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn-edit-cancel';
+    cancelBtn.title = 'Cancel';
+    cancelBtn.textContent = '✕';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn-edit-delete';
+    deleteBtn.title = 'Delete relationship';
+    deleteBtn.textContent = '🗑';
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'rel-edit-name-row';
+    nameInput.replaceWith(nameRow);
+    nameRow.appendChild(nameInput);
+    nameRow.appendChild(nameOptions);
+
+    const actionsRow = document.createElement('div');
+    actionsRow.className = 'rel-edit-actions';
+    actionsRow.appendChild(confirmBtn);
+    actionsRow.appendChild(deleteBtn);
+    actionsRow.appendChild(cancelBtn);
+    nameRow.appendChild(actionsRow);
+
+    [select, nameInput, customInput, confirmBtn, deleteBtn, cancelBtn].forEach((el) => {
+      el.addEventListener('click', (e) => e.stopPropagation());
+      el.addEventListener('mousedown', (e) => e.stopPropagation());
+    });
+
+    select.addEventListener('change', () => {
+      const isCustom = select.value === '__custom__';
+      customInput.style.display = isCustom ? 'inline-block' : 'none';
+      if (isCustom) {
+        customInput.value = '';
+        customInput.focus();
+      }
+    });
+
+    confirmBtn.addEventListener('click', () => {
+      const newName = nameInput.value.trim();
+      let newType =
+        select.value === '__custom__' ? customInput.value.trim().toLowerCase() : select.value;
+      if (newName && newType && newType !== '__custom__') {
+        this._editRelationship(contact, relIdx, newName, newType, node);
+      }
+    });
+
+    deleteBtn.addEventListener('click', () => {
+      this._deleteRelationship(contact, relIdx, node);
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      this._onNodeSelect(node);
+    });
+
+    nameInput.focus();
+  }
+
+  /** Persists a relationship name/type change to in-memory data and rawVCard. */
+  _editRelationship(contact, relIdx, newName, newType, currentNode) {
+    const result = this._applyRelationshipEdit(contact, relIdx, newName, newType);
+    if (!result) return;
+
+    this.builder = new RelationshipBuilder(this.contacts);
+    this._rebuildGraph();
+    void this._persistSession();
+    const refreshed = this._node(currentNode.id);
+    if (refreshed) this._onNodeSelect(refreshed);
+
+    const newLabel = this.builder._friendlyType(newType);
+    const recipLabel = this.builder._friendlyType(result.reciprocalType);
+    const toastMsg = result.recipUpdated
+      ? `Updated relationship to ${newName} (${newLabel}) and set their side to "${recipLabel}"`
+      : `Updated relationship to ${newName} (${newLabel})`;
+    this._showToast(toastMsg, 'success');
+  }
+
+  _applyRelationshipEdit(contact, relIdx, newName, newType) {
+    const rel = contact.related[relIdx];
+    if (!rel) return null;
+    const oldName = rel.name;
+    const oldTarget = this.builder.findContact(oldName);
+    const newTarget = this.builder.findContact(newName);
+
+    rel.name = newName;
+    rel.type = newType;
+    rel.rawType = this._typeToVCardLabel(newType);
+
+    if (contact.rawVCard) {
+      const pfx =
+        this._findRelatedItemPrefixByIndex(contact.rawVCard, relIdx) ||
+        this._findRelatedItemPrefix(contact.rawVCard, oldName);
+      if (pfx) {
+        contact.rawVCard = this._replaceItemProperty(
+          contact.rawVCard,
+          pfx,
+          'X-ABLabel',
+          this._typeToVCardLabel(newType),
+        );
+        contact.rawVCard = this._replaceItemProperty(
+          contact.rawVCard,
+          pfx,
+          'X-ABRELATEDNAMES',
+          this._vCardEscape(newName),
+        );
+      }
+    }
+
+    const reciprocalType = this._reciprocalType(newType);
+    const sameTarget =
+      (oldTarget && newTarget && oldTarget.id === newTarget.id) ||
+      oldName.trim().toLowerCase() === newName.trim().toLowerCase();
+    const otherContact = sameTarget ? newTarget || oldTarget : null;
+    let recipUpdated = false;
+
+    if (otherContact) {
+      const myFn = (contact.fn || '').toLowerCase().trim();
+      const myFnStrip = myFn
+        .replace(/["'][^"']*["']/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const backRelIdx = (otherContact.related || []).findIndex((r) => {
+        const rn = r.name.toLowerCase().trim();
+        if (rn === myFn || rn === myFnStrip) return true;
+        const rc = this.builder.findContact(r.name);
+        return !!(rc && rc.id === contact.id);
+      });
+
+      if (backRelIdx !== -1) {
+        const backRel = otherContact.related[backRelIdx];
+
+        if (this._isReciprocalDowngrade(reciprocalType, backRel.type)) {
+        } else {
+          backRel.type = reciprocalType;
+          backRel.rawType = this._typeToVCardLabel(reciprocalType);
+          recipUpdated = true;
+
+          if (otherContact.rawVCard) {
+            const pfx2 = this._findRelatedItemPrefix(otherContact.rawVCard, contact.fn || '');
+            if (pfx2) {
+              otherContact.rawVCard = this._replaceItemProperty(
+                otherContact.rawVCard,
+                pfx2,
+                'X-ABLabel',
+                this._typeToVCardLabel(reciprocalType),
+              );
+            }
+          }
+        }
+      }
+    }
+    return { reciprocalType, recipUpdated };
+  }
+
+  _commitOpenRelationshipEditors(contact) {
+    const items = [...document.querySelectorAll('#detail-relationships .rel-item[data-rel-idx]')];
+    for (const item of items) {
+      const select = item.querySelector('.rel-type-select');
+      const nameInput = item.querySelector('.rel-name-input');
+      if (!select || !nameInput) continue;
+
+      const relIdx = parseInt(item.dataset.relIdx || '', 10);
+      if (!Number.isInteger(relIdx)) continue;
+
+      const newName = nameInput.value.trim();
+      const customInput = item.querySelector('.rel-custom-input');
+      const newType =
+        select.value === '__custom__'
+          ? customInput?.value.trim().toLowerCase() || ''
+          : select.value;
+
+      if (!newName || !newType || newType === '__custom__') continue;
+      this._applyRelationshipEdit(contact, relIdx, newName, newType);
+    }
+  }
+
+  _deleteRelationship(contact, relIdx, currentNode) {
+    const rel = contact.related[relIdx];
+    if (!rel) return;
+
+    if (contact.rawVCard) {
+      const pfx =
+        this._findRelatedItemPrefixByIndex(contact.rawVCard, relIdx) ||
+        this._findRelatedItemPrefix(contact.rawVCard, rel.name);
+      if (pfx) {
+        contact.rawVCard = this._removeItemGroup(contact.rawVCard, pfx);
+      }
+    }
+
+    contact.related.splice(relIdx, 1);
+    this.builder = new RelationshipBuilder(this.contacts);
+    this._rebuildGraph();
+    void this._persistSession();
+    const refreshed = this._node(currentNode.id);
+    if (refreshed) this._onNodeSelect(refreshed);
+    this._showToast(`Deleted relationship to ${rel.name}`, 'success');
+  }
+
+  // ── Add Relationship Modal ─────────────────────────────────────
+
+  _showAddRelationshipModal() {
+    const modal = document.getElementById('add-rel-modal');
+    modal.classList.remove('hidden');
+
+    const node = this._node(this._selectedNodeId);
+    if (node) {
+      document.getElementById('modal-from-name').textContent = node.name;
+    }
+
+    // Populate contact picker
+    const select = document.getElementById('modal-target-select');
+    select.innerHTML = '<option value="">— Select contact —</option>';
+    const sorted = this.contacts
+      .filter((c) => c.id !== this._selectedNodeId)
+      .sort((a, b) => a.fn.localeCompare(b.fn));
+    for (const c of sorted) {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.fn;
+      select.appendChild(opt);
+    }
+
+    document.getElementById('modal-target-mode').value = 'existing';
+    document.getElementById('modal-target-select-row').classList.remove('hidden');
+    document.getElementById('modal-manual-name-row').classList.add('hidden');
+    document.getElementById('modal-create-mode-row').classList.add('hidden');
+    document.getElementById('modal-target-name').value = '';
+    document.getElementById('modal-create-mode').value = 'virtual';
+  }
+}
+
+applyMixin(ContactRelationshipApp.prototype, RelationshipEditMixin);

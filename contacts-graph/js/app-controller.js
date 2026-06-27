@@ -15,5 +15,9 @@ import './app-bulk.js';
 import './app-export.js';
 import './app-table.js';
 import './app-sidebar.js';
+import './app-detail.js';
+import './app-suggestions.js';
+import './app-editing.js';
+import './app-relationship-edit.js';
 
 export { ContactRelationshipApp };
