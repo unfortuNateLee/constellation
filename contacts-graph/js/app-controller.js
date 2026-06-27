@@ -11,5 +11,6 @@
 import { ContactRelationshipApp } from './app.js';
 import './app-notes.js';
 import './app-session.js';
+import './app-bulk.js';
 
 export { ContactRelationshipApp };
