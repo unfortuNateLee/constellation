@@ -13,5 +13,6 @@ import './app-notes.js';
 import './app-session.js';
 import './app-bulk.js';
 import './app-export.js';
+import './app-table.js';
 
 export { ContactRelationshipApp };
