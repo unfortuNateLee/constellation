@@ -1,4 +1,5 @@
 import { RelationshipTaxonomy } from './relationship-taxonomy.js';
+import { ContactRecord } from './contact-record.js';
 
 /**
  * Builds graph nodes and edges from parsed contacts.
@@ -492,34 +493,28 @@ export class RelationshipBuilder {
   // ── Helpers ───────────────────────────────────────────────────
 
   _makeNode(c) {
-    return {
+    const node = {
       id: c.id,
-      name: c.fn,
+      name: c.fn, // graph node display name = contact's FN
       structuredName: c.name || null,
-      org: c.org || '',
-      title: c.title || '',
-      isCompany: c.isCompany,
       isVirtual: false,
-      emails: c.emails || [],
-      phones: c.phones || [],
-      addresses: c.addresses || [],
-      urls: c.urls || [],
-      birthday: c.birthday || null,
-      anniversary: c.anniversary || null,
-      notes: c.notes || [],
-      related: c.related || [],
-      tags: c.tags || [],
-      noteTags: c.noteTags || [],
       customFields: c.customFields || {},
       record: c.record || null,
       sourceDocuments: c.sourceDocuments || [],
-      photo: c.photo || null,
       rawVCard: c.rawVCard || null,
       connectionCount: 0,
       category: 'other',
       filterTags: [],
       isGroupNode: false,
     };
+    // Copy the standard contact fields (org / title / emails / … / photo) from
+    // the single ContactRecord field registry; fn and name are projected to
+    // name and structuredName above.
+    for (const { key, default: makeDefault } of ContactRecord.STANDARD_FIELDS) {
+      if (key === 'fn' || key === 'name') continue;
+      node[key] = c[key] || makeDefault();
+    }
+    return node;
   }
 
   _makeGroupNode({ id, name, title = '', kind = 'group', depth = 1, count = 0 }) {
