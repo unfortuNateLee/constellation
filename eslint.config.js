@@ -39,6 +39,11 @@ module.exports = [
       // Tighten these to "error" as we clean up and modularize.
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'no-empty': ['warn', { allowEmptyCatch: true }],
+      // The cross-file classes above are declared as globals (classic-script
+      // loading) AND defined via `class X {}` in their own file. Don't treat
+      // that intentional pattern as a redeclaration. Drops away once we move
+      // to ES modules.
+      'no-redeclare': ['error', { builtinGlobals: false }],
     },
   },
   {

@@ -358,7 +358,7 @@ test('custom field edit collector updates scalar and list fields while preservin
 
 test('HTML helpers escape custom relationship labels and unsafe hrefs', () => {
   const { app } = setup();
-  const rawType = '\"><img src=x onerror=alert(1)>';
+  const rawType = '"><img src=x onerror=alert(1)>';
   const label = app.builder._friendlyType(rawType);
 
   assert.equal(app._escapeHtml(label), '&quot;&gt;&lt;img src=x onerror=alert(1)&gt;');

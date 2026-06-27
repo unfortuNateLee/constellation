@@ -856,7 +856,7 @@ class RelationshipBuilder {
 
     // Collapse street-level grouping to the road name instead of full house address,
     // so "1217 Windswept Circle" and "1301 Windswept Circle" share one cluster.
-    const withoutNumber = normalized.replace(/^\s*\d+[A-Za-z0-9\-\/]*\s+/, '').trim();
+    const withoutNumber = normalized.replace(/^\s*\d+[A-Za-z0-9\-/]*\s+/, '').trim();
     return withoutNumber || normalized;
   }
 
