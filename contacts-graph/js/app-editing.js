@@ -939,7 +939,11 @@ class EditingMixin {
       const editableContactGroup =
         props.has('EMAIL') || props.has('TEL') || props.has('ADR') || props.has('URL');
       const anniversaryGroup = props.has('X-ABDATE') && this._isAnniversaryItemGroup(groupLines);
-      if ((!editableContactGroup && !anniversaryGroup) || props.has('X-ABRELATEDNAMES')) {
+      const relatedGroup = props.has('X-ABRELATEDNAMES');
+      // Drop the groups we regenerate from the model below (editable contact
+      // fields, anniversary, relationships); keep everything else (obscure
+      // Apple item groups) verbatim.
+      if (!editableContactGroup && !anniversaryGroup && !relatedGroup) {
         keptItemLines.push(...groupLines);
       }
     }
@@ -981,6 +985,16 @@ class EditingMixin {
     if (contact.anniversary) {
       generated.push(`item${nextItem}.X-ABDATE:${contact.anniversary}`);
       generated.push(`item${nextItem}.X-ABLabel:_$!<Anniversary>!$_`);
+      nextItem += 1;
+    }
+    // Relationships regenerated from the model — contact.related is the single
+    // source of truth; the raw X-ABRELATEDNAMES groups are derived, not patched.
+    for (const rel of contact.related || []) {
+      if (!rel || !rel.name) continue;
+      const label = rel.rawType || this._typeToVCardLabel(rel.type);
+      generated.push(`item${nextItem}.X-ABRELATEDNAMES:${this._vCardEscape(rel.name)}`);
+      generated.push(`item${nextItem}.X-ABLabel:${label}`);
+      nextItem += 1;
     }
 
     const body = [

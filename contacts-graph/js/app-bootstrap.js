@@ -110,23 +110,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (fromContact) {
       const vcardLabel = window.app._typeToVCardLabel(finalType);
-      if (fromContact.rawVCard) {
-        const usedItems = [...fromContact.rawVCard.matchAll(/^item(\d+)\./gim)].map((m) =>
-          parseInt(m[1]),
-        );
-        const nextItem = usedItems.length > 0 ? Math.max(...usedItems) + 1 : 1;
-        const newLines = window.app._joinVCardLines([
-          `item${nextItem}.X-ABRELATEDNAMES:${window.app._vCardEscape(relName)}`,
-          `item${nextItem}.X-ABLabel:${vcardLabel}`,
-        ]);
-        fromContact.rawVCard = window.app._insertBeforeEndVCard(fromContact.rawVCard, newLines);
-      }
       fromContact.related.push({
         name: relName,
         type: finalType,
         rawType: vcardLabel,
         ...(targetUid ? { uid: targetUid } : {}),
       });
+      // Regenerate the raw vCard from the model (single source of truth) instead
+      // of hand-inserting the X-ABRELATEDNAMES item group.
+      window.app._rewriteEditableFields(fromContact);
       window.app.builder = new RelationshipBuilder(window.app.contacts);
       window.app._rebuildGraph();
       void window.app._persistSession();

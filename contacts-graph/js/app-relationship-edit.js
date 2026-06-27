@@ -150,26 +150,9 @@ class RelationshipEditMixin {
     rel.name = newName;
     rel.type = newType;
     rel.rawType = this._typeToVCardLabel(newType);
-
-    if (contact.rawVCard) {
-      const pfx =
-        this._findRelatedItemPrefixByIndex(contact.rawVCard, relIdx) ||
-        this._findRelatedItemPrefix(contact.rawVCard, oldName);
-      if (pfx) {
-        contact.rawVCard = this._replaceItemProperty(
-          contact.rawVCard,
-          pfx,
-          'X-ABLabel',
-          this._typeToVCardLabel(newType),
-        );
-        contact.rawVCard = this._replaceItemProperty(
-          contact.rawVCard,
-          pfx,
-          'X-ABRELATEDNAMES',
-          this._vCardEscape(newName),
-        );
-      }
-    }
+    // Regenerate the raw vCard from the (now-updated) model rather than patching
+    // the X-ABRELATEDNAMES item group by hand — contact.related is the source.
+    this._rewriteEditableFields(contact);
 
     const reciprocalType = this._reciprocalType(newType);
     const sameTarget =
@@ -200,18 +183,7 @@ class RelationshipEditMixin {
           backRel.type = reciprocalType;
           backRel.rawType = this._typeToVCardLabel(reciprocalType);
           recipUpdated = true;
-
-          if (otherContact.rawVCard) {
-            const pfx2 = this._findRelatedItemPrefix(otherContact.rawVCard, contact.fn || '');
-            if (pfx2) {
-              otherContact.rawVCard = this._replaceItemProperty(
-                otherContact.rawVCard,
-                pfx2,
-                'X-ABLabel',
-                this._typeToVCardLabel(reciprocalType),
-              );
-            }
-          }
+          this._rewriteEditableFields(otherContact);
         }
       }
     }
@@ -244,16 +216,9 @@ class RelationshipEditMixin {
     const rel = contact.related[relIdx];
     if (!rel) return;
 
-    if (contact.rawVCard) {
-      const pfx =
-        this._findRelatedItemPrefixByIndex(contact.rawVCard, relIdx) ||
-        this._findRelatedItemPrefix(contact.rawVCard, rel.name);
-      if (pfx) {
-        contact.rawVCard = this._removeItemGroup(contact.rawVCard, pfx);
-      }
-    }
-
     contact.related.splice(relIdx, 1);
+    // Regenerate the raw vCard from the updated model (single source of truth).
+    this._rewriteEditableFields(contact);
     this.builder = new RelationshipBuilder(this.contacts);
     this._rebuildGraph();
     void this._persistSession();
