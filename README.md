@@ -1,4 +1,4 @@
-# ContactGraph
+# Constellation
 
 A browser-only, fully offline contact relationship explorer and editor. Import
 Apple-style **vCard** (`.vcf`), **Markdown** (`.md`), or **TSV** (`.tsv`)
@@ -36,10 +36,10 @@ It's a static site — no build step — but it uses **native ES modules**, whic
 browsers don't load over `file://`. So serve it from a local static server and
 open it over `http://` (no internet connection required once served).
 
-From inside the `contacts-graph/` directory (the simplest, runs from anywhere):
+From inside the `constellation/` directory (the simplest, runs from anywhere):
 
 ```sh
-cd contacts-graph
+cd constellation
 python3 -m http.server 7891
 # then visit http://localhost:7891
 ```
@@ -48,7 +48,7 @@ Equivalently, from the repo root, point the server at the app directory
 (`--directory` is **relative to where you run it**, so don't double up the path):
 
 ```sh
-python3 -m http.server 7891 --directory contacts-graph   # run from the repo root only
+python3 -m http.server 7891 --directory constellation   # run from the repo root only
 ```
 
 Any static file server works. (Opening `index.html` directly from disk will fail
@@ -73,7 +73,7 @@ npm run format:check
 ## Project layout
 
 ```
-contacts-graph/
+constellation/
   index.html                 App shell (loads d3 + the app-bootstrap.js ES module)
   css/styles.css             All styling (dark + light themes via :root[data-theme])
   js/
@@ -132,7 +132,7 @@ vendored D3 as a classic script, then `js/app-bootstrap.js` as a
   `applyMixin`. `app-controller.js` is the assembly point; `app-bootstrap.js` is
   the entry. So `this._foo()` calls work across modules with no call-site
   changes, and the class is editable in focused files.
-- **The graph** (`graph.js` / `ContactGraph`) is decoupled from the controller —
+- **The graph** (`graph.js` / `ConstellationGraph`) is decoupled from the controller —
   it communicates only through a small `on`/`emit` API — and preserves node
   positions across rebuilds so edits don't re-scatter the layout.
 

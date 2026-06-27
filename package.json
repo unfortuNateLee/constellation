@@ -1,5 +1,5 @@
 {
-  "name": "contacts-graph",
+  "name": "constellation",
   "version": "0.1.0",
   "description": "Browser-only, offline contact relationship explorer and editor (vCard + Markdown import, D3 graph, table view, bulk-normalize, IndexedDB session persistence).",
   "license": "UNLICENSED",
@@ -9,7 +9,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test contacts-graph/test/*.test.js",
+    "test": "node --test constellation/test/*.test.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

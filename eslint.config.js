@@ -9,12 +9,12 @@ import prettier from 'eslint-config-prettier';
 export default [
   {
     // Never lint the vendored D3 build or dependencies.
-    ignores: ['contacts-graph/js/vendor/**', 'node_modules/**'],
+    ignores: ['constellation/js/vendor/**', 'node_modules/**'],
   },
   js.configs.recommended,
   {
     // Browser application source (ES modules).
-    files: ['contacts-graph/js/**/*.js'],
+    files: ['constellation/js/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -28,7 +28,7 @@ export default [
   },
   {
     // Node-side files: tests, helpers, and tooling config (also ES modules).
-    files: ['contacts-graph/test/**/*.js', 'eslint.config.js'],
+    files: ['constellation/test/**/*.js', 'eslint.config.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
