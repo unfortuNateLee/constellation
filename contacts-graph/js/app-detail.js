@@ -46,8 +46,11 @@ class DetailMixin {
     const contactInfo = document.getElementById('detail-contact-info');
     contactInfo.innerHTML = '';
 
-    // Notes
-    const notesEl = document.getElementById('detail-notes');
+    // Notes. This is one persistent <textarea> whose id toggles between
+    // 'detail-notes' (read-only) and 'edit-notes' (edit mode), so look it up by
+    // either — otherwise, re-selecting a node after an edit finds null and throws.
+    const notesEl =
+      document.getElementById('detail-notes') || document.getElementById('edit-notes');
     notesEl.value = '';
     const suggestionsSection = document.getElementById('suggestions-section');
     suggestionsSection.classList.add('hidden');
