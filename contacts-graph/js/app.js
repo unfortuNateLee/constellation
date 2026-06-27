@@ -1,5 +1,6 @@
 import { VCardAdapter } from './vcard-adapter.js';
 import { MarkdownAdapter } from './markdown-adapter.js';
+import { TsvAdapter } from './tsv-adapter.js';
 import { RelationshipBuilder } from './relationship-builder.js';
 import { RelationshipTaxonomy } from './relationship-taxonomy.js';
 import { Palette } from './palette.js';
@@ -15,7 +16,8 @@ export class ContactRelationshipApp {
   constructor() {
     this.vcardAdapter = new VCardAdapter();
     this.markdownAdapter = new MarkdownAdapter();
-    this.formatAdapters = [this.vcardAdapter, this.markdownAdapter];
+    this.tsvAdapter = new TsvAdapter();
+    this.formatAdapters = [this.vcardAdapter, this.markdownAdapter, this.tsvAdapter];
     this._activeFormatId = 'vcard';
     this.parser = this.vcardAdapter.parser;
     this.builder = null;
@@ -107,7 +109,7 @@ export class ContactRelationshipApp {
       if (files.length && files.every((file) => this._adapterForFile(file))) {
         this._loadFiles(files);
       } else {
-        this._showToast('Please drop a .vcf or .md file', 'error');
+        this._showToast('Please drop a .vcf, .md, or .tsv file', 'error');
       }
     });
 
@@ -261,6 +263,13 @@ export class ContactRelationshipApp {
       const ids = new Set(this.contacts.map((c) => c.id));
       void this._exportMarkdownScope(ids, `contacts ${this._dateStamp()}`);
     });
+    document.getElementById('btn-export-tsv-all').addEventListener('click', () => {
+      const ids = new Set(this.contacts.map((c) => c.id));
+      this._exportTsv(ids, `contacts ${this._dateStamp()}.tsv`);
+    });
+    document.getElementById('btn-tsv-template').addEventListener('click', () => {
+      this._downloadTsvTemplate();
+    });
 
     // Export Selected
     document.getElementById('btn-export-selected').addEventListener('click', () => {
@@ -271,6 +280,9 @@ export class ContactRelationshipApp {
         this._selectedForExport,
         `selected-contacts ${this._dateStamp()}`,
       );
+    });
+    document.getElementById('btn-export-tsv-selected').addEventListener('click', () => {
+      this._exportTsv(this._selectedForExport, `selected-contacts ${this._dateStamp()}.tsv`);
     });
 
     // Clear selection
@@ -294,6 +306,13 @@ export class ContactRelationshipApp {
       const contact = this._contact(this._selectedNodeId);
       const base = this.markdownAdapter._slugFor(contact || { fn: 'contact' });
       void this._exportMarkdownScope(new Set([this._selectedNodeId]), base);
+    });
+
+    document.getElementById('btn-export-tsv-contact').addEventListener('click', () => {
+      if (!this._selectedNodeId) return;
+      const contact = this._contact(this._selectedNodeId);
+      const base = this.markdownAdapter._slugFor(contact || { fn: 'contact' });
+      this._exportTsv(new Set([this._selectedNodeId]), `${base}.tsv`);
     });
 
     document.getElementById('btn-delete-contact').addEventListener('click', () => {
@@ -369,6 +388,7 @@ export class ContactRelationshipApp {
       document.getElementById('file-label').textContent = label;
       document.getElementById('btn-export-all').classList.remove('hidden');
       document.getElementById('btn-export-md-all').classList.remove('hidden');
+      document.getElementById('btn-export-tsv-all').classList.remove('hidden');
       this._selectedForExport.clear();
       this._updateExportBar();
       void this._persistSession({ fileLabel: label });

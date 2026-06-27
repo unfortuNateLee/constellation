@@ -11,6 +11,7 @@ import { RelationshipTaxonomy } from '../../js/relationship-taxonomy.js';
 import { VCFParser } from '../../js/vcf-parser.js';
 import { VCardAdapter } from '../../js/vcard-adapter.js';
 import { MarkdownAdapter } from '../../js/markdown-adapter.js';
+import { TsvAdapter } from '../../js/tsv-adapter.js';
 import { RelationshipBuilder } from '../../js/relationship-builder.js';
 import { ContactRelationshipApp } from '../../js/app-controller.js';
 
@@ -132,6 +133,7 @@ export function loadBrowserClasses() {
     VCFParser,
     VCardAdapter,
     MarkdownAdapter,
+    TsvAdapter,
     RelationshipBuilder,
     ContactRelationshipApp,
     document,

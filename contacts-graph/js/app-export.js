@@ -26,6 +26,17 @@ class ExportMixin {
     this._exportWithAdapter(this.vcardAdapter, ids, filename);
   }
 
+  _exportTsv(ids, filename) {
+    this._exportWithAdapter(this.tsvAdapter, ids, filename);
+  }
+
+  /** Download a blank TSV with all columns (in order) plus a worked example row. */
+  _downloadTsvTemplate() {
+    const blob = new Blob([this.tsvAdapter.templateText()], { type: this.tsvAdapter.mimeType });
+    this._downloadBlob(blob, 'contacts-template.tsv');
+    this._showToast('Downloaded TSV template', 'success');
+  }
+
   _exportWithAdapter(adapter, ids, filename) {
     const blob = adapter.exportBlob(this.contacts, ids);
     if (!blob) {

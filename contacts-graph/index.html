@@ -24,7 +24,7 @@
         <input
           type="file"
           id="file-input"
-          accept=".vcf,.vcard,.md,.markdown"
+          accept=".vcf,.vcard,.md,.markdown,.tsv"
           multiple
           style="display: none"
         />
@@ -42,6 +42,20 @@
           title="Export all contacts as Markdown"
         >
           ⬇ Export MD
+        </button>
+        <button
+          class="btn btn-ghost btn-icon hidden"
+          id="btn-export-tsv-all"
+          title="Export all contacts as a TSV spreadsheet"
+        >
+          ⬇ Export TSV
+        </button>
+        <button
+          class="btn btn-ghost btn-icon"
+          id="btn-tsv-template"
+          title="Download a blank TSV template with all columns"
+        >
+          ⬇ TSV Template
         </button>
         <button
           class="btn btn-ghost btn-icon"
@@ -216,6 +230,7 @@
               <div class="export-bar-actions">
                 <button class="btn btn-primary btn-xs" id="btn-export-selected">⬇ vCard</button>
                 <button class="btn btn-ghost btn-xs" id="btn-export-md-selected">⬇ Markdown</button>
+                <button class="btn btn-ghost btn-xs" id="btn-export-tsv-selected">⬇ TSV</button>
                 <button class="btn btn-ghost btn-xs" id="btn-clear-selection">Clear</button>
               </div>
             </div>
@@ -260,7 +275,7 @@
               <div class="drop-icon">🗂</div>
               <div class="drop-title">Contact Relationship Map</div>
               <div class="drop-sub">
-                Drag & drop a .vcf or .md file here, or click below to import
+                Drag & drop a .vcf, .md, or .tsv file here, or click below to import
               </div>
               <button class="btn btn-primary" id="btn-import-drop">⬆ Choose File</button>
             </div>
@@ -359,6 +374,13 @@
               title="Export this contact as Markdown (photo saved as a separate image file)"
             >
               ⬇ Markdown
+            </button>
+            <button
+              class="btn btn-ghost"
+              id="btn-export-tsv-contact"
+              title="Export this contact as a TSV row"
+            >
+              ⬇ TSV
             </button>
           </div>
         </aside>

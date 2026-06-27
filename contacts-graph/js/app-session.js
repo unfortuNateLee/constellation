@@ -156,6 +156,7 @@ class SessionMixin {
         `${saved.fileLabel || 'restored-session.vcf'} (restored)`;
       document.getElementById('btn-export-all').classList.remove('hidden');
       document.getElementById('btn-export-md-all').classList.remove('hidden');
+      document.getElementById('btn-export-tsv-all').classList.remove('hidden');
       document.getElementById('drop-zone').classList.add('hidden');
       this._selectedForExport.clear();
       this._updateExportBar();
