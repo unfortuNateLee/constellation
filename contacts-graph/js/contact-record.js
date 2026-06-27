@@ -9,6 +9,44 @@
 class ContactRecord {
   static CURRENT_VERSION = 1;
 
+  /**
+   * The canonical "standard" contact fields and their empty defaults — the one
+   * place the contact shape is defined. Drives `createEmptyContact`,
+   * `_standardFields`, and the Markdown adapter's known-key set, so adding a
+   * field is a single edit here rather than across the parsers + record + adapter.
+   */
+  static STANDARD_FIELDS = [
+    { key: 'fn', default: () => '' },
+    {
+      key: 'name',
+      default: () => ({ family: '', given: '', additional: '', prefix: '', suffix: '' }),
+    },
+    { key: 'org', default: () => '' },
+    { key: 'title', default: () => '' },
+    { key: 'isCompany', default: () => false },
+    { key: 'emails', default: () => [] },
+    { key: 'phones', default: () => [] },
+    { key: 'addresses', default: () => [] },
+    { key: 'birthday', default: () => null },
+    { key: 'anniversary', default: () => null },
+    { key: 'notes', default: () => [] },
+    { key: 'related', default: () => [] },
+    { key: 'urls', default: () => [] },
+    { key: 'photo', default: () => null },
+    { key: 'tags', default: () => [] },
+    { key: 'noteTags', default: () => [] },
+  ];
+
+  /** A fresh legacy contact object with all standard fields at their defaults. */
+  static createEmptyContact() {
+    const contact = { id: '', uid: null };
+    for (const { key, default: makeDefault } of this.STANDARD_FIELDS) {
+      contact[key] = makeDefault();
+    }
+    contact.customFields = {};
+    return contact;
+  }
+
   static fromLegacyContact(contact, options = {}) {
     const source = this._sourceDocument(contact, options);
     return {
@@ -50,32 +88,11 @@ class ContactRecord {
   }
 
   static _standardFields(contact) {
-    return {
-      fn: contact.fn || '',
-      name: this._clone(
-        contact.name || {
-          family: '',
-          given: '',
-          additional: '',
-          prefix: '',
-          suffix: '',
-        },
-      ),
-      org: contact.org || '',
-      title: contact.title || '',
-      isCompany: !!contact.isCompany,
-      emails: this._clone(contact.emails || []),
-      phones: this._clone(contact.phones || []),
-      addresses: this._clone(contact.addresses || []),
-      birthday: contact.birthday || null,
-      anniversary: contact.anniversary || null,
-      notes: this._clone(contact.notes || []),
-      related: this._clone(contact.related || []),
-      urls: this._clone(contact.urls || []),
-      photo: contact.photo || null,
-      tags: this._clone(contact.tags || []),
-      noteTags: this._clone(contact.noteTags || []),
-    };
+    const out = {};
+    for (const { key, default: makeDefault } of this.STANDARD_FIELDS) {
+      out[key] = this._clone(contact[key] || makeDefault());
+    }
+    return out;
   }
 
   static _sourceDocument(contact, options = {}) {

@@ -102,33 +102,11 @@ class VCFParser {
   _parseVCard(block) {
     const lines = block.split(/\r\n|\n/);
 
-    const contact = {
-      id: this._generateId(),
-      uid: null,
-      fn: '',
-      name: {
-        family: '',
-        given: '',
-        additional: '',
-        prefix: '',
-        suffix: '',
-      },
-      org: '',
-      title: '',
-      isCompany: false,
-      emails: [],
-      phones: [],
-      addresses: [],
-      birthday: null,
-      anniversary: null,
-      notes: [],
-      related: [], // [{ name, type, rawType }]
-      urls: [],
-      photo: null, // base64 data URL if present
-      tags: [], // reserved system tags
-      noteTags: [], // hashtags parsed from notes
-      customFields: {}, // format-neutral extras (e.g. round-tripped via X-CONTACTGRAPH-FIELD)
-    };
+    // Shape comes from the single ContactRecord definition; parse() assigns the
+    // final stable id afterward. related: [{ name, type, rawType }]; photo: base64
+    // data URL; tags: reserved system tags; noteTags: hashtags parsed from notes;
+    // customFields: format-neutral extras (e.g. round-tripped via X-CONTACTGRAPH-FIELD).
+    const contact = ContactRecord.createEmptyContact();
 
     const items = {}; // item1, item2, etc.
 

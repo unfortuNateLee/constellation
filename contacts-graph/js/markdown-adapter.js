@@ -86,27 +86,14 @@ class MarkdownAdapter {
   }
 
   _contactFromDocument(data, body, source, idContext = null) {
+    // Document-level keys handled explicitly; the rest of the standard contact
+    // shape comes from the single ContactRecord field registry.
     const known = new Set([
       'contactgraph',
       'id',
       'uid',
-      'fn',
-      'name',
-      'org',
-      'title',
-      'isCompany',
-      'emails',
-      'phones',
-      'addresses',
-      'birthday',
-      'anniversary',
-      'notes',
-      'related',
-      'urls',
-      'photo',
-      'tags',
-      'noteTags',
       'fields',
+      ...ContactRecord.STANDARD_FIELDS.map((field) => field.key),
     ]);
     const customFields = this._normalizeFields(data.fields || {});
     for (const [key, value] of Object.entries(data)) {
