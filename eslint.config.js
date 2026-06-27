@@ -11,6 +11,7 @@ const appGlobals = {
   d3: 'readonly',
   VCardUtils: 'readonly',
   ContactRecord: 'readonly',
+  RelationshipTaxonomy: 'readonly',
   VCFParser: 'readonly',
   VCardAdapter: 'readonly',
   MarkdownAdapter: 'readonly',

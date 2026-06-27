@@ -2298,59 +2298,7 @@ class ContactRelationshipApp {
   }
 
   _reciprocalType(type) {
-    const map = {
-      // Spouse
-      spouse: 'spouse',
-      husband: 'wife',
-      wife: 'husband',
-      partner: 'partner',
-      // Professional / social
-      friend: 'friend',
-      colleague: 'colleague',
-      neighbor: 'neighbor',
-      manager: 'assistant',
-      assistant: 'manager',
-      // Parent → child (generic; caller can refine with gender)
-      mother: 'child',
-      father: 'child',
-      parent: 'child',
-      // Child → parent (generic)
-      son: 'parent',
-      daughter: 'parent',
-      child: 'parent',
-      // Step-parent → step-child (generic)
-      stepmother: 'stepchild',
-      stepfather: 'stepchild',
-      stepparent: 'stepchild',
-      'step-parent': 'stepchild',
-      // Step-child → step-parent (generic)
-      stepson: 'stepparent',
-      stepdaughter: 'stepparent',
-      stepchild: 'stepparent',
-      'step-child': 'stepparent',
-      // Sibling
-      brother: 'sibling',
-      sister: 'sibling',
-      sibling: 'sibling',
-      // Grandparent → grandchild (generic)
-      grandmother: 'grandchild',
-      grandfather: 'grandchild',
-      grandparent: 'grandchild',
-      // Grandchild → grandparent (generic)
-      grandson: 'grandparent',
-      granddaughter: 'grandparent',
-      grandchild: 'grandparent',
-      // Uncle/Aunt — best-guess gendered reciprocals
-      uncle: 'nephew',
-      aunt: 'niece',
-      'uncle/aunt': 'nephew/niece',
-      // Nephew/Niece — best-guess gendered reciprocals
-      nephew: 'uncle',
-      niece: 'aunt',
-      'nephew/niece': 'uncle/aunt',
-      cousin: 'cousin',
-    };
-    return map[type] || type;
+    return RelationshipTaxonomy.reciprocal(type);
   }
 
   /**
@@ -2360,108 +2308,15 @@ class ContactRelationshipApp {
    * (e.g. "parent" → "mother" computes reciprocal "child", but "son" already exists).
    */
   _isReciprocalDowngrade(candidate, existing) {
-    const groups = {
-      parent: ['mother', 'father'],
-      child: ['son', 'daughter'],
-      spouse: ['husband', 'wife'],
-      sibling: ['brother', 'sister'],
-      stepparent: ['stepmother', 'stepfather'],
-      stepchild: ['stepson', 'stepdaughter'],
-      grandparent: ['grandmother', 'grandfather'],
-      grandchild: ['grandson', 'granddaughter'],
-    };
-    const specifics = groups[candidate];
-    return !!(specifics && specifics.includes(existing));
+    return RelationshipTaxonomy.isReciprocalDowngrade(candidate, existing);
   }
 
   _typeToVCardLabel(type) {
-    const map = {
-      spouse: 'Spouse',
-      husband: 'Husband',
-      wife: 'Wife',
-      partner: 'Partner',
-      mother: 'Mother',
-      father: 'Father',
-      parent: 'Parent',
-      stepmother: 'Stepmother',
-      stepfather: 'Stepfather',
-      stepparent: 'Stepparent',
-      'step-parent': 'Stepparent',
-      son: 'Son',
-      daughter: 'Daughter',
-      child: 'Child',
-      stepson: 'Stepson',
-      stepdaughter: 'Stepdaughter',
-      stepchild: 'Stepchild',
-      'step-child': 'Stepchild',
-      brother: 'Brother',
-      sister: 'Sister',
-      sibling: 'Sibling',
-      grandmother: 'Grandmother',
-      grandfather: 'Grandfather',
-      grandparent: 'Grandparent',
-      grandson: 'Grandson',
-      granddaughter: 'Granddaughter',
-      grandchild: 'Grandchild',
-      uncle: 'Uncle',
-      aunt: 'Aunt',
-      'uncle/aunt': 'Uncle',
-      nephew: 'Nephew',
-      niece: 'Niece',
-      'nephew/niece': 'Nephew',
-      cousin: 'Cousin',
-      friend: 'Friend',
-      colleague: 'Colleague',
-      manager: 'Manager',
-      assistant: 'Assistant',
-      neighbor: 'Neighbor',
-    };
-    const label = map[type] || type.charAt(0).toUpperCase() + type.slice(1);
-    return `_$!<${label}>!$_`;
+    return RelationshipTaxonomy.vcardLabel(type);
   }
 
   _isKnownRelationshipType(type) {
-    return new Set([
-      'spouse',
-      'husband',
-      'wife',
-      'partner',
-      'mother',
-      'father',
-      'parent',
-      'stepmother',
-      'stepfather',
-      'stepparent',
-      'step-parent',
-      'son',
-      'daughter',
-      'child',
-      'stepson',
-      'stepdaughter',
-      'stepchild',
-      'step-child',
-      'brother',
-      'sister',
-      'sibling',
-      'grandmother',
-      'grandfather',
-      'grandparent',
-      'grandson',
-      'granddaughter',
-      'grandchild',
-      'uncle',
-      'aunt',
-      'uncle/aunt',
-      'nephew',
-      'niece',
-      'nephew/niece',
-      'cousin',
-      'friend',
-      'colleague',
-      'manager',
-      'assistant',
-      'neighbor',
-    ]).has(String(type || '').toLowerCase());
+    return RelationshipTaxonomy.isKnown(type);
   }
 
   _getOrgForNode(node) {
@@ -3763,101 +3618,7 @@ class ContactRelationshipApp {
 
   /** Returns <option> HTML for all known relationship types, with selectedType pre-selected. */
   _relTypeOptionsHtml(selectedType) {
-    const groups = [
-      {
-        label: 'Spouse / Partner',
-        opts: [
-          ['husband', 'Husband'],
-          ['wife', 'Wife'],
-          ['spouse', 'Spouse (generic)'],
-          ['partner', 'Partner'],
-        ],
-      },
-      {
-        label: 'Parents',
-        opts: [
-          ['mother', 'Mother'],
-          ['father', 'Father'],
-          ['parent', 'Parent (generic)'],
-          ['stepmother', 'Stepmother'],
-          ['stepfather', 'Stepfather'],
-          ['stepparent', 'Stepparent (generic)'],
-        ],
-      },
-      {
-        label: 'Children',
-        opts: [
-          ['son', 'Son'],
-          ['daughter', 'Daughter'],
-          ['child', 'Child (generic)'],
-          ['stepson', 'Stepson'],
-          ['stepdaughter', 'Stepdaughter'],
-          ['stepchild', 'Stepchild (generic)'],
-        ],
-      },
-      {
-        label: 'Siblings',
-        opts: [
-          ['brother', 'Brother'],
-          ['sister', 'Sister'],
-          ['sibling', 'Sibling (generic)'],
-        ],
-      },
-      {
-        label: 'Grandparents',
-        opts: [
-          ['grandmother', 'Grandmother'],
-          ['grandfather', 'Grandfather'],
-          ['grandparent', 'Grandparent (generic)'],
-        ],
-      },
-      {
-        label: 'Grandchildren',
-        opts: [
-          ['grandson', 'Grandson'],
-          ['granddaughter', 'Granddaughter'],
-          ['grandchild', 'Grandchild (generic)'],
-        ],
-      },
-      {
-        label: 'Extended Family',
-        opts: [
-          ['uncle', 'Uncle'],
-          ['aunt', 'Aunt'],
-          ['nephew', 'Nephew'],
-          ['niece', 'Niece'],
-          ['cousin', 'Cousin'],
-        ],
-      },
-      {
-        label: 'Social',
-        opts: [
-          ['friend', 'Friend'],
-          ['neighbor', 'Neighbor'],
-        ],
-      },
-      {
-        label: 'Professional',
-        opts: [
-          ['colleague', 'Colleague'],
-          ['manager', 'Manager'],
-          ['assistant', 'Assistant'],
-        ],
-      },
-    ];
-    let html = '';
-    for (const g of groups) {
-      html += `<optgroup label="${g.label}">`;
-      for (const [v, l] of g.opts) {
-        html += `<option value="${v}"${v === selectedType ? ' selected' : ''}>${l}</option>`;
-      }
-      html += '</optgroup>';
-    }
-    // Always offer a freeform escape hatch; pre-select it when the current type isn't in the list
-    const knownTypes = groups.flatMap((g) => g.opts.map(([v]) => v));
-    const isUnknown = selectedType && !knownTypes.includes(selectedType);
-    html += `<option value="__custom__"${isUnknown ? ' selected' : ''}>Custom…</option>`;
-    return html;
+    return RelationshipTaxonomy.optionsHtml(selectedType);
   }
 
   /** Turns a rel-item into an inline editor for relationship name + type. */

@@ -114,6 +114,7 @@ function loadBrowserClasses() {
   const files = [
     'js/vcard-utils.js',
     'js/contact-record.js',
+    'js/relationship-taxonomy.js',
     'js/vcf-parser.js',
     'js/vcard-adapter.js',
     'js/markdown-adapter.js',
@@ -126,6 +127,7 @@ function loadBrowserClasses() {
     `${source}
 this.VCardUtils = VCardUtils;
 this.ContactRecord = ContactRecord;
+this.RelationshipTaxonomy = RelationshipTaxonomy;
 this.VCFParser = VCFParser;
 this.VCardAdapter = VCardAdapter;
 this.MarkdownAdapter = MarkdownAdapter;
