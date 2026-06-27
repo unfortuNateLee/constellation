@@ -1,5 +1,25 @@
 {
+  "name": "contacts-graph",
+  "version": "0.1.0",
+  "description": "Browser-only, offline contact relationship explorer and editor (vCard + Markdown import, D3 graph, table view, bulk-normalize, IndexedDB session persistence).",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "test": "node --test contacts-graph/test/*.test.js"
+    "test": "node --test contacts-graph/test/*.test.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "eslint": "^9.13.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.11.0",
+    "prettier": "^3.3.3"
   }
 }

@@ -1,0 +1,10 @@
+node_modules/
+contacts-graph/js/vendor/
+**/*.min.js
+
+# Exact-match test fixtures — formatting them would break round-trip tests.
+contacts-graph/test/fixtures/
+
+# Large design docs — leave formatting as authored.
+contacts-graph/DESIGN_SPEC.md
+contacts-graph/DESIGN_SPEC_CLAUDE.md
