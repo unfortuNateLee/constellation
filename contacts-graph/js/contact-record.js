@@ -52,13 +52,15 @@ class ContactRecord {
   static _standardFields(contact) {
     return {
       fn: contact.fn || '',
-      name: this._clone(contact.name || {
-        family: '',
-        given: '',
-        additional: '',
-        prefix: '',
-        suffix: '',
-      }),
+      name: this._clone(
+        contact.name || {
+          family: '',
+          given: '',
+          additional: '',
+          prefix: '',
+          suffix: '',
+        },
+      ),
       org: contact.org || '',
       title: contact.title || '',
       isCompany: !!contact.isCompany,
@@ -79,11 +81,12 @@ class ContactRecord {
   static _sourceDocument(contact, options = {}) {
     const previous = (options.previousSources || [])[0] || {};
     const format = options.format || previous.format || 'vcard';
-    const raw = options.raw != null
-      ? options.raw
-      : contact.rawVCard != null
-        ? contact.rawVCard
-        : previous.raw || '';
+    const raw =
+      options.raw != null
+        ? options.raw
+        : contact.rawVCard != null
+          ? contact.rawVCard
+          : previous.raw || '';
     if (!format && !raw) return null;
     return {
       format,

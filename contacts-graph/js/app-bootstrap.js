@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('add-rel-modal').classList.add('hidden');
   });
 
-  document.getElementById('add-rel-modal').addEventListener('click', e => {
+  document.getElementById('add-rel-modal').addEventListener('click', (e) => {
     if (e.target === document.getElementById('add-rel-modal')) {
       document.getElementById('add-rel-modal').classList.add('hidden');
     }
@@ -21,27 +21,27 @@ document.addEventListener('DOMContentLoaded', () => {
     window.app._closeBulkNormalizeModal();
   });
 
-  document.getElementById('bulk-normalize-modal').addEventListener('click', e => {
+  document.getElementById('bulk-normalize-modal').addEventListener('click', (e) => {
     if (e.target === document.getElementById('bulk-normalize-modal')) {
       window.app._closeBulkNormalizeModal();
     }
   });
 
-  document.getElementById('bulk-action-type').addEventListener('change', e => {
+  document.getElementById('bulk-action-type').addEventListener('change', (e) => {
     if (!window.app._bulkRuleState) return;
     window.app._bulkRuleState.action.type = e.target.value;
     window.app._syncBulkActionControls();
     window.app._updateBulkNormalizePreview();
   });
 
-  document.getElementById('bulk-action-field').addEventListener('change', e => {
+  document.getElementById('bulk-action-field').addEventListener('change', (e) => {
     if (!window.app._bulkRuleState) return;
     window.app._bulkRuleState.action.field = e.target.value;
     window.app._syncBulkActionControls();
     window.app._updateBulkNormalizePreview();
   });
 
-  document.getElementById('bulk-action-value').addEventListener('input', e => {
+  document.getElementById('bulk-action-value').addEventListener('input', (e) => {
     if (!window.app._bulkRuleState) return;
     window.app._bulkRuleState.action.value = e.target.value;
     window.app._updateBulkNormalizePreview();
@@ -98,7 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fromContact) {
       const vcardLabel = window.app._typeToVCardLabel(finalType);
       if (fromContact.rawVCard) {
-        const usedItems = [...fromContact.rawVCard.matchAll(/^item(\d+)\./gim)].map(m => parseInt(m[1]));
+        const usedItems = [...fromContact.rawVCard.matchAll(/^item(\d+)\./gim)].map((m) =>
+          parseInt(m[1]),
+        );
         const nextItem = usedItems.length > 0 ? Math.max(...usedItems) + 1 : 1;
         const newLines = window.app._joinVCardLines([
           `item${nextItem}.X-ABRELATEDNAMES:${window.app._vCardEscape(relName)}`,
@@ -129,11 +131,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Toggle custom rel type field
-  document.getElementById('modal-rel-type').addEventListener('change', e => {
-    document.getElementById('modal-custom-row').classList.toggle('hidden', e.target.value !== 'custom');
+  document.getElementById('modal-rel-type').addEventListener('change', (e) => {
+    document
+      .getElementById('modal-custom-row')
+      .classList.toggle('hidden', e.target.value !== 'custom');
   });
 
-  document.getElementById('modal-target-mode').addEventListener('change', e => {
+  document.getElementById('modal-target-mode').addEventListener('change', (e) => {
     const manual = e.target.value === 'manual';
     document.getElementById('modal-target-select-row').classList.toggle('hidden', manual);
     document.getElementById('modal-manual-name-row').classList.toggle('hidden', !manual);

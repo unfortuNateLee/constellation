@@ -61,29 +61,29 @@ class ContactRelationshipApp {
     this.graph = new ContactGraph(graphContainer);
 
     this.graph
-      .on('nodeSelect', node => this._onNodeSelect(node))
+      .on('nodeSelect', (node) => this._onNodeSelect(node))
       .on('nodeDeselect', () => this._onNodeDeselect());
 
     // File input
-    document.getElementById('file-input').addEventListener('change', e => {
+    document.getElementById('file-input').addEventListener('change', (e) => {
       const files = Array.from(e.target.files || []);
       if (files.length) this._loadFiles(files);
     });
 
     // Drag & drop on the entire app
     const dropZone = document.getElementById('drop-zone');
-    dropZone.addEventListener('dragover', e => {
+    dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
       dropZone.classList.add('drag-over');
     });
     dropZone.addEventListener('dragleave', () => {
       dropZone.classList.remove('drag-over');
     });
-    dropZone.addEventListener('drop', e => {
+    dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropZone.classList.remove('drag-over');
       const files = Array.from(e.dataTransfer.files || []);
-      if (files.length && files.every(file => this._adapterForFile(file))) {
+      if (files.length && files.every((file) => this._adapterForFile(file))) {
         this._loadFiles(files);
       } else {
         this._showToast('Please drop a .vcf or .md file', 'error');
@@ -92,27 +92,27 @@ class ContactRelationshipApp {
 
     // Search
     const searchInput = document.getElementById('search-input');
-    searchInput.addEventListener('input', e => {
+    searchInput.addEventListener('input', (e) => {
       this._searchQuery = e.target.value.toLowerCase();
       this._renderContactList();
       this._renderTableMode();
     });
 
-    document.getElementById('contact-sort-mode').addEventListener('change', e => {
+    document.getElementById('contact-sort-mode').addEventListener('change', (e) => {
       this._contactSortMode = e.target.value === 'last-first' ? 'last-first' : 'first-last';
       this._renderContactList();
       this._renderTableMode();
       void this._persistSession();
     });
 
-    document.getElementById('graph-mode-select').addEventListener('change', e => {
+    document.getElementById('graph-mode-select').addEventListener('change', (e) => {
       this._graphMode = e.target.value || 'connections';
       this._syncGraphModeControls();
       this._rebuildGraph();
       void this._persistSession();
     });
 
-    document.getElementById('self-contact-select').addEventListener('change', e => {
+    document.getElementById('self-contact-select').addEventListener('change', (e) => {
       this._selfContactId = e.target.value || null;
       this._rebuildGraph();
       void this._persistSession();
@@ -148,27 +148,27 @@ class ContactRelationshipApp {
     });
 
     // Inferred toggle
-    document.getElementById('toggle-inferred').addEventListener('change', e => {
+    document.getElementById('toggle-inferred').addEventListener('change', (e) => {
       this._showInferred = e.target.checked;
       this.graph.setShowInferred(this._showInferred);
       this._rebuildGraph();
       void this._persistSession();
     });
 
-    document.getElementById('toggle-likely-family').addEventListener('change', e => {
+    document.getElementById('toggle-likely-family').addEventListener('change', (e) => {
       this._showLikelyFamily = e.target.checked;
       this._rebuildGraph();
       void this._persistSession();
     });
 
-    document.getElementById('toggle-likely-connections').addEventListener('change', e => {
+    document.getElementById('toggle-likely-connections').addEventListener('change', (e) => {
       this._showLikelyConnections = e.target.checked;
       this._rebuildGraph();
       void this._persistSession();
     });
 
     // Isolated toggle
-    document.getElementById('toggle-isolated').addEventListener('change', e => {
+    document.getElementById('toggle-isolated').addEventListener('change', (e) => {
       this._showIsolated = e.target.checked;
       this._rebuildGraph();
       void this._persistSession();
@@ -232,12 +232,12 @@ class ContactRelationshipApp {
 
     // Export All
     document.getElementById('btn-export-all').addEventListener('click', () => {
-      const ids = new Set(this.contacts.map(c => c.id));
+      const ids = new Set(this.contacts.map((c) => c.id));
       this._exportVCF(ids, 'all-contacts.vcf');
     });
 
     document.getElementById('btn-export-md-all').addEventListener('click', () => {
-      const ids = new Set(this.contacts.map(c => c.id));
+      const ids = new Set(this.contacts.map((c) => c.id));
       this._exportMarkdown(ids, 'all-contacts.md');
     });
 
@@ -299,7 +299,7 @@ class ContactRelationshipApp {
     const files = Array.from(filesInput || []).filter(Boolean);
     if (files.length === 0) return;
 
-    const badFile = files.find(file => !this._adapterForFile(file));
+    const badFile = files.find((file) => !this._adapterForFile(file));
     if (badFile) {
       this._showToast(`Unsupported file type: ${badFile.name}`, 'error');
       return;
@@ -413,17 +413,17 @@ class ContactRelationshipApp {
   }
 
   _adapterForFile(file) {
-    return this.formatAdapters.find(adapter => adapter.canImportFile(file)) || null;
+    return this.formatAdapters.find((adapter) => adapter.canImportFile(file)) || null;
   }
 
   _adapterById(id) {
-    return this.formatAdapters.find(adapter => adapter.id === id) || null;
+    return this.formatAdapters.find((adapter) => adapter.id === id) || null;
   }
 
   _reindexGraphData() {
     const nodes = this.graphData.nodes || [];
     const edges = this.graphData.edges || [];
-    this._nodeById = new Map(nodes.map(node => [node.id, node]));
+    this._nodeById = new Map(nodes.map((node) => [node.id, node]));
     this._edgesByNodeId = new Map();
     const addEdge = (id, edge) => {
       if (!this._edgesByNodeId.has(id)) this._edgesByNodeId.set(id, []);
@@ -445,12 +445,14 @@ class ContactRelationshipApp {
       refs.get(targetId).push(ref);
     };
     for (const otherContact of this.contacts || []) {
-      for (const rel of (otherContact.related || [])) {
+      for (const rel of otherContact.related || []) {
         const target = this.builder?.findContact(rel.name);
-        const targetId = target
-          ? target.id
-          : `virtual__${rel.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
-        add(targetId, { rel, fromContact: otherContact, fromNode: this._nodeById.get(otherContact.id) });
+        const targetId = target ? target.id : `virtual__${rel.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        add(targetId, {
+          rel,
+          fromContact: otherContact,
+          fromNode: this._nodeById.get(otherContact.id),
+        });
       }
     }
     return refs;
@@ -491,13 +493,13 @@ class ContactRelationshipApp {
       cb.type = 'checkbox';
       cb.className = 'contact-export-cb';
       cb.checked = this._selectedForExport.has(c.id);
-      cb.addEventListener('change', e => {
+      cb.addEventListener('change', (e) => {
         e.stopPropagation();
         if (cb.checked) this._selectedForExport.add(c.id);
         else this._selectedForExport.delete(c.id);
         this._updateExportBar();
       });
-      cb.addEventListener('click', e => e.stopPropagation());
+      cb.addEventListener('click', (e) => e.stopPropagation());
 
       const dot = document.createElement('span');
       dot.className = 'contact-dot';
@@ -536,23 +538,24 @@ class ContactRelationshipApp {
 
   _filteredContactsForSidebar() {
     let contacts = this.graphData.nodes
-      .filter(n => !n.isVirtual && !n.isGroupNode)
+      .filter((n) => !n.isVirtual && !n.isGroupNode)
       .sort((a, b) => this._contactListSortKey(a).localeCompare(this._contactListSortKey(b)));
 
     if (this._searchQuery) {
       const q = this._searchQuery;
-      contacts = contacts.filter(c =>
-        (c.name || '').toLowerCase().includes(q) ||
-        this._formatContactListName(c, 'last-first').toLowerCase().includes(q) ||
-        (c.org || '').toLowerCase().includes(q) ||
-        (c.title || '').toLowerCase().includes(q) ||
-        (c.notes || []).join('\n').toLowerCase().includes(q)
+      contacts = contacts.filter(
+        (c) =>
+          (c.name || '').toLowerCase().includes(q) ||
+          this._formatContactListName(c, 'last-first').toLowerCase().includes(q) ||
+          (c.org || '').toLowerCase().includes(q) ||
+          (c.title || '').toLowerCase().includes(q) ||
+          (c.notes || []).join('\n').toLowerCase().includes(q),
       );
     }
 
     if (this._activeFilters.size > 0) {
-      contacts = contacts.filter(c =>
-        (c.filterTags || []).some(tag => this._activeFilters.has(tag))
+      contacts = contacts.filter((c) =>
+        (c.filterTags || []).some((tag) => this._activeFilters.has(tag)),
       );
     }
     return contacts;
@@ -616,7 +619,7 @@ class ContactRelationshipApp {
     head.appendChild(headerRow);
 
     const contacts = this._filteredContactsForSidebar()
-      .map(node => this._contact(node.id))
+      .map((node) => this._contact(node.id))
       .filter(Boolean)
       .sort((a, b) => this._compareTableContacts(a, b));
 
@@ -636,15 +639,37 @@ class ContactRelationshipApp {
       tr.dataset.id = contact.id;
       tr.appendChild(this._tableInputCell(contact, 'fn', contact.fn || '', { multiline: false }));
       tr.appendChild(this._tableInputCell(contact, 'org', contact.org || '', { multiline: false }));
-      tr.appendChild(this._tableInputCell(contact, 'title', contact.title || '', { multiline: false }));
-      tr.appendChild(this._tableCollectionCell(contact, 'email', contact.emails || [], entry => entry.value));
-      tr.appendChild(this._tableCollectionCell(contact, 'phone', contact.phones || [], entry => entry.value));
-      tr.appendChild(this._tableCollectionCell(contact, 'url', contact.urls || [], entry => typeof entry === 'string' ? entry : entry.value));
+      tr.appendChild(
+        this._tableInputCell(contact, 'title', contact.title || '', { multiline: false }),
+      );
+      tr.appendChild(
+        this._tableCollectionCell(contact, 'email', contact.emails || [], (entry) => entry.value),
+      );
+      tr.appendChild(
+        this._tableCollectionCell(contact, 'phone', contact.phones || [], (entry) => entry.value),
+      );
+      tr.appendChild(
+        this._tableCollectionCell(contact, 'url', contact.urls || [], (entry) =>
+          typeof entry === 'string' ? entry : entry.value,
+        ),
+      );
       tr.appendChild(this._tableAddressCell(contact));
-      tr.appendChild(this._tableInputCell(contact, 'birthday', contact.birthday || '', { multiline: false, type: 'date' }));
-      tr.appendChild(this._tableInputCell(contact, 'anniversary', contact.anniversary || '', { multiline: false, type: 'date' }));
+      tr.appendChild(
+        this._tableInputCell(contact, 'birthday', contact.birthday || '', {
+          multiline: false,
+          type: 'date',
+        }),
+      );
+      tr.appendChild(
+        this._tableInputCell(contact, 'anniversary', contact.anniversary || '', {
+          multiline: false,
+          type: 'date',
+        }),
+      );
       tr.appendChild(this._tableTagsCell(contact));
-      tr.appendChild(this._tableInputCell(contact, 'notes', this._notesText(contact.notes), { multiline: true }));
+      tr.appendChild(
+        this._tableInputCell(contact, 'notes', this._notesText(contact.notes), { multiline: true }),
+      );
       tr.appendChild(this._tableActionsCell(contact));
       body.appendChild(tr);
     }
@@ -664,18 +689,32 @@ class ContactRelationshipApp {
     const key = this._tableSort.key;
     const get = (contact) => {
       switch (key) {
-        case 'name': return contact.fn || '';
-        case 'org': return contact.org || '';
-        case 'title': return contact.title || '';
-        case 'emails': return (contact.emails || []).map(e => e.value).join(' ');
-        case 'phones': return (contact.phones || []).map(p => p.value).join(' ');
-        case 'urls': return (contact.urls || []).map(u => typeof u === 'string' ? u : u.value).join(' ');
-        case 'addresses': return (contact.addresses || []).map(a => [a.street, a.city, a.state, a.zip, a.country].filter(Boolean).join(' ')).join(' ');
-        case 'birthday': return contact.birthday || '';
-        case 'anniversary': return contact.anniversary || '';
-        case 'tags': return (contact.noteTags || []).join(' ');
-        case 'notes': return this._notesText(contact.notes);
-        default: return contact.fn || '';
+        case 'name':
+          return contact.fn || '';
+        case 'org':
+          return contact.org || '';
+        case 'title':
+          return contact.title || '';
+        case 'emails':
+          return (contact.emails || []).map((e) => e.value).join(' ');
+        case 'phones':
+          return (contact.phones || []).map((p) => p.value).join(' ');
+        case 'urls':
+          return (contact.urls || []).map((u) => (typeof u === 'string' ? u : u.value)).join(' ');
+        case 'addresses':
+          return (contact.addresses || [])
+            .map((a) => [a.street, a.city, a.state, a.zip, a.country].filter(Boolean).join(' '))
+            .join(' ');
+        case 'birthday':
+          return contact.birthday || '';
+        case 'anniversary':
+          return contact.anniversary || '';
+        case 'tags':
+          return (contact.noteTags || []).join(' ');
+        case 'notes':
+          return this._notesText(contact.notes);
+        default:
+          return contact.fn || '';
       }
     };
     return get(a).localeCompare(get(b), undefined, { sensitivity: 'base' }) * dir;
@@ -702,7 +741,7 @@ class ContactRelationshipApp {
 
     const save = () => {
       const nextEntries = [...wrap.querySelectorAll('.table-metadata-item')]
-        .map(item => {
+        .map((item) => {
           const value = item.querySelector('[data-role="value"]')?.value.trim() || '';
           if (!value) return null;
           const typeSelect = item.querySelector('select[data-role="types-select"]');
@@ -714,9 +753,9 @@ class ContactRelationshipApp {
               this._selectedTypesFromEditor(
                 kind,
                 typeSelect?.value || this._defaultTypeOption(kind),
-                typesInput?.value || ''
+                typesInput?.value || '',
               ),
-              !!item.querySelector('input[data-role="preferred"]')?.checked
+              !!item.querySelector('input[data-role="preferred"]')?.checked,
             ),
           };
         })
@@ -738,7 +777,12 @@ class ContactRelationshipApp {
       const typeState = this._typeSelectionState(kind, entry?.types || []);
       const typeSelect = this._typeSelect(kind, typeState.selected);
       typeSelect.classList.add('table-type-select');
-      const typeInput = this._customTypeInput(kind, 'types-custom', typeState.customValue, typeState.selected === 'custom');
+      const typeInput = this._customTypeInput(
+        kind,
+        'types-custom',
+        typeState.customValue,
+        typeState.selected === 'custom',
+      );
       typeInput.classList.add('table-type-input');
       this._bindTypeEditor(typeSelect, typeInput);
 
@@ -749,7 +793,9 @@ class ContactRelationshipApp {
 
       const footer = document.createElement('div');
       footer.className = 'table-metadata-footer';
-      footer.appendChild(this._tablePreferredRadio(contact.id, kind, this._isPreferred(entry?.types || [])));
+      footer.appendChild(
+        this._tablePreferredRadio(contact.id, kind, this._isPreferred(entry?.types || [])),
+      );
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'btn btn-ghost btn-xs';
@@ -761,7 +807,7 @@ class ContactRelationshipApp {
       });
       footer.appendChild(removeBtn);
 
-      [valueInput, typeSelect, typeInput].forEach(el => {
+      [valueInput, typeSelect, typeInput].forEach((el) => {
         el.addEventListener('change', save);
       });
       footer.querySelector('input[data-role="preferred"]').addEventListener('change', save);
@@ -793,7 +839,7 @@ class ContactRelationshipApp {
 
     const save = () => {
       const nextAddresses = [...wrap.querySelectorAll('.table-address-item')]
-        .map(item => {
+        .map((item) => {
           const street = item.querySelector('[data-addr="street"]')?.value.trim() || '';
           const city = item.querySelector('[data-addr="city"]')?.value.trim() || '';
           const state = item.querySelector('[data-addr="state"]')?.value.trim() || '';
@@ -812,10 +858,11 @@ class ContactRelationshipApp {
               'address',
               this._selectedTypesFromEditor(
                 'address',
-                item.querySelector('select[data-addr="type-select"]')?.value || this._defaultTypeOption('address'),
-                item.querySelector('[data-addr="types"]')?.value || ''
+                item.querySelector('select[data-addr="type-select"]')?.value ||
+                  this._defaultTypeOption('address'),
+                item.querySelector('[data-addr="types"]')?.value || '',
               ),
-              !!item.querySelector('input[data-role="preferred"]')?.checked
+              !!item.querySelector('input[data-role="preferred"]')?.checked,
             ),
           };
         })
@@ -848,7 +895,12 @@ class ContactRelationshipApp {
       const typeState = this._typeSelectionState('address', address?.types || []);
       const typeSelect = this._typeSelect('address', typeState.selected, 'addr-type-select');
       typeSelect.classList.add('table-type-select');
-      const typeInput = this._customTypeInput('address', 'types', typeState.customValue, typeState.selected === 'custom');
+      const typeInput = this._customTypeInput(
+        'address',
+        'types',
+        typeState.customValue,
+        typeState.selected === 'custom',
+      );
       typeInput.classList.add('table-type-input');
       this._bindTypeEditor(typeSelect, typeInput);
 
@@ -859,7 +911,9 @@ class ContactRelationshipApp {
 
       const footer = document.createElement('div');
       footer.className = 'table-metadata-footer';
-      footer.appendChild(this._tablePreferredRadio(contact.id, 'address', this._isPreferred(address?.types || [])));
+      footer.appendChild(
+        this._tablePreferredRadio(contact.id, 'address', this._isPreferred(address?.types || [])),
+      );
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'btn btn-ghost btn-xs';
@@ -871,7 +925,7 @@ class ContactRelationshipApp {
       });
       footer.appendChild(removeBtn);
 
-      [typeSelect, typeInput].forEach(el => el.addEventListener('change', save));
+      [typeSelect, typeInput].forEach((el) => el.addEventListener('change', save));
       footer.querySelector('input[data-role="preferred"]').addEventListener('change', save);
 
       item.appendChild(fields);
@@ -999,13 +1053,22 @@ class ContactRelationshipApp {
     } else if (field === 'anniversary') {
       contact.anniversary = value || null;
     } else if (field === 'emails') {
-      contact.emails = this._ensureSinglePreferred(Array.isArray(rawValue) ? rawValue : [], 'email');
+      contact.emails = this._ensureSinglePreferred(
+        Array.isArray(rawValue) ? rawValue : [],
+        'email',
+      );
     } else if (field === 'phones') {
-      contact.phones = this._ensureSinglePreferred(Array.isArray(rawValue) ? rawValue : [], 'phone');
+      contact.phones = this._ensureSinglePreferred(
+        Array.isArray(rawValue) ? rawValue : [],
+        'phone',
+      );
     } else if (field === 'urls') {
       contact.urls = this._ensureSinglePreferred(Array.isArray(rawValue) ? rawValue : [], 'url');
     } else if (field === 'addresses') {
-      contact.addresses = this._ensureSinglePreferred(Array.isArray(rawValue) ? rawValue : [], 'address');
+      contact.addresses = this._ensureSinglePreferred(
+        Array.isArray(rawValue) ? rawValue : [],
+        'address',
+      );
     } else if (field === 'notes') {
       contact.notes = this._splitNotes(value);
       contact.noteTags = this.parser._extractHashtags(contact.notes);
@@ -1057,9 +1120,11 @@ class ContactRelationshipApp {
   _deleteContact(contactId) {
     const contact = this._contact(contactId);
     if (!contact) return;
-    const ok = window.confirm(`Delete ${contact.fn || 'this contact'} from the current working dataset?`);
+    const ok = window.confirm(
+      `Delete ${contact.fn || 'this contact'} from the current working dataset?`,
+    );
     if (!ok) return;
-    this.contacts = this.contacts.filter(c => c.id !== contactId);
+    this.contacts = this.contacts.filter((c) => c.id !== contactId);
     this.builder = new RelationshipBuilder(this.contacts);
     if (this._selectedNodeId === contactId) {
       this._selectedNodeId = null;
@@ -1081,7 +1146,7 @@ class ContactRelationshipApp {
       }
       return a.localeCompare(b);
     });
-    const colors = tags.map(tag => this._tagColor(tag)).filter(Boolean);
+    const colors = tags.map((tag) => this._tagColor(tag)).filter(Boolean);
     return colors.length ? colors.slice(0, 4) : ['#8395a7'];
   }
 
@@ -1108,7 +1173,7 @@ class ContactRelationshipApp {
     // Stable color for user hashtags.
     let hash = 0;
     for (let i = 0; i < tag.length; i++) {
-      hash = ((hash * 31) + tag.charCodeAt(i)) >>> 0;
+      hash = (hash * 31 + tag.charCodeAt(i)) >>> 0;
     }
     const hue = hash % 360;
     const sat = 58 + (hash % 14);
@@ -1120,9 +1185,13 @@ class ContactRelationshipApp {
     if (!color) return `rgba(131, 149, 167, ${alpha})`;
     if (color.startsWith('#')) {
       const hex = color.slice(1);
-      const normalized = hex.length === 3
-        ? hex.split('').map(ch => ch + ch).join('')
-        : hex.padEnd(6, '0').slice(0, 6);
+      const normalized =
+        hex.length === 3
+          ? hex
+              .split('')
+              .map((ch) => ch + ch)
+              .join('')
+          : hex.padEnd(6, '0').slice(0, 6);
       const int = parseInt(normalized, 16);
       const r = (int >> 16) & 255;
       const g = (int >> 8) & 255;
@@ -1139,7 +1208,7 @@ class ContactRelationshipApp {
   _bestTextColor(color) {
     const rgb = this._colorToRgb(color);
     if (!rgb) return '#fff';
-    const luminance = ((0.2126 * rgb.r) + (0.7152 * rgb.g) + (0.0722 * rgb.b)) / 255;
+    const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
     return luminance > 0.66 ? '#111' : '#fff';
   }
 
@@ -1147,9 +1216,13 @@ class ContactRelationshipApp {
     if (!color) return null;
     if (color.startsWith('#')) {
       const hex = color.slice(1);
-      const normalized = hex.length === 3
-        ? hex.split('').map(ch => ch + ch).join('')
-        : hex.padEnd(6, '0').slice(0, 6);
+      const normalized =
+        hex.length === 3
+          ? hex
+              .split('')
+              .map((ch) => ch + ch)
+              .join('')
+          : hex.padEnd(6, '0').slice(0, 6);
       const int = parseInt(normalized, 16);
       return {
         r: (int >> 16) & 255,
@@ -1162,10 +1235,12 @@ class ContactRelationshipApp {
     const h = Number(hslMatch[1]) % 360;
     const s = Number(hslMatch[2]) / 100;
     const l = Number(hslMatch[3]) / 100;
-    const c = (1 - Math.abs((2 * l) - 1)) * s;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
     const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-    const m = l - (c / 2);
-    let r1 = 0, g1 = 0, b1 = 0;
+    const m = l - c / 2;
+    let r1 = 0,
+      g1 = 0,
+      b1 = 0;
     if (h < 60) [r1, g1, b1] = [c, x, 0];
     else if (h < 120) [r1, g1, b1] = [x, c, 0];
     else if (h < 180) [r1, g1, b1] = [0, c, x];
@@ -1216,12 +1291,15 @@ class ContactRelationshipApp {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     const selectedIds = ids ? new Set(ids) : null;
-    const exportedCount = this.contacts.filter(contact => {
+    const exportedCount = this.contacts.filter((contact) => {
       if (selectedIds && !selectedIds.has(contact.id)) return false;
       if (adapter.id === 'vcard') return !!contact.rawVCard;
       return true;
     }).length;
-    this._showToast(`Exported ${exportedCount} contact${exportedCount !== 1 ? 's' : ''} as ${adapter.label}`, 'success');
+    this._showToast(
+      `Exported ${exportedCount} contact${exportedCount !== 1 ? 's' : ''} as ${adapter.label}`,
+      'success',
+    );
   }
 
   // ── Category Filters ───────────────────────────────────────────
@@ -1239,7 +1317,7 @@ class ContactRelationshipApp {
 
     const counts = {};
     for (const n of this.graphData.nodes) {
-      for (const tag of (n.filterTags || [])) {
+      for (const tag of n.filterTags || []) {
         counts[tag] = (counts[tag] || 0) + 1;
       }
     }
@@ -1284,7 +1362,7 @@ class ContactRelationshipApp {
     const dynamic = new Set();
 
     for (const n of nodes) {
-      for (const tag of (n.filterTags || [])) {
+      for (const tag of n.filterTags || []) {
         if (system.includes(tag)) available.add(tag);
         else dynamic.add(tag);
       }
@@ -1315,7 +1393,8 @@ class ContactRelationshipApp {
     } else {
       this._selfContactId = null;
       select.value = '';
-      help.textContent = 'My Family includes any contact connected to "me" by explicit relationships at any distance.';
+      help.textContent =
+        'My Family includes any contact connected to "me" by explicit relationships at any distance.';
     }
   }
 
@@ -1335,7 +1414,10 @@ class ContactRelationshipApp {
     document.getElementById('stat-nodes').textContent = stats.visibleNodes;
     document.getElementById('stat-edges').textContent = stats.edges;
 
-    const explicitEdges = (this.graphData.edges || []).reduce((count, edge) => count + (edge.inferred ? 0 : 1), 0);
+    const explicitEdges = (this.graphData.edges || []).reduce(
+      (count, edge) => count + (edge.inferred ? 0 : 1),
+      0,
+    );
     document.getElementById('stat-explicit').textContent = explicitEdges;
   }
 
@@ -1347,16 +1429,16 @@ class ContactRelationshipApp {
     let items = this.graph.getLegend(this._graphMode);
     if (this._graphMode === 'connections') {
       if (!this._showLikelyFamily) {
-        items = items.filter(item => item.label !== 'Likely family');
+        items = items.filter((item) => item.label !== 'Likely family');
       }
       if (!this._showLikelyConnections) {
-        items = items.filter(item => item.label !== 'Likely connection');
+        items = items.filter((item) => item.label !== 'Likely connection');
       }
       if (!this._showLikelyFamily && !this._showLikelyConnections) {
-        items = items.filter(item => item.label !== 'Likely cluster hull');
+        items = items.filter((item) => item.label !== 'Likely cluster hull');
       }
       if (!this._showInferred) {
-        items = items.filter(item => item.label !== 'Organization cluster');
+        items = items.filter((item) => item.label !== 'Organization cluster');
       }
     }
     for (const item of items) {
@@ -1406,7 +1488,10 @@ class ContactRelationshipApp {
       const collapsed = this._sidebarControlsCollapsed;
       btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
       btn.setAttribute('title', collapsed ? 'Expand settings panel' : 'Collapse settings panel');
-      btn.setAttribute('aria-label', collapsed ? 'Expand settings panel' : 'Collapse settings panel');
+      btn.setAttribute(
+        'aria-label',
+        collapsed ? 'Expand settings panel' : 'Collapse settings panel',
+      );
     }
     if (icon) icon.textContent = this._sidebarControlsCollapsed ? '›' : '‹';
     this._scheduleGraphResize();
@@ -1424,7 +1509,7 @@ class ContactRelationshipApp {
     panel.classList.remove('hidden');
 
     // Highlight in contact list
-    document.querySelectorAll('.contact-item').forEach(el => {
+    document.querySelectorAll('.contact-item').forEach((el) => {
       el.classList.toggle('active', el.dataset.id === node.id);
     });
 
@@ -1443,8 +1528,11 @@ class ContactRelationshipApp {
     document.getElementById('detail-name').textContent = node.name;
     document.getElementById('detail-org').textContent = node.org || '';
     document.getElementById('detail-title-text').textContent = node.title || '';
-    document.getElementById('detail-category-badge').textContent = node.isGroupNode ? 'group' : node.category;
-    document.getElementById('detail-category-badge').className = `category-badge category-${node.isGroupNode ? 'other' : node.category}`;
+    document.getElementById('detail-category-badge').textContent = node.isGroupNode
+      ? 'group'
+      : node.category;
+    document.getElementById('detail-category-badge').className =
+      `category-badge category-${node.isGroupNode ? 'other' : node.category}`;
 
     const contact = this._contact(node.id);
     const isEditing = !!contact && this._editingContactId === contact.id;
@@ -1462,7 +1550,12 @@ class ContactRelationshipApp {
     suggestionsSection.classList.add('hidden');
 
     if (node.isGroupNode) {
-      this._renderGroupNodeDetail(node, contactInfo, notesEl, document.getElementById('detail-relationships'));
+      this._renderGroupNodeDetail(
+        node,
+        contactInfo,
+        notesEl,
+        document.getElementById('detail-relationships'),
+      );
       this._selectedNodeId = node.id;
       return;
     }
@@ -1495,11 +1588,11 @@ class ContactRelationshipApp {
 
     // ── 2. Back-references: other contacts whose data lists this person
     const referencedBy = (this._relatedRefsByTargetId.get(node.id) || [])
-      .map(ref => ({ rel: ref.rel, fromNode: ref.fromNode || this._node(ref.fromContact?.id) }))
-      .filter(ref => ref.fromNode && ref.fromNode.id !== node.id && !ref.fromNode.isVirtual);
+      .map((ref) => ({ rel: ref.rel, fromNode: ref.fromNode || this._node(ref.fromContact?.id) }))
+      .filter((ref) => ref.fromNode && ref.fromNode.id !== node.id && !ref.fromNode.isVirtual);
 
     // ── 3. Inferred (org-based) edges ─────────────────────────────────
-    const inferredRels = this._edgesForNode(node.id).filter(e => e.inferred);
+    const inferredRels = this._edgesForNode(node.id).filter((e) => e.inferred);
 
     // ── Render own relationships ──────────────────────────────────────
     if (ownRelated.length > 0) {
@@ -1511,9 +1604,7 @@ class ContactRelationshipApp {
       for (let relIdx = 0; relIdx < ownRelated.length; relIdx++) {
         const rel = ownRelated[relIdx];
         const target = this.builder.findContact(rel.name);
-        const targetId = target
-          ? target.id
-          : `virtual__${rel.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const targetId = target ? target.id : `virtual__${rel.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
         const other = this._node(targetId);
         const displayName = other ? other.name : rel.name;
         const category = this.builder._edgeCategory(rel.type);
@@ -1535,7 +1626,7 @@ class ContactRelationshipApp {
           });
         }
         if (contact) {
-          item.querySelector('.btn-edit-rel').addEventListener('click', e => {
+          item.querySelector('.btn-edit-rel').addEventListener('click', (e) => {
             e.stopPropagation();
             this._startInlineRelEdit(item, contact, relIdx, node);
           });
@@ -1553,7 +1644,7 @@ class ContactRelationshipApp {
     if (referencedBy.length > 0) {
       const header = document.createElement('div');
       header.className = 'rel-section-header rel-referenced-header';
-      header.textContent = 'Referenced in Others\' Cards';
+      header.textContent = "Referenced in Others' Cards";
       relsEl.appendChild(header);
 
       for (const { rel, fromNode } of referencedBy) {
@@ -1650,7 +1741,7 @@ class ContactRelationshipApp {
 
   _onNodeDeselect() {
     document.getElementById('detail-panel').classList.add('hidden');
-    document.querySelectorAll('.contact-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.contact-item').forEach((el) => el.classList.remove('active'));
     this._selectedNodeId = null;
     this._editingContactId = null;
   }
@@ -1662,13 +1753,13 @@ class ContactRelationshipApp {
     const seen = new Set();
 
     // ── Type 1: Mutual — A lists B but B doesn't list A back ──────────
-    for (const rel of (node.related || [])) {
+    for (const rel of node.related || []) {
       const targetContact = this.builder.findContact(rel.name);
       if (!targetContact) continue; // virtual node, can't edit
       const targetNode = this._node(targetContact.id);
       if (!targetNode) continue;
 
-      const alreadyListed = (targetNode.related || []).some(r => {
+      const alreadyListed = (targetNode.related || []).some((r) => {
         const rc = this.builder.findContact(r.name);
         if (rc && rc.id === node.id) return true;
         return r.name.toLowerCase().trim() === node.name.toLowerCase().trim();
@@ -1694,19 +1785,29 @@ class ContactRelationshipApp {
     }
 
     // ── Type 2: Outward — node's children should appear on spouse's card ─
-    const spouseRelsOut = (node.related || []).filter(r => ['spouse', 'husband', 'wife', 'partner'].includes(r.type));
+    const spouseRelsOut = (node.related || []).filter((r) =>
+      ['spouse', 'husband', 'wife', 'partner'].includes(r.type),
+    );
     for (const spouseRel of spouseRelsOut) {
       const spouseContact = this.builder.findContact(spouseRel.name);
       if (!spouseContact) continue;
       const spouseNode = this._node(spouseContact.id);
       if (!spouseNode) continue;
 
-      const childTypes = ['son', 'daughter', 'child', 'stepson', 'stepdaughter', 'stepchild', 'step-child'];
-      for (const child of (node.related || []).filter(r => childTypes.includes(r.type))) {
+      const childTypes = [
+        'son',
+        'daughter',
+        'child',
+        'stepson',
+        'stepdaughter',
+        'stepchild',
+        'step-child',
+      ];
+      for (const child of (node.related || []).filter((r) => childTypes.includes(r.type))) {
         const childContact = this.builder.findContact(child.name);
         if (!childContact) continue;
 
-        const spouseHasChild = (spouseNode.related || []).some(r => {
+        const spouseHasChild = (spouseNode.related || []).some((r) => {
           const rc = this.builder.findContact(r.name);
           return rc && rc.id === childContact.id;
         });
@@ -1736,82 +1837,149 @@ class ContactRelationshipApp {
     // inferredType = null means "use the same type as the bridge rel".
     const INWARD_TRANSITIONS = [
       // Via spouse/partner → shared children
-      { pivotTypes: ['spouse', 'husband', 'wife', 'partner'],
-        bridgeTypes: ['son', 'daughter', 'child', 'stepson', 'stepdaughter', 'stepchild', 'step-child'],
-        inferredType: null },
+      {
+        pivotTypes: ['spouse', 'husband', 'wife', 'partner'],
+        bridgeTypes: [
+          'son',
+          'daughter',
+          'child',
+          'stepson',
+          'stepdaughter',
+          'stepchild',
+          'step-child',
+        ],
+        inferredType: null,
+      },
       // Via parent → siblings (parent's other children); gender-specific when known
-      { pivotTypes: ['parent', 'mother', 'father', 'stepmother', 'stepfather', 'stepparent', 'step-parent'],
-        bridgeTypes: ['son', 'daughter', 'child', 'stepson', 'stepdaughter', 'stepchild', 'step-child'],
-        typeMapper: bt => bt === 'son' || bt === 'stepson' ? 'brother'
-                       : bt === 'daughter' || bt === 'stepdaughter' ? 'sister'
-                       : 'sibling' },
+      {
+        pivotTypes: [
+          'parent',
+          'mother',
+          'father',
+          'stepmother',
+          'stepfather',
+          'stepparent',
+          'step-parent',
+        ],
+        bridgeTypes: [
+          'son',
+          'daughter',
+          'child',
+          'stepson',
+          'stepdaughter',
+          'stepchild',
+          'step-child',
+        ],
+        typeMapper: (bt) =>
+          bt === 'son' || bt === 'stepson'
+            ? 'brother'
+            : bt === 'daughter' || bt === 'stepdaughter'
+              ? 'sister'
+              : 'sibling',
+      },
       // Via parent → grandparents (parent's parents)
-      { pivotTypes: ['parent', 'mother', 'father'],
+      {
+        pivotTypes: ['parent', 'mother', 'father'],
         bridgeTypes: ['parent', 'mother', 'father', 'grandmother', 'grandfather', 'grandparent'],
-        typeMapper: bt => bt === 'mother' || bt === 'grandmother' ? 'grandmother'
-                       : bt === 'father' || bt === 'grandfather' ? 'grandfather'
-                       : 'grandparent' },
+        typeMapper: (bt) =>
+          bt === 'mother' || bt === 'grandmother'
+            ? 'grandmother'
+            : bt === 'father' || bt === 'grandfather'
+              ? 'grandfather'
+              : 'grandparent',
+      },
       // Via parent → uncle/aunt (parent's siblings); gender-specific
-      { pivotTypes: ['parent', 'mother', 'father'],
+      {
+        pivotTypes: ['parent', 'mother', 'father'],
         bridgeTypes: ['sibling', 'brother', 'sister'],
-        typeMapper: bt => bt === 'brother' ? 'uncle' : bt === 'sister' ? 'aunt' : 'uncle' },
+        typeMapper: (bt) => (bt === 'brother' ? 'uncle' : bt === 'sister' ? 'aunt' : 'uncle'),
+      },
       // Via child → grandchildren (child's children)
-      { pivotTypes: ['son', 'daughter', 'child'],
+      {
+        pivotTypes: ['son', 'daughter', 'child'],
         bridgeTypes: ['son', 'daughter', 'child'],
-        typeMapper: bt => bt === 'son' ? 'grandson' : bt === 'daughter' ? 'granddaughter' : 'grandchild' },
+        typeMapper: (bt) =>
+          bt === 'son' ? 'grandson' : bt === 'daughter' ? 'granddaughter' : 'grandchild',
+      },
       // Via sibling → nephew/niece (sibling's children); gender-specific
-      { pivotTypes: ['sibling', 'brother', 'sister'],
+      {
+        pivotTypes: ['sibling', 'brother', 'sister'],
         bridgeTypes: ['son', 'daughter', 'child'],
-        typeMapper: bt => bt === 'son' ? 'nephew' : bt === 'daughter' ? 'niece' : 'nephew' },
+        typeMapper: (bt) => (bt === 'son' ? 'nephew' : bt === 'daughter' ? 'niece' : 'nephew'),
+      },
       // Via sibling → parent (sibling's parents = node's parents)
-      { pivotTypes: ['sibling', 'brother', 'sister'],
+      {
+        pivotTypes: ['sibling', 'brother', 'sister'],
         bridgeTypes: ['parent', 'mother', 'father', 'grandmother', 'grandfather'],
-        typeMapper: bt => bt === 'mother' || bt === 'grandmother' ? 'mother'
-                       : bt === 'father' || bt === 'grandfather' ? 'father'
-                       : 'parent' },
+        typeMapper: (bt) =>
+          bt === 'mother' || bt === 'grandmother'
+            ? 'mother'
+            : bt === 'father' || bt === 'grandfather'
+              ? 'father'
+              : 'parent',
+      },
       // Via uncle/aunt → cousins (uncle/aunt's children)
-      { pivotTypes: ['uncle', 'aunt', 'uncle/aunt'],
+      {
+        pivotTypes: ['uncle', 'aunt', 'uncle/aunt'],
         bridgeTypes: ['son', 'daughter', 'child'],
-        inferredType: 'cousin' },
+        inferredType: 'cousin',
+      },
       // Via grandparent → uncle/aunt (grandparent's other children); gender-specific
-      { pivotTypes: ['grandmother', 'grandfather', 'grandparent'],
+      {
+        pivotTypes: ['grandmother', 'grandfather', 'grandparent'],
         bridgeTypes: ['son', 'daughter', 'child'],
-        typeMapper: bt => bt === 'son' ? 'uncle' : bt === 'daughter' ? 'aunt' : 'uncle' },
+        typeMapper: (bt) => (bt === 'son' ? 'uncle' : bt === 'daughter' ? 'aunt' : 'uncle'),
+      },
       // Via nephew/niece → sibling (nephew/niece's parent = node's sibling); gender-specific
-      { pivotTypes: ['nephew', 'niece', 'nephew/niece'],
+      {
+        pivotTypes: ['nephew', 'niece', 'nephew/niece'],
         bridgeTypes: ['parent', 'mother', 'father'],
-        typeMapper: bt => bt === 'mother' ? 'sister' : bt === 'father' ? 'brother' : 'sibling' },
+        typeMapper: (bt) => (bt === 'mother' ? 'sister' : bt === 'father' ? 'brother' : 'sibling'),
+      },
       // Via cousin → uncle/aunt (cousin's parent = node's uncle/aunt); gender-specific
-      { pivotTypes: ['cousin'],
+      {
+        pivotTypes: ['cousin'],
         bridgeTypes: ['parent', 'mother', 'father'],
-        typeMapper: bt => bt === 'mother' ? 'aunt' : bt === 'father' ? 'uncle' : 'uncle' },
+        typeMapper: (bt) => (bt === 'mother' ? 'aunt' : bt === 'father' ? 'uncle' : 'uncle'),
+      },
       // Via grandchild → child (grandchild's parent = node's child); gender-specific
-      { pivotTypes: ['grandson', 'granddaughter', 'grandchild'],
+      {
+        pivotTypes: ['grandson', 'granddaughter', 'grandchild'],
         bridgeTypes: ['parent', 'mother', 'father'],
-        typeMapper: bt => bt === 'mother' ? 'daughter' : bt === 'father' ? 'son' : 'child' },
+        typeMapper: (bt) => (bt === 'mother' ? 'daughter' : bt === 'father' ? 'son' : 'child'),
+      },
       // Via nephew/niece → nephew/niece's siblings are also my nephew/niece; gender-specific
-      { pivotTypes: ['nephew', 'niece', 'nephew/niece'],
+      {
+        pivotTypes: ['nephew', 'niece', 'nephew/niece'],
         bridgeTypes: ['sibling', 'brother', 'sister'],
-        typeMapper: bt => bt === 'brother' ? 'nephew' : bt === 'sister' ? 'niece' : 'nephew' },
+        typeMapper: (bt) => (bt === 'brother' ? 'nephew' : bt === 'sister' ? 'niece' : 'nephew'),
+      },
       // Via grandchild → grandchild's siblings are also my grandchild; gender-specific
-      { pivotTypes: ['grandson', 'granddaughter', 'grandchild'],
+      {
+        pivotTypes: ['grandson', 'granddaughter', 'grandchild'],
         bridgeTypes: ['sibling', 'brother', 'sister'],
-        typeMapper: bt => bt === 'brother' ? 'grandson' : bt === 'sister' ? 'granddaughter' : 'grandchild' },
+        typeMapper: (bt) =>
+          bt === 'brother' ? 'grandson' : bt === 'sister' ? 'granddaughter' : 'grandchild',
+      },
       // Via cousin → cousin's siblings are also my cousin
-      { pivotTypes: ['cousin'],
+      {
+        pivotTypes: ['cousin'],
         bridgeTypes: ['sibling', 'brother', 'sister'],
-        inferredType: 'cousin' },
+        inferredType: 'cousin',
+      },
     ];
 
     for (const rule of INWARD_TRANSITIONS) {
-      const pivotRels = (node.related || []).filter(r => rule.pivotTypes.includes(r.type));
+      const pivotRels = (node.related || []).filter((r) => rule.pivotTypes.includes(r.type));
       for (const pivotRel of pivotRels) {
         const pivotContact = this.builder.findContact(pivotRel.name);
         if (!pivotContact) continue;
         const pivotNode = this._node(pivotContact.id);
         if (!pivotNode) continue;
 
-        const bridgeRels = (pivotNode.related || []).filter(r => rule.bridgeTypes.includes(r.type));
+        const bridgeRels = (pivotNode.related || []).filter((r) =>
+          rule.bridgeTypes.includes(r.type),
+        );
         for (const bridgeRel of bridgeRels) {
           const thirdContact = this.builder.findContact(bridgeRel.name);
           if (!thirdContact) continue;
@@ -1819,10 +1987,10 @@ class ContactRelationshipApp {
 
           const inferredType = rule.typeMapper
             ? rule.typeMapper(bridgeRel.type)
-            : (rule.inferredType || bridgeRel.type);
+            : rule.inferredType || bridgeRel.type;
 
           // Skip if node already lists this person in any role
-          const alreadyHas = (node.related || []).some(r => {
+          const alreadyHas = (node.related || []).some((r) => {
             const rc = this.builder.findContact(r.name);
             if (!rc) return false;
             if (rc.id === thirdContact.id) return true;
@@ -1855,13 +2023,18 @@ class ContactRelationshipApp {
     // Find every contact that references this node, plus which rel entry points to it.
     // This avoids O(n) re-scans in both Type 4 and Type 5.
     const childRelTypes = new Set([
-      'son', 'daughter', 'child',
-      'stepson', 'stepdaughter', 'stepchild', 'step-child',
+      'son',
+      'daughter',
+      'child',
+      'stepson',
+      'stepdaughter',
+      'stepchild',
+      'step-child',
     ]);
     const inboundRefs = []; // { contact, rel } for all rels pointing at node
     for (const otherContact of this.contacts) {
       if (otherContact.id === node.id) continue;
-      for (const rel of (otherContact.related || [])) {
+      for (const rel of otherContact.related || []) {
         let points = rel.name.toLowerCase().trim() === node.name.toLowerCase().trim();
         if (!points) {
           const rc = this.builder.findContact(rel.name);
@@ -1879,25 +2052,26 @@ class ContactRelationshipApp {
       .filter(({ rel }) => childRelTypes.has(rel.type))
       .map(({ contact }) => contact);
     // Deduplicate (a parent might be found via multiple matching rel entries)
-    const uniqueParents = [...new Map(parentContacts.map(c => [c.id, c])).values()];
+    const uniqueParents = [...new Map(parentContacts.map((c) => [c.id, c])).values()];
 
     for (const otherContact of uniqueParents) {
       // otherContact is a parent — check their other children
-      for (const childRel of (otherContact.related || []).filter(r => childRelTypes.has(r.type))) {
+      for (const childRel of (otherContact.related || []).filter((r) =>
+        childRelTypes.has(r.type),
+      )) {
         const sibContact = this.builder.findContact(childRel.name);
         if (!sibContact) continue;
         if (sibContact.id === node.id) continue; // skip self
 
-        const alreadyHas = (node.related || []).some(r => {
+        const alreadyHas = (node.related || []).some((r) => {
           const rc = this.builder.findContact(r.name);
           if (rc && rc.id === sibContact.id) return true;
           return r.name.toLowerCase().trim() === sibContact.fn.toLowerCase().trim();
         });
         if (alreadyHas) continue;
 
-        const sibType = childRel.type === 'son' ? 'brother'
-                      : childRel.type === 'daughter' ? 'sister'
-                      : 'sibling';
+        const sibType =
+          childRel.type === 'son' ? 'brother' : childRel.type === 'daughter' ? 'sister' : 'sibling';
         const key = `${node.id}→${sibContact.fn}:${sibType}`;
         if (!seen.has(key) && !this._dismissedSuggestions.has(key)) {
           seen.add(key);
@@ -1919,7 +2093,7 @@ class ContactRelationshipApp {
     // relative but node doesn't list them back.
     for (const { contact: otherContact, rel } of inboundRefs) {
       // Does node already list otherContact back in any role?
-      const alreadyHas = (node.related || []).some(r => {
+      const alreadyHas = (node.related || []).some((r) => {
         const rc = this.builder.findContact(r.name);
         if (rc && rc.id === otherContact.id) return true;
         return r.name.toLowerCase().trim() === otherContact.fn.toLowerCase().trim();
@@ -1943,9 +2117,13 @@ class ContactRelationshipApp {
     }
 
     // ── Type 6: Likely-connections cluster peers ────────────────────────
-    if (this._graphMode === 'connections' || this._graphMode === 'likely-connections' || this._graphMode === 'likely-family') {
+    if (
+      this._graphMode === 'connections' ||
+      this._graphMode === 'likely-connections' ||
+      this._graphMode === 'likely-family'
+    ) {
       const clustered = new Map();
-      for (const e of (this.graphData.edges || [])) {
+      for (const e of this.graphData.edges || []) {
         if (!['likely-surname', 'likely-tag', 'likely-family'].includes(e.edgeKind)) continue;
         const s = typeof e.source === 'object' ? e.source.id : e.source;
         const t = typeof e.target === 'object' ? e.target.id : e.target;
@@ -1953,13 +2131,13 @@ class ContactRelationshipApp {
         const targetNode = this._node(t);
 
         if (sourceNode?.isGroupNode && t === node.id) {
-          for (const memberId of (sourceNode.memberIds || [])) {
+          for (const memberId of sourceNode.memberIds || []) {
             if (memberId === node.id) continue;
             if (!clustered.has(memberId)) clustered.set(memberId, []);
             clustered.get(memberId).push(sourceNode);
           }
         } else if (targetNode?.isGroupNode && s === node.id) {
-          for (const memberId of (targetNode.memberIds || [])) {
+          for (const memberId of targetNode.memberIds || []) {
             if (memberId === node.id) continue;
             if (!clustered.has(memberId)) clustered.set(memberId, []);
             clustered.get(memberId).push(targetNode);
@@ -1972,16 +2150,17 @@ class ContactRelationshipApp {
         if (otherNode?.isGroupNode) continue;
         if (!otherNode) continue;
 
-        const alreadyHas = (node.related || []).some(r => {
+        const alreadyHas = (node.related || []).some((r) => {
           const rc = this.builder.findContact(r.name);
           if (rc && rc.id === clusteredId) return true;
           return r.name.toLowerCase().trim() === otherNode.name.toLowerCase().trim();
         });
         if (alreadyHas) continue;
 
-        const reasonText = reasons.map(group => {
+        const reasonText = reasons.map((group) => {
           if (group.groupKind === 'likely-tag') return `shared hashtag ${group.name}`;
-          if (group.groupKind === 'likely-surname') return `shared surname "${group.name.replace(/ family$/i, '')}"`;
+          if (group.groupKind === 'likely-surname')
+            return `shared surname "${group.name.replace(/ family$/i, '')}"`;
           return group.name;
         });
         const uniqueReasons = Array.from(new Set(reasonText));
@@ -2052,13 +2231,17 @@ class ContactRelationshipApp {
       typeSelect.addEventListener('change', () => {
         const isCustom = typeSelect.value === '__custom__';
         suggCustomInput.style.display = isCustom ? 'inline-block' : 'none';
-        if (isCustom) { suggCustomInput.value = ''; suggCustomInput.focus(); }
+        if (isCustom) {
+          suggCustomInput.value = '';
+          suggCustomInput.focus();
+        }
       });
 
       item.querySelector('.s-add').addEventListener('click', () => {
-        let relType = typeSelect.value === '__custom__'
-          ? suggCustomInput.value.trim().toLowerCase()
-          : (typeSelect.value || s.relType);
+        let relType =
+          typeSelect.value === '__custom__'
+            ? suggCustomInput.value.trim().toLowerCase()
+            : typeSelect.value || s.relType;
         if (!relType || relType === '__custom__') return;
         s.relType = relType;
         this._applyRelationshipSuggestion(s, node);
@@ -2083,7 +2266,7 @@ class ContactRelationshipApp {
     }
 
     // Find highest item number already in use
-    const usedItems = [...contact.rawVCard.matchAll(/^item(\d+)\./gim)].map(m => parseInt(m[1]));
+    const usedItems = [...contact.rawVCard.matchAll(/^item(\d+)\./gim)].map((m) => parseInt(m[1]));
     const nextItem = usedItems.length > 0 ? Math.max(...usedItems) + 1 : 1;
 
     const label = this._typeToVCardLabel(suggestion.relType);
@@ -2108,39 +2291,64 @@ class ContactRelationshipApp {
     const refreshedNode = this._node(currentNode.id);
     if (refreshedNode) this._onNodeSelect(refreshedNode);
 
-    this._showToast(`Added ${this.builder._friendlyType(suggestion.relType)} to ${suggestion.targetName}'s card`, 'success');
+    this._showToast(
+      `Added ${this.builder._friendlyType(suggestion.relType)} to ${suggestion.targetName}'s card`,
+      'success',
+    );
   }
 
   _reciprocalType(type) {
     const map = {
       // Spouse
-      'spouse': 'spouse', 'husband': 'wife', 'wife': 'husband', 'partner': 'partner',
+      spouse: 'spouse',
+      husband: 'wife',
+      wife: 'husband',
+      partner: 'partner',
       // Professional / social
-      'friend': 'friend', 'colleague': 'colleague', 'neighbor': 'neighbor',
-      'manager': 'assistant', 'assistant': 'manager',
+      friend: 'friend',
+      colleague: 'colleague',
+      neighbor: 'neighbor',
+      manager: 'assistant',
+      assistant: 'manager',
       // Parent → child (generic; caller can refine with gender)
-      'mother': 'child', 'father': 'child', 'parent': 'child',
+      mother: 'child',
+      father: 'child',
+      parent: 'child',
       // Child → parent (generic)
-      'son': 'parent', 'daughter': 'parent', 'child': 'parent',
+      son: 'parent',
+      daughter: 'parent',
+      child: 'parent',
       // Step-parent → step-child (generic)
-      'stepmother': 'stepchild', 'stepfather': 'stepchild', 'stepparent': 'stepchild',
+      stepmother: 'stepchild',
+      stepfather: 'stepchild',
+      stepparent: 'stepchild',
       'step-parent': 'stepchild',
       // Step-child → step-parent (generic)
-      'stepson': 'stepparent', 'stepdaughter': 'stepparent', 'stepchild': 'stepparent',
+      stepson: 'stepparent',
+      stepdaughter: 'stepparent',
+      stepchild: 'stepparent',
       'step-child': 'stepparent',
       // Sibling
-      'brother': 'sibling', 'sister': 'sibling', 'sibling': 'sibling',
+      brother: 'sibling',
+      sister: 'sibling',
+      sibling: 'sibling',
       // Grandparent → grandchild (generic)
-      'grandmother': 'grandchild', 'grandfather': 'grandchild', 'grandparent': 'grandchild',
+      grandmother: 'grandchild',
+      grandfather: 'grandchild',
+      grandparent: 'grandchild',
       // Grandchild → grandparent (generic)
-      'grandson': 'grandparent', 'granddaughter': 'grandparent', 'grandchild': 'grandparent',
+      grandson: 'grandparent',
+      granddaughter: 'grandparent',
+      grandchild: 'grandparent',
       // Uncle/Aunt — best-guess gendered reciprocals
-      'uncle': 'nephew', 'aunt': 'niece',
+      uncle: 'nephew',
+      aunt: 'niece',
       'uncle/aunt': 'nephew/niece',
       // Nephew/Niece — best-guess gendered reciprocals
-      'nephew': 'uncle', 'niece': 'aunt',
+      nephew: 'uncle',
+      niece: 'aunt',
       'nephew/niece': 'uncle/aunt',
-      'cousin': 'cousin',
+      cousin: 'cousin',
     };
     return map[type] || type;
   }
@@ -2153,14 +2361,14 @@ class ContactRelationshipApp {
    */
   _isReciprocalDowngrade(candidate, existing) {
     const groups = {
-      'parent':      ['mother', 'father'],
-      'child':       ['son', 'daughter'],
-      'spouse':      ['husband', 'wife'],
-      'sibling':     ['brother', 'sister'],
-      'stepparent':  ['stepmother', 'stepfather'],
-      'stepchild':   ['stepson', 'stepdaughter'],
-      'grandparent': ['grandmother', 'grandfather'],
-      'grandchild':  ['grandson', 'granddaughter'],
+      parent: ['mother', 'father'],
+      child: ['son', 'daughter'],
+      spouse: ['husband', 'wife'],
+      sibling: ['brother', 'sister'],
+      stepparent: ['stepmother', 'stepfather'],
+      stepchild: ['stepson', 'stepdaughter'],
+      grandparent: ['grandmother', 'grandfather'],
+      grandchild: ['grandson', 'granddaughter'],
     };
     const specifics = groups[candidate];
     return !!(specifics && specifics.includes(existing));
@@ -2168,21 +2376,45 @@ class ContactRelationshipApp {
 
   _typeToVCardLabel(type) {
     const map = {
-      'spouse': 'Spouse', 'husband': 'Husband', 'wife': 'Wife', 'partner': 'Partner',
-      'mother': 'Mother', 'father': 'Father', 'parent': 'Parent',
-      'stepmother': 'Stepmother', 'stepfather': 'Stepfather', 'stepparent': 'Stepparent',
+      spouse: 'Spouse',
+      husband: 'Husband',
+      wife: 'Wife',
+      partner: 'Partner',
+      mother: 'Mother',
+      father: 'Father',
+      parent: 'Parent',
+      stepmother: 'Stepmother',
+      stepfather: 'Stepfather',
+      stepparent: 'Stepparent',
       'step-parent': 'Stepparent',
-      'son': 'Son', 'daughter': 'Daughter', 'child': 'Child',
-      'stepson': 'Stepson', 'stepdaughter': 'Stepdaughter', 'stepchild': 'Stepchild',
+      son: 'Son',
+      daughter: 'Daughter',
+      child: 'Child',
+      stepson: 'Stepson',
+      stepdaughter: 'Stepdaughter',
+      stepchild: 'Stepchild',
       'step-child': 'Stepchild',
-      'brother': 'Brother', 'sister': 'Sister', 'sibling': 'Sibling',
-      'grandmother': 'Grandmother', 'grandfather': 'Grandfather', 'grandparent': 'Grandparent',
-      'grandson': 'Grandson', 'granddaughter': 'Granddaughter', 'grandchild': 'Grandchild',
-      'uncle': 'Uncle', 'aunt': 'Aunt', 'uncle/aunt': 'Uncle',
-      'nephew': 'Nephew', 'niece': 'Niece', 'nephew/niece': 'Nephew',
-      'cousin': 'Cousin', 'friend': 'Friend',
-      'colleague': 'Colleague', 'manager': 'Manager',
-      'assistant': 'Assistant', 'neighbor': 'Neighbor',
+      brother: 'Brother',
+      sister: 'Sister',
+      sibling: 'Sibling',
+      grandmother: 'Grandmother',
+      grandfather: 'Grandfather',
+      grandparent: 'Grandparent',
+      grandson: 'Grandson',
+      granddaughter: 'Granddaughter',
+      grandchild: 'Grandchild',
+      uncle: 'Uncle',
+      aunt: 'Aunt',
+      'uncle/aunt': 'Uncle',
+      nephew: 'Nephew',
+      niece: 'Niece',
+      'nephew/niece': 'Nephew',
+      cousin: 'Cousin',
+      friend: 'Friend',
+      colleague: 'Colleague',
+      manager: 'Manager',
+      assistant: 'Assistant',
+      neighbor: 'Neighbor',
     };
     const label = map[type] || type.charAt(0).toUpperCase() + type.slice(1);
     return `_$!<${label}>!$_`;
@@ -2190,17 +2422,45 @@ class ContactRelationshipApp {
 
   _isKnownRelationshipType(type) {
     return new Set([
-      'spouse', 'husband', 'wife', 'partner',
-      'mother', 'father', 'parent',
-      'stepmother', 'stepfather', 'stepparent', 'step-parent',
-      'son', 'daughter', 'child',
-      'stepson', 'stepdaughter', 'stepchild', 'step-child',
-      'brother', 'sister', 'sibling',
-      'grandmother', 'grandfather', 'grandparent',
-      'grandson', 'granddaughter', 'grandchild',
-      'uncle', 'aunt', 'uncle/aunt',
-      'nephew', 'niece', 'nephew/niece',
-      'cousin', 'friend', 'colleague', 'manager', 'assistant', 'neighbor',
+      'spouse',
+      'husband',
+      'wife',
+      'partner',
+      'mother',
+      'father',
+      'parent',
+      'stepmother',
+      'stepfather',
+      'stepparent',
+      'step-parent',
+      'son',
+      'daughter',
+      'child',
+      'stepson',
+      'stepdaughter',
+      'stepchild',
+      'step-child',
+      'brother',
+      'sister',
+      'sibling',
+      'grandmother',
+      'grandfather',
+      'grandparent',
+      'grandson',
+      'granddaughter',
+      'grandchild',
+      'uncle',
+      'aunt',
+      'uncle/aunt',
+      'nephew',
+      'niece',
+      'nephew/niece',
+      'cousin',
+      'friend',
+      'colleague',
+      'manager',
+      'assistant',
+      'neighbor',
     ]).has(String(type || '').toLowerCase());
   }
 
@@ -2267,7 +2527,7 @@ class ContactRelationshipApp {
     const prefixRe = new RegExp(`^${this._escapeRegExp(prefix)}\\..*$`, 'i');
     return VCardUtils.unfold(rawVCard)
       .split(/\r\n|\n/)
-      .filter(line => !prefixRe.test(line))
+      .filter((line) => !prefixRe.test(line))
       .join('\r\n');
   }
 
@@ -2288,19 +2548,32 @@ class ContactRelationshipApp {
     const prefixEsc = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const propEsc = propName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const pattern = new RegExp(`^${prefixEsc}\\.${propEsc}(?:;[^:]*)?:.*$`, 'im');
-    return VCardUtils.unfold(rawVCard).replace(pattern, this._joinVCardLines([`${prefix}.${propName}:${newValue}`]));
+    return VCardUtils.unfold(rawVCard).replace(
+      pattern,
+      this._joinVCardLines([`${prefix}.${propName}:${newValue}`]),
+    );
   }
 
   _syncDetailEditButtons(node, hasContact, isEditing) {
     const isVirtual = !!node?.isVirtual;
     const isGroup = !!node?.isGroupNode;
-    document.getElementById('btn-create-contact').classList.toggle('hidden', !isVirtual || isEditing);
-    document.getElementById('btn-edit-contact').classList.toggle('hidden', !hasContact || isEditing || isVirtual || isGroup);
+    document
+      .getElementById('btn-create-contact')
+      .classList.toggle('hidden', !isVirtual || isEditing);
+    document
+      .getElementById('btn-edit-contact')
+      .classList.toggle('hidden', !hasContact || isEditing || isVirtual || isGroup);
     document.getElementById('btn-save-contact').classList.toggle('hidden', !isEditing);
     document.getElementById('btn-cancel-edit').classList.toggle('hidden', !isEditing);
-    document.getElementById('btn-delete-contact').classList.toggle('hidden', isEditing || !hasContact || isVirtual || isGroup);
-    document.getElementById('btn-add-rel').classList.toggle('hidden', isEditing || !hasContact || isVirtual || isGroup);
-    document.getElementById('btn-export-contact').classList.toggle('hidden', isEditing || !hasContact || isVirtual || isGroup);
+    document
+      .getElementById('btn-delete-contact')
+      .classList.toggle('hidden', isEditing || !hasContact || isVirtual || isGroup);
+    document
+      .getElementById('btn-add-rel')
+      .classList.toggle('hidden', isEditing || !hasContact || isVirtual || isGroup);
+    document
+      .getElementById('btn-export-contact')
+      .classList.toggle('hidden', isEditing || !hasContact || isVirtual || isGroup);
   }
 
   _createContactFromVirtual() {
@@ -2364,49 +2637,72 @@ class ContactRelationshipApp {
     contactInfo.innerHTML = '';
 
     contactInfo.appendChild(this._detailRow('👤', this._escapeHtml(node.name), 'Full Name'));
-    if (node.org) contactInfo.appendChild(this._detailRow('🏢', this._escapeHtml(node.org), 'Organization'));
-    if (node.title) contactInfo.appendChild(this._detailRow('💼', this._escapeHtml(node.title), 'Title'));
+    if (node.org)
+      contactInfo.appendChild(this._detailRow('🏢', this._escapeHtml(node.org), 'Organization'));
+    if (node.title)
+      contactInfo.appendChild(this._detailRow('💼', this._escapeHtml(node.title), 'Title'));
 
-    for (const email of (node.emails || [])) {
+    for (const email of node.emails || []) {
       const emailValue = String(email.value || '').replace(/[\r\n]/g, '');
-      const row = this._detailRow('✉', `<a href="mailto:${this._escapeHtml(emailValue)}">${this._escapeHtml(emailValue)}</a>`,
-        email.types.filter(t => !['INTERNET','PREF'].includes(t)).join(', ') || 'Email');
+      const row = this._detailRow(
+        '✉',
+        `<a href="mailto:${this._escapeHtml(emailValue)}">${this._escapeHtml(emailValue)}</a>`,
+        email.types.filter((t) => !['INTERNET', 'PREF'].includes(t)).join(', ') || 'Email',
+      );
       contactInfo.appendChild(row);
     }
 
-    for (const phone of (node.phones || [])) {
-      const row = this._detailRow('📞', this._escapeHtml(phone.value),
-        phone.types.filter(t => !['VOICE','PREF'].includes(t)).join(', ') || 'Phone');
+    for (const phone of node.phones || []) {
+      const row = this._detailRow(
+        '📞',
+        this._escapeHtml(phone.value),
+        phone.types.filter((t) => !['VOICE', 'PREF'].includes(t)).join(', ') || 'Phone',
+      );
       contactInfo.appendChild(row);
     }
 
-    for (const address of (node.addresses || [])) {
+    for (const address of node.addresses || []) {
       const lines = [
         address.street,
         [address.city, address.state, address.zip].filter(Boolean).join(', '),
         address.country,
       ].filter(Boolean);
-      const html = `<div class="address-lines">${lines.map(line => `<div>${this._escapeHtml(line)}</div>`).join('')}</div>`;
-      contactInfo.appendChild(this._detailRow('📍', html, this._visibleTypes('address', address.types || []).join(', ') || 'Address'));
+      const html = `<div class="address-lines">${lines.map((line) => `<div>${this._escapeHtml(line)}</div>`).join('')}</div>`;
+      contactInfo.appendChild(
+        this._detailRow(
+          '📍',
+          html,
+          this._visibleTypes('address', address.types || []).join(', ') || 'Address',
+        ),
+      );
     }
 
-    for (const urlEntry of (node.urls || [])) {
+    for (const urlEntry of node.urls || []) {
       const urlValue = typeof urlEntry === 'string' ? urlEntry : urlEntry.value;
       if (!urlValue) continue;
       const safeUrl = this._escapeHtml(urlValue);
       const safeHref = this._safeExternalHref(urlValue);
-      const types = typeof urlEntry === 'string' ? [] : this._visibleTypes('url', urlEntry.types || []);
+      const types =
+        typeof urlEntry === 'string' ? [] : this._visibleTypes('url', urlEntry.types || []);
       contactInfo.appendChild(
         this._detailRow(
           '🔗',
-          safeHref ? `<a href="${this._escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>` : safeUrl,
-          types.join(', ') || 'Website'
-        )
+          safeHref
+            ? `<a href="${this._escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`
+            : safeUrl,
+          types.join(', ') || 'Website',
+        ),
       );
     }
 
-    if (node.birthday) contactInfo.appendChild(this._detailRow('🎂', this._formatBirthday(node.birthday), 'Birthday'));
-    if (node.anniversary) contactInfo.appendChild(this._detailRow('💍', this._formatDateWithYears(node.anniversary), 'Anniversary'));
+    if (node.birthday)
+      contactInfo.appendChild(
+        this._detailRow('🎂', this._formatBirthday(node.birthday), 'Birthday'),
+      );
+    if (node.anniversary)
+      contactInfo.appendChild(
+        this._detailRow('💍', this._formatDateWithYears(node.anniversary), 'Anniversary'),
+      );
     this._renderReadOnlyCustomFields(contactInfo, node);
   }
 
@@ -2420,11 +2716,13 @@ class ContactRelationshipApp {
 
     for (const [key, rawField] of entries) {
       const field = this._normalizeCustomField(rawField);
-      container.appendChild(this._detailRow(
-        '◆',
-        this._escapeHtml(this._customFieldDisplayValue(field)),
-        `Custom: ${this._customFieldLabel(key)}`
-      ));
+      container.appendChild(
+        this._detailRow(
+          '◆',
+          this._escapeHtml(this._customFieldDisplayValue(field)),
+          `Custom: ${this._customFieldLabel(key)}`,
+        ),
+      );
     }
   }
 
@@ -2436,19 +2734,38 @@ class ContactRelationshipApp {
     grid.appendChild(this._editPhotoField(contact));
     grid.appendChild(this._editField('Display Name', 'edit-fn', contact.fn || ''));
     grid.appendChild(this._editField('First Name', 'edit-name-given', contact.name?.given || ''));
-    grid.appendChild(this._editField('Middle Name', 'edit-name-additional', contact.name?.additional || ''));
+    grid.appendChild(
+      this._editField('Middle Name', 'edit-name-additional', contact.name?.additional || ''),
+    );
     grid.appendChild(this._editField('Last Name', 'edit-name-family', contact.name?.family || ''));
     grid.appendChild(this._editField('Prefix', 'edit-name-prefix', contact.name?.prefix || ''));
     grid.appendChild(this._editField('Suffix', 'edit-name-suffix', contact.name?.suffix || ''));
-    grid.appendChild(this._editCheckboxField('Treat as Company', 'edit-is-company', !!contact.isCompany, 'Export as X-ABSHOWAS: COMPANY'));
+    grid.appendChild(
+      this._editCheckboxField(
+        'Treat as Company',
+        'edit-is-company',
+        !!contact.isCompany,
+        'Export as X-ABSHOWAS: COMPANY',
+      ),
+    );
     grid.appendChild(this._editField('Organization', 'edit-org', contact.org || ''));
     grid.appendChild(this._editField('Title', 'edit-title', contact.title || ''));
     grid.appendChild(this._editField('Birthday', 'edit-bday', contact.birthday || '', 'date'));
-    grid.appendChild(this._editField('Anniversary', 'edit-anniversary', contact.anniversary || '', 'date'));
-    grid.appendChild(this._editCollectionField('Emails', 'email', contact.emails || [], entry => entry.value));
-    grid.appendChild(this._editCollectionField('Phones', 'phone', contact.phones || [], entry => entry.value));
+    grid.appendChild(
+      this._editField('Anniversary', 'edit-anniversary', contact.anniversary || '', 'date'),
+    );
+    grid.appendChild(
+      this._editCollectionField('Emails', 'email', contact.emails || [], (entry) => entry.value),
+    );
+    grid.appendChild(
+      this._editCollectionField('Phones', 'phone', contact.phones || [], (entry) => entry.value),
+    );
     grid.appendChild(this._editAddressField(contact.addresses || []));
-    grid.appendChild(this._editCollectionField('Websites', 'url', contact.urls || [], entry => typeof entry === 'string' ? entry : entry.value));
+    grid.appendChild(
+      this._editCollectionField('Websites', 'url', contact.urls || [], (entry) =>
+        typeof entry === 'string' ? entry : entry.value,
+      ),
+    );
     grid.appendChild(this._editCustomFields(contact.customFields || contact.record?.fields || {}));
 
     contactInfo.appendChild(grid);
@@ -2607,7 +2924,12 @@ class ContactRelationshipApp {
 
       const typeState = this._typeSelectionState(kind, entry?.types || []);
       const typeSelect = this._typeSelect(kind, typeState.selected);
-      const typeInput = this._customTypeInput(kind, 'types-custom', typeState.customValue, typeState.selected === 'custom');
+      const typeInput = this._customTypeInput(
+        kind,
+        'types-custom',
+        typeState.customValue,
+        typeState.selected === 'custom',
+      );
       this._bindTypeEditor(typeSelect, typeInput);
       const preferred = this._preferredRadio(kind, this._isPreferred(entry?.types || []));
 
@@ -2723,7 +3045,14 @@ class ContactRelationshipApp {
       input.checked = field.value === true;
       return input;
     }
-    input.type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'color' ? 'color' : 'text';
+    input.type =
+      field.type === 'number'
+        ? 'number'
+        : field.type === 'date'
+          ? 'date'
+          : field.type === 'color'
+            ? 'color'
+            : 'text';
     input.value = field.value == null ? '' : String(field.value);
     return input;
   }
@@ -2782,7 +3111,12 @@ class ContactRelationshipApp {
       const country = this._addressInput('Country', 'country', address?.country || '');
       const typeState = this._typeSelectionState('address', address?.types || []);
       const typeSelect = this._typeSelect('address', typeState.selected, 'addr-type-select');
-      const typeInput = this._customTypeInput('address', 'types', typeState.customValue, typeState.selected === 'custom');
+      const typeInput = this._customTypeInput(
+        'address',
+        'types',
+        typeState.customValue,
+        typeState.selected === 'custom',
+      );
       this._bindTypeEditor(typeSelect, typeInput);
 
       const metaRow = document.createElement('div');
@@ -2857,11 +3191,22 @@ class ContactRelationshipApp {
       contact.photo = document.getElementById('edit-photo-data')?.value || null;
     }
     contact.notes = this._splitNotes(document.getElementById('edit-notes')?.value || '');
-    contact.emails = this._collectEditedCollection('email').map(entry => ({ value: entry.value, types: entry.types }));
-    contact.phones = this._collectEditedCollection('phone').map(entry => ({ value: entry.value, types: entry.types }));
-    contact.urls = this._collectEditedCollection('url').map(entry => ({ value: entry.value, types: entry.types }));
+    contact.emails = this._collectEditedCollection('email').map((entry) => ({
+      value: entry.value,
+      types: entry.types,
+    }));
+    contact.phones = this._collectEditedCollection('phone').map((entry) => ({
+      value: entry.value,
+      types: entry.types,
+    }));
+    contact.urls = this._collectEditedCollection('url').map((entry) => ({
+      value: entry.value,
+      types: entry.types,
+    }));
     contact.addresses = this._collectEditedAddresses();
-    contact.customFields = this._collectEditedCustomFields(contact.customFields || contact.record?.fields || {});
+    contact.customFields = this._collectEditedCustomFields(
+      contact.customFields || contact.record?.fields || {},
+    );
     contact.noteTags = this.parser._extractHashtags(contact.notes);
     contact.tags = this.parser._inferTags(contact);
     this._rewriteEditableFields(contact);
@@ -2878,7 +3223,7 @@ class ContactRelationshipApp {
 
   _collectEditedCollection(kind) {
     const entries = [...document.querySelectorAll(`.detail-edit-item[data-kind="${kind}"]`)]
-      .map(item => {
+      .map((item) => {
         const valueInput = item.querySelector('input[data-role="value"]');
         const typesInput = item.querySelector('input[data-role="types-custom"]');
         return {
@@ -2887,20 +3232,21 @@ class ContactRelationshipApp {
             kind,
             this._selectedTypesFromEditor(
               kind,
-              item.querySelector('select[data-role="types-select"]')?.value || this._defaultTypeOption(kind),
-              typesInput?.value || ''
+              item.querySelector('select[data-role="types-select"]')?.value ||
+                this._defaultTypeOption(kind),
+              typesInput?.value || '',
             ),
-            !!item.querySelector('input[data-role="preferred"]')?.checked
+            !!item.querySelector('input[data-role="preferred"]')?.checked,
           ),
         };
       })
-      .filter(entry => entry.value);
+      .filter((entry) => entry.value);
     return this._ensureSinglePreferred(entries, kind);
   }
 
   _collectEditedAddresses() {
     const entries = [...document.querySelectorAll('.detail-edit-item[data-kind="address"]')]
-      .map(item => {
+      .map((item) => {
         const street = item.querySelector('[data-addr="street"]');
         if (!street) return null;
         return {
@@ -2915,20 +3261,25 @@ class ContactRelationshipApp {
             'address',
             this._selectedTypesFromEditor(
               'address',
-              item.querySelector('select[data-addr="type-select"]')?.value || this._defaultTypeOption('address'),
-              item.querySelector('[data-addr="types"]')?.value || ''
+              item.querySelector('select[data-addr="type-select"]')?.value ||
+                this._defaultTypeOption('address'),
+              item.querySelector('[data-addr="types"]')?.value || '',
             ),
-            !!item.querySelector('input[data-role="preferred"]')?.checked
+            !!item.querySelector('input[data-role="preferred"]')?.checked,
           ),
         };
       })
-      .filter(addr => addr && (addr.street || addr.city || addr.state || addr.zip || addr.country));
+      .filter(
+        (addr) => addr && (addr.street || addr.city || addr.state || addr.zip || addr.country),
+      );
     return this._ensureSinglePreferred(entries, 'address');
   }
 
   _collectEditedCustomFields(existingFields = {}) {
     const fields = JSON.parse(JSON.stringify(existingFields || {}));
-    for (const item of [...document.querySelectorAll('.detail-edit-item[data-kind="custom-field"]')]) {
+    for (const item of [
+      ...document.querySelectorAll('.detail-edit-item[data-kind="custom-field"]'),
+    ]) {
       const key = item.dataset.fieldKey;
       if (!key || !fields[key]) continue;
       const field = this._normalizeCustomField(fields[key]);
@@ -2936,7 +3287,7 @@ class ContactRelationshipApp {
         fields[key] = {
           ...field,
           value: [...item.querySelectorAll('input[data-role="custom-list-value"]')]
-            .map(input => input.value.trim())
+            .map((input) => input.value.trim())
             .filter(Boolean),
         };
       } else if (this._isEditableCustomScalar(field)) {
@@ -2954,7 +3305,7 @@ class ContactRelationshipApp {
   _splitNotes(text) {
     return text
       .split(/\n{2,}/)
-      .map(part => part.trim())
+      .map((part) => part.trim())
       .filter(Boolean);
   }
 
@@ -2992,9 +3343,18 @@ class ContactRelationshipApp {
 
     for (const line of lines) {
       if (!line) continue;
-      if (/^BEGIN:VCARD/i.test(line)) { begin = line; continue; }
-      if (/^END:VCARD/i.test(line)) { end = line; continue; }
-      if (/^VERSION:/i.test(line)) { version = line; continue; }
+      if (/^BEGIN:VCARD/i.test(line)) {
+        begin = line;
+        continue;
+      }
+      if (/^END:VCARD/i.test(line)) {
+        end = line;
+        continue;
+      }
+      if (/^VERSION:/i.test(line)) {
+        version = line;
+        continue;
+      }
 
       const itemMatch = line.match(/^(item\d+)\./i);
       if (itemMatch) {
@@ -3006,18 +3366,37 @@ class ContactRelationshipApp {
       }
 
       const prop = line.split(':', 1)[0].split(';', 1)[0].toUpperCase();
-      if (['FN', 'N', 'ORG', 'TITLE', 'EMAIL', 'TEL', 'ADR', 'BDAY', 'NOTE', 'URL', 'PHOTO', 'X-ABSHOWAS'].includes(prop)) continue;
+      if (
+        [
+          'FN',
+          'N',
+          'ORG',
+          'TITLE',
+          'EMAIL',
+          'TEL',
+          'ADR',
+          'BDAY',
+          'NOTE',
+          'URL',
+          'PHOTO',
+          'X-ABSHOWAS',
+        ].includes(prop)
+      )
+        continue;
       keptSimple.push(line);
     }
 
     const keptItemLines = [];
     for (const groupLines of itemGroups.values()) {
-      const props = new Set(groupLines.map(line => {
-        const lhs = line.split(':', 1)[0];
-        const m = lhs.match(/^item\d+\.(.+)$/i);
-        return m ? m[1].split(';', 1)[0].toUpperCase() : '';
-      }));
-      const editableContactGroup = props.has('EMAIL') || props.has('TEL') || props.has('ADR') || props.has('URL');
+      const props = new Set(
+        groupLines.map((line) => {
+          const lhs = line.split(':', 1)[0];
+          const m = lhs.match(/^item\d+\.(.+)$/i);
+          return m ? m[1].split(';', 1)[0].toUpperCase() : '';
+        }),
+      );
+      const editableContactGroup =
+        props.has('EMAIL') || props.has('TEL') || props.has('ADR') || props.has('URL');
       const anniversaryGroup = props.has('X-ABDATE') && this._isAnniversaryItemGroup(groupLines);
       if ((!editableContactGroup && !anniversaryGroup) || props.has('X-ABRELATEDNAMES')) {
         keptItemLines.push(...groupLines);
@@ -3027,29 +3406,35 @@ class ContactRelationshipApp {
     const generated = [];
     const name = contact.name || this._namePartsFromDisplayName(contact.fn || '');
     generated.push(`FN:${this._vCardEscape(contact.fn || '')}`);
-    generated.push(`N:${this._vCardEscape(name.family || '')};${this._vCardEscape(name.given || '')};${this._vCardEscape(name.additional || '')};${this._vCardEscape(name.prefix || '')};${this._vCardEscape(name.suffix || '')}`);
+    generated.push(
+      `N:${this._vCardEscape(name.family || '')};${this._vCardEscape(name.given || '')};${this._vCardEscape(name.additional || '')};${this._vCardEscape(name.prefix || '')};${this._vCardEscape(name.suffix || '')}`,
+    );
     if (contact.isCompany) generated.push('X-ABSHOWAS:COMPANY');
     if (contact.org) generated.push(`ORG:${this._vCardEscape(contact.org)}`);
     if (contact.title) generated.push(`TITLE:${this._vCardEscape(contact.title)}`);
     generated.push(...this._photoLines(contact.photo));
-    for (const email of (contact.emails || [])) {
-      generated.push(`EMAIL${this._buildTypeParams(email.types)}:${this._vCardEscape(email.value)}`);
+    for (const email of contact.emails || []) {
+      generated.push(
+        `EMAIL${this._buildTypeParams(email.types)}:${this._vCardEscape(email.value)}`,
+      );
     }
-    for (const phone of (contact.phones || [])) {
+    for (const phone of contact.phones || []) {
       generated.push(`TEL${this._buildTypeParams(phone.types)}:${this._vCardEscape(phone.value)}`);
     }
-    for (const address of (contact.addresses || [])) {
+    for (const address of contact.addresses || []) {
       const params = this._buildTypeParams(address.types);
-      generated.push(`ADR${params}:;;${this._vCardEscape(address.street || '')};${this._vCardEscape(address.city || '')};${this._vCardEscape(address.state || '')};${this._vCardEscape(address.zip || '')};${this._vCardEscape(address.country || '')}`);
+      generated.push(
+        `ADR${params}:;;${this._vCardEscape(address.street || '')};${this._vCardEscape(address.city || '')};${this._vCardEscape(address.state || '')};${this._vCardEscape(address.zip || '')};${this._vCardEscape(address.country || '')}`,
+      );
     }
-    for (const urlEntry of (contact.urls || [])) {
+    for (const urlEntry of contact.urls || []) {
       const urlValue = typeof urlEntry === 'string' ? urlEntry : urlEntry.value;
-      const urlTypes = typeof urlEntry === 'string' ? [] : (urlEntry.types || []);
+      const urlTypes = typeof urlEntry === 'string' ? [] : urlEntry.types || [];
       if (!urlValue) continue;
       generated.push(`URL${this._buildTypeParams(urlTypes)}:${this._vCardEscape(urlValue)}`);
     }
     if (contact.birthday) generated.push(`BDAY:${contact.birthday}`);
-    for (const note of (contact.notes || [])) {
+    for (const note of contact.notes || []) {
       generated.push(`NOTE:${this._vCardEscape(note)}`);
     }
     if (contact.anniversary) {
@@ -3071,13 +3456,11 @@ class ContactRelationshipApp {
 
   _composeDisplayName(name) {
     if (!name) return '';
-    return [
-      name.prefix,
-      name.given,
-      name.additional,
-      name.family,
-      name.suffix,
-    ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    return [name.prefix, name.given, name.additional, name.family, name.suffix]
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   _isAnniversaryItemGroup(groupLines) {
@@ -3096,7 +3479,13 @@ class ContactRelationshipApp {
   }
 
   _normalizeCustomField(field) {
-    if (field && typeof field === 'object' && !Array.isArray(field) && 'type' in field && 'value' in field) {
+    if (
+      field &&
+      typeof field === 'object' &&
+      !Array.isArray(field) &&
+      'type' in field &&
+      'value' in field
+    ) {
       return field;
     }
     return { type: this._customFieldType(field), value: field };
@@ -3110,25 +3499,32 @@ class ContactRelationshipApp {
   }
 
   _customFieldLabel(key) {
-    return String(key || '')
-      .replace(/[_-]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .replace(/\b\w/g, ch => ch.toUpperCase()) || 'Custom Field';
+    return (
+      String(key || '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, (ch) => ch.toUpperCase()) || 'Custom Field'
+    );
   }
 
   _customFieldDisplayValue(fieldInput) {
     const field = this._normalizeCustomField(fieldInput);
     if (field.value == null) return '';
-    if (Array.isArray(field.value)) return field.value.map(value => this._customFieldDisplayValue(value)).join(', ');
+    if (Array.isArray(field.value))
+      return field.value.map((value) => this._customFieldDisplayValue(value)).join(', ');
     if (typeof field.value === 'object') return JSON.stringify(field.value, null, 2);
     if (typeof field.value === 'boolean') return field.value ? 'Yes' : 'No';
     return String(field.value);
   }
 
   _isEditableCustomScalar(field) {
-    return ['string', 'number', 'boolean', 'date', 'color', 'markdown', 'unknown'].includes(field.type || 'unknown')
-      && (field.value == null || typeof field.value !== 'object');
+    return (
+      ['string', 'number', 'boolean', 'date', 'color', 'markdown', 'unknown'].includes(
+        field.type || 'unknown',
+      ) &&
+      (field.value == null || typeof field.value !== 'object')
+    );
   }
 
   _coerceCustomScalarValue(input, type) {
@@ -3138,7 +3534,10 @@ class ContactRelationshipApp {
   }
 
   _namePartsFromDisplayName(displayName) {
-    const parts = String(displayName || '').trim().split(/\s+/).filter(Boolean);
+    const parts = String(displayName || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
     if (parts.length === 0) {
       return { family: '', given: '', additional: '', prefix: '', suffix: '' };
     }
@@ -3236,7 +3635,7 @@ class ContactRelationshipApp {
 
   _visibleTypes(kind, types = []) {
     const hidden = new Set(this._hiddenTypes(kind));
-    return (types || []).filter(type => !hidden.has(String(type || '').toUpperCase()));
+    return (types || []).filter((type) => !hidden.has(String(type || '').toUpperCase()));
   }
 
   _typeSelectionState(kind, types = []) {
@@ -3261,9 +3660,12 @@ class ContactRelationshipApp {
     if (selectedValue === 'custom') {
       return String(customValue || '')
         .split(',')
-        .map(type => type.trim())
+        .map((type) => type.trim())
         .filter(Boolean)
-        .filter((type, index, arr) => arr.findIndex(other => other.toLowerCase() === type.toLowerCase()) === index);
+        .filter(
+          (type, index, arr) =>
+            arr.findIndex((other) => other.toLowerCase() === type.toLowerCase()) === index,
+        );
     }
     return selectedValue ? [selectedValue] : [this._defaultTypeOption(kind)];
   }
@@ -3305,7 +3707,7 @@ class ContactRelationshipApp {
   }
 
   _isPreferred(types = []) {
-    return (types || []).some(type => String(type || '').toUpperCase() === 'PREF');
+    return (types || []).some((type) => String(type || '').toUpperCase() === 'PREF');
   }
 
   _normalizeStoredTypes(kind, visibleTypes = [], preferred = false) {
@@ -3316,11 +3718,18 @@ class ContactRelationshipApp {
     ];
 
     return allTypes
-      .map(type => String(type || '').trim())
+      .map((type) => String(type || '').trim())
       .filter(Boolean)
       .filter((type, index, arr) => {
         const upper = type.toUpperCase();
-        return arr.findIndex(other => String(other || '').trim().toUpperCase() === upper) === index;
+        return (
+          arr.findIndex(
+            (other) =>
+              String(other || '')
+                .trim()
+                .toUpperCase() === upper,
+          ) === index
+        );
       });
   }
 
@@ -3335,7 +3744,7 @@ class ContactRelationshipApp {
         continue;
       }
       if (isPreferred && preferredFound) {
-        entry.types = entry.types.filter(type => String(type || '').toUpperCase() !== 'PREF');
+        entry.types = entry.types.filter((type) => String(type || '').toUpperCase() !== 'PREF');
       }
     }
 
@@ -3343,7 +3752,7 @@ class ContactRelationshipApp {
       entries[0].types = this._normalizeStoredTypes(
         kind,
         this._visibleTypes(kind, entries[0].types),
-        true
+        true,
       );
     }
 
@@ -3355,35 +3764,86 @@ class ContactRelationshipApp {
   /** Returns <option> HTML for all known relationship types, with selectedType pre-selected. */
   _relTypeOptionsHtml(selectedType) {
     const groups = [
-      { label: 'Spouse / Partner', opts: [
-        ['husband','Husband'], ['wife','Wife'], ['spouse','Spouse (generic)'], ['partner','Partner'],
-      ]},
-      { label: 'Parents', opts: [
-        ['mother','Mother'], ['father','Father'], ['parent','Parent (generic)'],
-        ['stepmother','Stepmother'], ['stepfather','Stepfather'], ['stepparent','Stepparent (generic)'],
-      ]},
-      { label: 'Children', opts: [
-        ['son','Son'], ['daughter','Daughter'], ['child','Child (generic)'],
-        ['stepson','Stepson'], ['stepdaughter','Stepdaughter'], ['stepchild','Stepchild (generic)'],
-      ]},
-      { label: 'Siblings', opts: [
-        ['brother','Brother'], ['sister','Sister'], ['sibling','Sibling (generic)'],
-      ]},
-      { label: 'Grandparents', opts: [
-        ['grandmother','Grandmother'], ['grandfather','Grandfather'], ['grandparent','Grandparent (generic)'],
-      ]},
-      { label: 'Grandchildren', opts: [
-        ['grandson','Grandson'], ['granddaughter','Granddaughter'], ['grandchild','Grandchild (generic)'],
-      ]},
-      { label: 'Extended Family', opts: [
-        ['uncle','Uncle'], ['aunt','Aunt'],
-        ['nephew','Nephew'], ['niece','Niece'],
-        ['cousin','Cousin'],
-      ]},
-      { label: 'Social', opts: [['friend','Friend'], ['neighbor','Neighbor']] },
-      { label: 'Professional', opts: [
-        ['colleague','Colleague'], ['manager','Manager'], ['assistant','Assistant'],
-      ]},
+      {
+        label: 'Spouse / Partner',
+        opts: [
+          ['husband', 'Husband'],
+          ['wife', 'Wife'],
+          ['spouse', 'Spouse (generic)'],
+          ['partner', 'Partner'],
+        ],
+      },
+      {
+        label: 'Parents',
+        opts: [
+          ['mother', 'Mother'],
+          ['father', 'Father'],
+          ['parent', 'Parent (generic)'],
+          ['stepmother', 'Stepmother'],
+          ['stepfather', 'Stepfather'],
+          ['stepparent', 'Stepparent (generic)'],
+        ],
+      },
+      {
+        label: 'Children',
+        opts: [
+          ['son', 'Son'],
+          ['daughter', 'Daughter'],
+          ['child', 'Child (generic)'],
+          ['stepson', 'Stepson'],
+          ['stepdaughter', 'Stepdaughter'],
+          ['stepchild', 'Stepchild (generic)'],
+        ],
+      },
+      {
+        label: 'Siblings',
+        opts: [
+          ['brother', 'Brother'],
+          ['sister', 'Sister'],
+          ['sibling', 'Sibling (generic)'],
+        ],
+      },
+      {
+        label: 'Grandparents',
+        opts: [
+          ['grandmother', 'Grandmother'],
+          ['grandfather', 'Grandfather'],
+          ['grandparent', 'Grandparent (generic)'],
+        ],
+      },
+      {
+        label: 'Grandchildren',
+        opts: [
+          ['grandson', 'Grandson'],
+          ['granddaughter', 'Granddaughter'],
+          ['grandchild', 'Grandchild (generic)'],
+        ],
+      },
+      {
+        label: 'Extended Family',
+        opts: [
+          ['uncle', 'Uncle'],
+          ['aunt', 'Aunt'],
+          ['nephew', 'Nephew'],
+          ['niece', 'Niece'],
+          ['cousin', 'Cousin'],
+        ],
+      },
+      {
+        label: 'Social',
+        opts: [
+          ['friend', 'Friend'],
+          ['neighbor', 'Neighbor'],
+        ],
+      },
+      {
+        label: 'Professional',
+        opts: [
+          ['colleague', 'Colleague'],
+          ['manager', 'Manager'],
+          ['assistant', 'Assistant'],
+        ],
+      },
     ];
     let html = '';
     for (const g of groups) {
@@ -3394,7 +3854,7 @@ class ContactRelationshipApp {
       html += '</optgroup>';
     }
     // Always offer a freeform escape hatch; pre-select it when the current type isn't in the list
-    const knownTypes = groups.flatMap(g => g.opts.map(([v]) => v));
+    const knownTypes = groups.flatMap((g) => g.opts.map(([v]) => v));
     const isUnknown = selectedType && !knownTypes.includes(selectedType);
     html += `<option value="__custom__"${isUnknown ? ' selected' : ''}>Custom…</option>`;
     return html;
@@ -3410,7 +3870,7 @@ class ContactRelationshipApp {
     const currentName = currentRel.name;
     const typeSpan = item.querySelector('.rel-type');
     const nameSpan = item.querySelector('.rel-name');
-    const editBtn  = item.querySelector('.btn-edit-rel');
+    const editBtn = item.querySelector('.btn-edit-rel');
 
     const select = document.createElement('select');
     select.className = 'rel-type-select';
@@ -3473,22 +3933,24 @@ class ContactRelationshipApp {
     actionsRow.appendChild(cancelBtn);
     nameRow.appendChild(actionsRow);
 
-    [select, nameInput, customInput, confirmBtn, deleteBtn, cancelBtn].forEach(el => {
-      el.addEventListener('click', e => e.stopPropagation());
-      el.addEventListener('mousedown', e => e.stopPropagation());
+    [select, nameInput, customInput, confirmBtn, deleteBtn, cancelBtn].forEach((el) => {
+      el.addEventListener('click', (e) => e.stopPropagation());
+      el.addEventListener('mousedown', (e) => e.stopPropagation());
     });
 
     select.addEventListener('change', () => {
       const isCustom = select.value === '__custom__';
       customInput.style.display = isCustom ? 'inline-block' : 'none';
-      if (isCustom) { customInput.value = ''; customInput.focus(); }
+      if (isCustom) {
+        customInput.value = '';
+        customInput.focus();
+      }
     });
 
     confirmBtn.addEventListener('click', () => {
       const newName = nameInput.value.trim();
-      let newType = select.value === '__custom__'
-        ? customInput.value.trim().toLowerCase()
-        : select.value;
+      let newType =
+        select.value === '__custom__' ? customInput.value.trim().toLowerCase() : select.value;
       if (newName && newType && newType !== '__custom__') {
         this._editRelationship(contact, relIdx, newName, newType, node);
       }
@@ -3525,31 +3987,32 @@ class ContactRelationshipApp {
   }
 
   _applyRelationshipEdit(contact, relIdx, newName, newType) {
-    const rel     = contact.related[relIdx];
+    const rel = contact.related[relIdx];
     if (!rel) return null;
     const oldName = rel.name;
     const oldTarget = this.builder.findContact(oldName);
     const newTarget = this.builder.findContact(newName);
 
-    rel.name    = newName;
-    rel.type    = newType;
+    rel.name = newName;
+    rel.type = newType;
     rel.rawType = this._typeToVCardLabel(newType);
 
     if (contact.rawVCard) {
-      const pfx = this._findRelatedItemPrefixByIndex(contact.rawVCard, relIdx)
-        || this._findRelatedItemPrefix(contact.rawVCard, oldName);
+      const pfx =
+        this._findRelatedItemPrefixByIndex(contact.rawVCard, relIdx) ||
+        this._findRelatedItemPrefix(contact.rawVCard, oldName);
       if (pfx) {
         contact.rawVCard = this._replaceItemProperty(
           contact.rawVCard,
           pfx,
           'X-ABLabel',
-          this._typeToVCardLabel(newType)
+          this._typeToVCardLabel(newType),
         );
         contact.rawVCard = this._replaceItemProperty(
           contact.rawVCard,
           pfx,
           'X-ABRELATEDNAMES',
-          this._vCardEscape(newName)
+          this._vCardEscape(newName),
         );
       }
     }
@@ -3558,14 +4021,17 @@ class ContactRelationshipApp {
     const sameTarget =
       (oldTarget && newTarget && oldTarget.id === newTarget.id) ||
       oldName.trim().toLowerCase() === newName.trim().toLowerCase();
-    const otherContact   = sameTarget ? newTarget || oldTarget : null;
-    let   recipUpdated   = false;
+    const otherContact = sameTarget ? newTarget || oldTarget : null;
+    let recipUpdated = false;
 
     if (otherContact) {
-      const myFn      = (contact.fn || '').toLowerCase().trim();
-      const myFnStrip = myFn.replace(/["'][^"']*["']/g, '').replace(/\s+/g, ' ').trim();
+      const myFn = (contact.fn || '').toLowerCase().trim();
+      const myFnStrip = myFn
+        .replace(/["'][^"']*["']/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-      const backRelIdx = (otherContact.related || []).findIndex(r => {
+      const backRelIdx = (otherContact.related || []).findIndex((r) => {
         const rn = r.name.toLowerCase().trim();
         if (rn === myFn || rn === myFnStrip) return true;
         const rc = this.builder.findContact(r.name);
@@ -3577,9 +4043,9 @@ class ContactRelationshipApp {
 
         if (this._isReciprocalDowngrade(reciprocalType, backRel.type)) {
         } else {
-          backRel.type    = reciprocalType;
+          backRel.type = reciprocalType;
           backRel.rawType = this._typeToVCardLabel(reciprocalType);
-          recipUpdated    = true;
+          recipUpdated = true;
 
           if (otherContact.rawVCard) {
             const pfx2 = this._findRelatedItemPrefix(otherContact.rawVCard, contact.fn || '');
@@ -3588,7 +4054,7 @@ class ContactRelationshipApp {
                 otherContact.rawVCard,
                 pfx2,
                 'X-ABLabel',
-                this._typeToVCardLabel(reciprocalType)
+                this._typeToVCardLabel(reciprocalType),
               );
             }
           }
@@ -3610,9 +4076,10 @@ class ContactRelationshipApp {
 
       const newName = nameInput.value.trim();
       const customInput = item.querySelector('.rel-custom-input');
-      const newType = select.value === '__custom__'
-        ? (customInput?.value.trim().toLowerCase() || '')
-        : select.value;
+      const newType =
+        select.value === '__custom__'
+          ? customInput?.value.trim().toLowerCase() || ''
+          : select.value;
 
       if (!newName || !newType || newType === '__custom__') continue;
       this._applyRelationshipEdit(contact, relIdx, newName, newType);
@@ -3624,8 +4091,9 @@ class ContactRelationshipApp {
     if (!rel) return;
 
     if (contact.rawVCard) {
-      const pfx = this._findRelatedItemPrefixByIndex(contact.rawVCard, relIdx)
-        || this._findRelatedItemPrefix(contact.rawVCard, rel.name);
+      const pfx =
+        this._findRelatedItemPrefixByIndex(contact.rawVCard, relIdx) ||
+        this._findRelatedItemPrefix(contact.rawVCard, rel.name);
       if (pfx) {
         contact.rawVCard = this._removeItemGroup(contact.rawVCard, pfx);
       }
@@ -3655,7 +4123,7 @@ class ContactRelationshipApp {
     const select = document.getElementById('modal-target-select');
     select.innerHTML = '<option value="">— Select contact —</option>';
     const sorted = this.contacts
-      .filter(c => c.id !== this._selectedNodeId)
+      .filter((c) => c.id !== this._selectedNodeId)
       .sort((a, b) => a.fn.localeCompare(b.fn));
     for (const c of sorted) {
       const opt = document.createElement('option');
@@ -3749,27 +4217,157 @@ class ContactRelationshipApp {
 
   _bulkRuleFieldDefs() {
     return [
-      { key: 'fn', label: 'Display Name', scope: 'contact', get: c => c.fn || '', set: (c, v) => { c.fn = v; } },
-      { key: 'name-given', label: 'First Name', scope: 'contact', get: c => c.name?.given || '', set: (c, v) => { c.name.given = v; } },
-      { key: 'name-additional', label: 'Middle Name', scope: 'contact', get: c => c.name?.additional || '', set: (c, v) => { c.name.additional = v; } },
-      { key: 'name-family', label: 'Last Name', scope: 'contact', get: c => c.name?.family || '', set: (c, v) => { c.name.family = v; } },
-      { key: 'name-prefix', label: 'Prefix', scope: 'contact', get: c => c.name?.prefix || '', set: (c, v) => { c.name.prefix = v; } },
-      { key: 'name-suffix', label: 'Suffix', scope: 'contact', get: c => c.name?.suffix || '', set: (c, v) => { c.name.suffix = v; } },
-      { key: 'org', label: 'Organization', scope: 'contact', get: c => c.org || '', set: (c, v) => { c.org = v; } },
-      { key: 'title', label: 'Title', scope: 'contact', get: c => c.title || '', set: (c, v) => { c.title = v; } },
-      { key: 'notes', label: 'Notes', scope: 'contact', get: c => (c.notes || []).join('\n\n'), set: (c, v) => { c.notes = this._splitNotes(v || ''); } },
-      { key: 'birthday', label: 'Birthday', scope: 'contact', type: 'date', get: c => c.birthday || '', set: (c, v) => { c.birthday = v || null; } },
-      { key: 'anniversary', label: 'Anniversary', scope: 'contact', type: 'date', get: c => c.anniversary || '', set: (c, v) => { c.anniversary = v || null; } },
-      { key: 'email', label: 'Email Address', scope: 'email', get: (_c, e) => e?.value || '', set: null },
-      { key: 'address-country', label: 'Address Country', scope: 'address', get: (_c, a) => a?.country || '', set: (_c, a, v) => { a.country = v; } },
-      { key: 'address-state', label: 'Address State / Province', scope: 'address', get: (_c, a) => a?.state || '', set: (_c, a, v) => { a.state = v; } },
-      { key: 'address-city', label: 'Address City', scope: 'address', get: (_c, a) => a?.city || '', set: (_c, a, v) => { a.city = v; } },
-      { key: 'address-street', label: 'Address Street', scope: 'address', get: (_c, a) => a?.street || '', set: (_c, a, v) => { a.street = v; } },
+      {
+        key: 'fn',
+        label: 'Display Name',
+        scope: 'contact',
+        get: (c) => c.fn || '',
+        set: (c, v) => {
+          c.fn = v;
+        },
+      },
+      {
+        key: 'name-given',
+        label: 'First Name',
+        scope: 'contact',
+        get: (c) => c.name?.given || '',
+        set: (c, v) => {
+          c.name.given = v;
+        },
+      },
+      {
+        key: 'name-additional',
+        label: 'Middle Name',
+        scope: 'contact',
+        get: (c) => c.name?.additional || '',
+        set: (c, v) => {
+          c.name.additional = v;
+        },
+      },
+      {
+        key: 'name-family',
+        label: 'Last Name',
+        scope: 'contact',
+        get: (c) => c.name?.family || '',
+        set: (c, v) => {
+          c.name.family = v;
+        },
+      },
+      {
+        key: 'name-prefix',
+        label: 'Prefix',
+        scope: 'contact',
+        get: (c) => c.name?.prefix || '',
+        set: (c, v) => {
+          c.name.prefix = v;
+        },
+      },
+      {
+        key: 'name-suffix',
+        label: 'Suffix',
+        scope: 'contact',
+        get: (c) => c.name?.suffix || '',
+        set: (c, v) => {
+          c.name.suffix = v;
+        },
+      },
+      {
+        key: 'org',
+        label: 'Organization',
+        scope: 'contact',
+        get: (c) => c.org || '',
+        set: (c, v) => {
+          c.org = v;
+        },
+      },
+      {
+        key: 'title',
+        label: 'Title',
+        scope: 'contact',
+        get: (c) => c.title || '',
+        set: (c, v) => {
+          c.title = v;
+        },
+      },
+      {
+        key: 'notes',
+        label: 'Notes',
+        scope: 'contact',
+        get: (c) => (c.notes || []).join('\n\n'),
+        set: (c, v) => {
+          c.notes = this._splitNotes(v || '');
+        },
+      },
+      {
+        key: 'birthday',
+        label: 'Birthday',
+        scope: 'contact',
+        type: 'date',
+        get: (c) => c.birthday || '',
+        set: (c, v) => {
+          c.birthday = v || null;
+        },
+      },
+      {
+        key: 'anniversary',
+        label: 'Anniversary',
+        scope: 'contact',
+        type: 'date',
+        get: (c) => c.anniversary || '',
+        set: (c, v) => {
+          c.anniversary = v || null;
+        },
+      },
+      {
+        key: 'email',
+        label: 'Email Address',
+        scope: 'email',
+        get: (_c, e) => e?.value || '',
+        set: null,
+      },
+      {
+        key: 'address-country',
+        label: 'Address Country',
+        scope: 'address',
+        get: (_c, a) => a?.country || '',
+        set: (_c, a, v) => {
+          a.country = v;
+        },
+      },
+      {
+        key: 'address-state',
+        label: 'Address State / Province',
+        scope: 'address',
+        get: (_c, a) => a?.state || '',
+        set: (_c, a, v) => {
+          a.state = v;
+        },
+      },
+      {
+        key: 'address-city',
+        label: 'Address City',
+        scope: 'address',
+        get: (_c, a) => a?.city || '',
+        set: (_c, a, v) => {
+          a.city = v;
+        },
+      },
+      {
+        key: 'address-street',
+        label: 'Address Street',
+        scope: 'address',
+        get: (_c, a) => a?.street || '',
+        set: (_c, a, v) => {
+          a.street = v;
+        },
+      },
     ];
   }
 
   _bulkFieldDef(fieldKey) {
-    return this._bulkRuleFieldDefs().find(def => def.key === fieldKey) || this._bulkRuleFieldDefs()[0];
+    return (
+      this._bulkRuleFieldDefs().find((def) => def.key === fieldKey) || this._bulkRuleFieldDefs()[0]
+    );
   }
 
   _bulkOperatorsForField(fieldKey) {
@@ -3802,7 +4400,7 @@ class ContactRelationshipApp {
     const select = document.getElementById('bulk-action-field');
     if (!select) return;
     select.innerHTML = '';
-    for (const def of this._bulkRuleFieldDefs().filter(def => !!def.set)) {
+    for (const def of this._bulkRuleFieldDefs().filter((def) => !!def.set)) {
       const opt = document.createElement('option');
       opt.value = def.key;
       opt.textContent = def.label;
@@ -3861,9 +4459,11 @@ class ContactRelationshipApp {
     const children = document.createElement('div');
     children.className = 'bulk-group-children';
     for (const child of group.children) {
-      children.appendChild(child.type === 'group'
-        ? this._renderBulkRuleGroup(child, false)
-        : this._renderBulkRuleCondition(child));
+      children.appendChild(
+        child.type === 'group'
+          ? this._renderBulkRuleGroup(child, false)
+          : this._renderBulkRuleCondition(child),
+      );
     }
     wrap.appendChild(children);
 
@@ -3914,7 +4514,7 @@ class ContactRelationshipApp {
         opt.textContent = label;
         operatorSelect.appendChild(opt);
       }
-      if (![...operatorSelect.options].some(opt => opt.value === condition.operator)) {
+      if (![...operatorSelect.options].some((opt) => opt.value === condition.operator)) {
         condition.operator = operatorSelect.options[0]?.value || 'equals';
       }
       operatorSelect.value = condition.operator;
@@ -3959,7 +4559,7 @@ class ContactRelationshipApp {
   }
 
   _removeBulkRuleNode(group, nodeId) {
-    group.children = group.children.filter(child => child.id !== nodeId);
+    group.children = group.children.filter((child) => child.id !== nodeId);
     for (const child of group.children) {
       if (child.type === 'group') this._removeBulkRuleNode(child, nodeId);
     }
@@ -3973,37 +4573,49 @@ class ContactRelationshipApp {
     const valueEl = document.getElementById('bulk-action-value');
     typeEl.value = this._bulkRuleState.action.type;
     fieldEl.value = this._bulkRuleState.action.field;
-    if (![...fieldEl.options].some(opt => opt.value === this._bulkRuleState.action.field)) {
+    if (![...fieldEl.options].some((opt) => opt.value === this._bulkRuleState.action.field)) {
       this._bulkRuleState.action.field = 'notes';
       fieldEl.value = 'notes';
     }
     valueEl.value = this._bulkRuleState.action.value || '';
-    valueEl.type = this._bulkFieldDef(this._bulkRuleState.action.field).type === 'date' ? 'date' : 'text';
+    valueEl.type =
+      this._bulkFieldDef(this._bulkRuleState.action.field).type === 'date' ? 'date' : 'text';
     valueEl.disabled = this._bulkRuleState.action.type === 'clear';
   }
 
   _bulkRuleUsesAddressFields(node = this._bulkRuleState?.root) {
     if (!node) return false;
     if (node.type === 'condition') return this._bulkFieldDef(node.field).scope === 'address';
-    return node.children.some(child => this._bulkRuleUsesAddressFields(child));
+    return node.children.some((child) => this._bulkRuleUsesAddressFields(child));
   }
 
   _evaluateBulkCondition(condition, contact, address) {
     const def = this._bulkFieldDef(condition.field);
     const raw = String(def.get(contact, address) || '').trim();
     const actual = raw.toLowerCase();
-    const expected = String(condition.value || '').trim().toLowerCase();
+    const expected = String(condition.value || '')
+      .trim()
+      .toLowerCase();
 
     switch (condition.operator) {
-      case 'is-empty': return !raw;
-      case 'is-not-empty': return !!raw;
-      case 'equals': return actual === expected;
-      case 'not-equals': return actual !== expected;
-      case 'contains': return !!expected && actual.includes(expected);
-      case 'not-contains': return !!expected && !actual.includes(expected);
-      case 'starts-with': return !!expected && actual.startsWith(expected);
-      case 'ends-with': return !!expected && actual.endsWith(expected);
-      default: return false;
+      case 'is-empty':
+        return !raw;
+      case 'is-not-empty':
+        return !!raw;
+      case 'equals':
+        return actual === expected;
+      case 'not-equals':
+        return actual !== expected;
+      case 'contains':
+        return !!expected && actual.includes(expected);
+      case 'not-contains':
+        return !!expected && !actual.includes(expected);
+      case 'starts-with':
+        return !!expected && actual.startsWith(expected);
+      case 'ends-with':
+        return !!expected && actual.endsWith(expected);
+      default:
+        return false;
     }
   }
 
@@ -4011,14 +4623,20 @@ class ContactRelationshipApp {
     if (node.type === 'condition') {
       const def = this._bulkFieldDef(node.field);
       if (def.scope === 'address') {
-        return (contact.addresses || []).some(addr => this._evaluateBulkCondition(node, contact, addr));
+        return (contact.addresses || []).some((addr) =>
+          this._evaluateBulkCondition(node, contact, addr),
+        );
       }
       if (def.scope === 'email') {
-        return (contact.emails || []).some(email => this._evaluateBulkCondition(node, contact, email));
+        return (contact.emails || []).some((email) =>
+          this._evaluateBulkCondition(node, contact, email),
+        );
       }
       return this._evaluateBulkCondition(node, contact, address || null);
     }
-    const results = node.children.map(child => this._evaluateBulkRuleNode(child, contact, address));
+    const results = node.children.map((child) =>
+      this._evaluateBulkRuleNode(child, contact, address),
+    );
     return node.op === 'OR' ? results.some(Boolean) : results.every(Boolean);
   }
 
@@ -4066,7 +4684,7 @@ class ContactRelationshipApp {
       return `${def.label} ${opLabels[node.operator]} "${node.value || ''}"`;
     }
     const joiner = node.op === 'OR' ? ' OR ' : ' AND ';
-    return `(${node.children.map(child => this._describeBulkRuleNode(child)).join(joiner)})`;
+    return `(${node.children.map((child) => this._describeBulkRuleNode(child)).join(joiner)})`;
   }
 
   _describeBulkAction() {
@@ -4196,7 +4814,10 @@ class ContactRelationshipApp {
     this._rebuildGraph();
     void this._persistSession();
     this._closeBulkNormalizeModal();
-    this._showToast(`Applied rule to ${touchedContacts.size} contact${touchedContacts.size !== 1 ? 's' : ''} and updated ${changeCount} value${changeCount !== 1 ? 's' : ''}`, 'success');
+    this._showToast(
+      `Applied rule to ${touchedContacts.size} contact${touchedContacts.size !== 1 ? 's' : ''} and updated ${changeCount} value${changeCount !== 1 ? 's' : ''}`,
+      'success',
+    );
   }
 
   // ── Helpers ────────────────────────────────────────────────────
@@ -4218,7 +4839,20 @@ class ContactRelationshipApp {
     const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!m) return dateStr;
     const [, y, mo, d] = m;
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     const year = y === '1604' ? '' : y;
     return `${months[parseInt(mo) - 1]} ${parseInt(d)}${year ? ', ' + year : ''}`;
   }
@@ -4241,7 +4875,7 @@ class ContactRelationshipApp {
     notesEl.parentElement.classList.add('hidden');
 
     const memberNames = (node.memberIds || [])
-      .map(id => this._node(id))
+      .map((id) => this._node(id))
       .filter(Boolean)
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
@@ -4293,7 +4927,8 @@ class ContactRelationshipApp {
   }
 
   _structuredNameFor(entity) {
-    if (entity?.structuredName && typeof entity.structuredName === 'object') return entity.structuredName;
+    if (entity?.structuredName && typeof entity.structuredName === 'object')
+      return entity.structuredName;
     if (entity?.name && typeof entity.name === 'object') return entity.name;
     return null;
   }
@@ -4317,7 +4952,11 @@ class ContactRelationshipApp {
       return fallback || this._composeDisplayName(structured);
     }
 
-    const trailing = [prefix, given, additional, suffix].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    const trailing = [prefix, given, additional, suffix]
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
     return trailing ? `${family}, ${trailing}` : family;
   }
 
@@ -4328,11 +4967,21 @@ class ContactRelationshipApp {
       return fallback;
     }
 
-    const family = String(structured.family || '').trim().toLowerCase();
-    const given = String(structured.given || '').trim().toLowerCase();
-    const additional = String(structured.additional || '').trim().toLowerCase();
-    const prefix = String(structured.prefix || '').trim().toLowerCase();
-    const suffix = String(structured.suffix || '').trim().toLowerCase();
+    const family = String(structured.family || '')
+      .trim()
+      .toLowerCase();
+    const given = String(structured.given || '')
+      .trim()
+      .toLowerCase();
+    const additional = String(structured.additional || '')
+      .trim()
+      .toLowerCase();
+    const prefix = String(structured.prefix || '')
+      .trim()
+      .toLowerCase();
+    const suffix = String(structured.suffix || '')
+      .trim()
+      .toLowerCase();
 
     if (!family || !given) {
       return fallback;
@@ -4351,10 +5000,7 @@ class ContactRelationshipApp {
 
     const today = new Date();
     let age = today.getFullYear() - year;
-    if (
-      today.getMonth() + 1 < month ||
-      (today.getMonth() + 1 === month && today.getDate() < day)
-    ) {
+    if (today.getMonth() + 1 < month || (today.getMonth() + 1 === month && today.getDate() < day)) {
       age -= 1;
     }
     return age >= 0 ? age : null;
@@ -4383,7 +5029,9 @@ class ContactRelationshipApp {
   }
 
   _safeExternalHref(value) {
-    const raw = String(value || '').trim().replace(/[\r\n]/g, '');
+    const raw = String(value || '')
+      .trim()
+      .replace(/[\r\n]/g, '');
     if (!raw) return '';
     try {
       const base = window.location?.href || 'https://example.invalid/';
@@ -4413,7 +5061,7 @@ class ContactRelationshipApp {
   }
 
   _nextTick() {
-    return new Promise(resolve => setTimeout(resolve, 16));
+    return new Promise((resolve) => setTimeout(resolve, 16));
   }
 
   _serializeCurrentVCF() {
@@ -4485,7 +5133,10 @@ class ContactRelationshipApp {
     if (!this.contacts.length) return;
     try {
       const payload = {
-        fileLabel: overrides.fileLabel || document.getElementById('file-label').textContent || 'restored-session.vcf',
+        fileLabel:
+          overrides.fileLabel ||
+          document.getElementById('file-label').textContent ||
+          'restored-session.vcf',
         formatId: this._activeFormatId,
         content: this._serializeCurrentSource(),
         savedAt: new Date().toISOString(),
@@ -4530,14 +5181,21 @@ class ContactRelationshipApp {
       this.builder = new RelationshipBuilder(contacts);
       this._reindexContacts();
       this._showInferred = saved.showInferred !== false;
-      this._showLikelyFamily = saved.showLikelyFamily === true || (saved.showLikelyFamily == null && saved.showLikely === true);
-      this._showLikelyConnections = saved.showLikelyConnections !== false && saved.showLikely !== false;
+      this._showLikelyFamily =
+        saved.showLikelyFamily === true ||
+        (saved.showLikelyFamily == null && saved.showLikely === true);
+      this._showLikelyConnections =
+        saved.showLikelyConnections !== false && saved.showLikely !== false;
       this._showIsolated = saved.showIsolated !== false;
       this._sidebarControlsCollapsed = saved.sidebarControlsCollapsed === true;
       this._contactSortMode = saved.contactSortMode === 'last-first' ? 'last-first' : 'first-last';
       this._mainViewMode = saved.mainViewMode === 'table' ? 'table' : 'graph';
       const savedMode = saved.graphMode || 'family-explicit';
-      if (savedMode === 'family-explicit' || savedMode === 'likely-family' || savedMode === 'likely-connections') {
+      if (
+        savedMode === 'family-explicit' ||
+        savedMode === 'likely-family' ||
+        savedMode === 'likely-connections'
+      ) {
         this._graphMode = 'connections';
       } else {
         this._graphMode = savedMode;
@@ -4551,7 +5209,8 @@ class ContactRelationshipApp {
       document.getElementById('graph-mode-select').value = this._graphMode;
       this._applySidebarCollapseState();
       this._applyMainViewMode();
-      document.getElementById('file-label').textContent = `${saved.fileLabel || 'restored-session.vcf'} (restored)`;
+      document.getElementById('file-label').textContent =
+        `${saved.fileLabel || 'restored-session.vcf'} (restored)`;
       document.getElementById('btn-export-all').classList.remove('hidden');
       document.getElementById('btn-export-md-all').classList.remove('hidden');
       document.getElementById('drop-zone').classList.add('hidden');

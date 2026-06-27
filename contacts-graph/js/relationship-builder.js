@@ -24,7 +24,7 @@ class RelationshipBuilder {
         if (matches.length === 2) {
           console.warn(
             `[nameIndex] Ambiguous lookup key "${key}" — ` +
-            `"${matches[0].fn}" and "${c.fn}" both match; leaving lookups unresolved.`
+              `"${matches[0].fn}" and "${c.fn}" both match; leaving lookups unresolved.`,
           );
         }
       }
@@ -32,13 +32,17 @@ class RelationshipBuilder {
 
     for (const c of contacts) {
       if (!c.fn) continue;
-      const fn    = c.fn.trim();
+      const fn = c.fn.trim();
       const lower = fn.toLowerCase();
 
       // Exact FN
       add(lower, c);
       // Without nickname tokens (e.g. Micah "Tikah" Mangold → Micah Mangold)
-      const stripped = fn.replace(/["'][^"']*["']/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const stripped = fn
+        .replace(/["'][^"']*["']/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
       if (stripped && stripped !== lower) add(stripped, c);
       // Last, First
       const parts = fn.split(/\s+/);
@@ -57,7 +61,10 @@ class RelationshipBuilder {
     if (!name) return [];
     const key = name.toLowerCase().trim();
     if (this._nameIndex.has(key)) return this._nameIndex.get(key);
-    const stripped = key.replace(/["'][^"']*["']/g, '').replace(/\s+/g, ' ').trim();
+    const stripped = key
+      .replace(/["'][^"']*["']/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
     return this._nameIndex.get(stripped) || [];
   }
 
@@ -81,8 +88,19 @@ class RelationshipBuilder {
       rootContactId = null,
     } = options;
 
-    if (mode === 'connections' || mode === 'family-explicit' || mode === 'likely-family' || mode === 'likely-connections') {
-      return this._buildExplicitRelationships({ includeInferred, includeLikelyFamily, includeLikelyConnections, includeIsolated, rootContactId });
+    if (
+      mode === 'connections' ||
+      mode === 'family-explicit' ||
+      mode === 'likely-family' ||
+      mode === 'likely-connections'
+    ) {
+      return this._buildExplicitRelationships({
+        includeInferred,
+        includeLikelyFamily,
+        includeLikelyConnections,
+        includeIsolated,
+        rootContactId,
+      });
     }
     if (mode === 'geographic') {
       return this._buildGeographic({ includeIsolated, rootContactId });
@@ -90,12 +108,17 @@ class RelationshipBuilder {
     return this._buildExplicitRelationships({ includeInferred, includeIsolated, rootContactId });
   }
 
-  _buildExplicitRelationships({ includeInferred = true, includeLikelyFamily = true, includeLikelyConnections = true, includeIsolated = false, rootContactId = null }) {
-
-    const nodesMap = new Map();      // id → node
-    const pairSet = new Set();       // deduplicate edges by pair (one edge per node pair)
+  _buildExplicitRelationships({
+    includeInferred = true,
+    includeLikelyFamily = true,
+    includeLikelyConnections = true,
+    includeIsolated = false,
+    rootContactId = null,
+  }) {
+    const nodesMap = new Map(); // id → node
+    const pairSet = new Set(); // deduplicate edges by pair (one edge per node pair)
     const edges = [];
-    const explicitAdj = new Map();   // id → Set of explicitly connected ids
+    const explicitAdj = new Map(); // id → Set of explicitly connected ids
 
     // ── 1. Seed nodes from all contacts ──────────────────────────
     for (const c of this.contacts) {
@@ -103,7 +126,9 @@ class RelationshipBuilder {
     }
 
     // ── 2. Explicit relationships ─────────────────────────────────
-    this._appendExplicitRelationshipEdges(nodesMap, edges, pairSet, explicitAdj, { allowVirtualTargets: true });
+    this._appendExplicitRelationshipEdges(nodesMap, edges, pairSet, explicitAdj, {
+      allowVirtualTargets: true,
+    });
 
     // ── 3. Inferred (ORG-based) relationships ─────────────────────
     if (includeInferred) {
@@ -120,7 +145,7 @@ class RelationshipBuilder {
         // Only connect reasonably sized groups (skip generic mega-orgs)
         if (members.length < 2 || members.length > 30) continue;
 
-        const edgeSet = new Set(edges.map(e => `${this._pairKey(e.source, e.target)}:${e.type}`));
+        const edgeSet = new Set(edges.map((e) => `${this._pairKey(e.source, e.target)}:${e.type}`));
         for (let i = 0; i < members.length; i++) {
           for (let j = i + 1; j < members.length; j++) {
             const key = this._edgeKey(members[i].id, members[j].id, 'colleague');
@@ -164,7 +189,7 @@ class RelationshipBuilder {
         this._appendLikelyConnectionGroups(nodesMap, edges, pairSet, {
           includeLikelyFamily,
           includeLikelyConnections,
-        })
+        }),
       );
     }
 
@@ -183,7 +208,7 @@ class RelationshipBuilder {
 
     const filteredNodes = includeIsolated
       ? Array.from(nodesMap.values())
-      : Array.from(nodesMap.values()).filter(n => connectedIds.has(n.id));
+      : Array.from(nodesMap.values()).filter((n) => connectedIds.has(n.id));
 
     return {
       mode: 'connections',
@@ -203,7 +228,9 @@ class RelationshipBuilder {
       nodesMap.set(c.id, this._makeNode(c));
     }
 
-    this._appendExplicitRelationshipEdges(nodesMap, edges, pairSet, explicitAdj, { allowVirtualTargets: true });
+    this._appendExplicitRelationshipEdges(nodesMap, edges, pairSet, explicitAdj, {
+      allowVirtualTargets: true,
+    });
     const familyConnectedIds = this._collectConnectedIds(rootContactId, explicitAdj);
 
     const surnameGroups = new Map();
@@ -269,7 +296,7 @@ class RelationshipBuilder {
 
     const hashtagGroups = new Map();
     for (const c of this.contacts) {
-      for (const tag of (c.noteTags || [])) {
+      for (const tag of c.noteTags || []) {
         if (!hashtagGroups.has(tag)) hashtagGroups.set(tag, []);
         hashtagGroups.get(tag).push(c);
       }
@@ -330,7 +357,7 @@ class RelationshipBuilder {
 
     const filteredNodes = includeIsolated
       ? Array.from(nodesMap.values())
-      : Array.from(nodesMap.values()).filter(n => n.isGroupNode || n.connectionCount > 0);
+      : Array.from(nodesMap.values()).filter((n) => n.isGroupNode || n.connectionCount > 0);
 
     return {
       mode: 'likely-connections',
@@ -346,7 +373,10 @@ class RelationshipBuilder {
     const hierarchyGroups = new Map();
     const groupMemberIds = new Map();
     const edgeSet = new Set();
-    const familyConnectedIds = this._collectConnectedIds(rootContactId, this._buildExplicitAdjacency());
+    const familyConnectedIds = this._collectConnectedIds(
+      rootContactId,
+      this._buildExplicitAdjacency(),
+    );
 
     for (const c of this.contacts) {
       const node = this._makeNode(c);
@@ -432,7 +462,7 @@ class RelationshipBuilder {
 
     const filteredNodes = includeIsolated
       ? Array.from(nodesMap.values())
-      : Array.from(nodesMap.values()).filter(n => n.isGroupNode || n.connectionCount > 0);
+      : Array.from(nodesMap.values()).filter((n) => n.isGroupNode || n.connectionCount > 0);
 
     const hullSeeds = [];
     for (const [groupId, memberSet] of groupMemberIds.entries()) {
@@ -527,7 +557,7 @@ class RelationshipBuilder {
     const queue = [rootId];
     while (queue.length > 0) {
       const current = queue.shift();
-      for (const next of (adjacency.get(current) || [])) {
+      for (const next of adjacency.get(current) || []) {
         if (seen.has(next)) continue;
         seen.add(next);
         queue.push(next);
@@ -538,7 +568,9 @@ class RelationshipBuilder {
 
   _filterTags(node, familyConnectedIds) {
     if (node.isGroupNode) return [];
-    const tags = new Set([...(node.tags || []), ...(node.noteTags || [])].filter(t => t !== 'family'));
+    const tags = new Set(
+      [...(node.tags || []), ...(node.noteTags || [])].filter((t) => t !== 'family'),
+    );
 
     if (node.isVirtual) tags.add('virtual');
     else if (node.isCompany) tags.add('company');
@@ -557,14 +589,18 @@ class RelationshipBuilder {
     return [a, b].sort().join('↔');
   }
 
-  _appendExplicitRelationshipEdges(nodesMap, edges, pairSet, explicitAdj, { allowVirtualTargets = true } = {}) {
+  _appendExplicitRelationshipEdges(
+    nodesMap,
+    edges,
+    pairSet,
+    explicitAdj,
+    { allowVirtualTargets = true } = {},
+  ) {
     const edgeSet = new Set();
     for (const c of this.contacts) {
-      for (const rel of (c.related || [])) {
+      for (const rel of c.related || []) {
         const target = this.findContact(rel.name);
-        const targetId = target
-          ? target.id
-          : `virtual__${rel.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const targetId = target ? target.id : `virtual__${rel.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
         if (!target && !allowVirtualTargets) continue;
 
@@ -579,10 +615,10 @@ class RelationshipBuilder {
             phones: [],
             birthday: null,
             notes: [],
-      related: [],
-      tags: ['virtual'],
-      noteTags: [],
-      category: 'virtual',
+            related: [],
+            tags: ['virtual'],
+            noteTags: [],
+            category: 'virtual',
             photo: null,
             connectionCount: 0,
             filterTags: ['virtual'],
@@ -615,10 +651,13 @@ class RelationshipBuilder {
           explicitAdj.get(c.id).add(targetId);
           explicitAdj.get(targetId).add(c.id);
         } else if (pairSet.has(pk)) {
-          const existingEdge = edges.find(e => this._pairKey(e.source, e.target) === pk);
-          if (existingEdge && existingEdge.target === c.id &&
-              existingEdge.reverseLabel === null &&
-              this._isValidReciprocal(existingEdge.type, rel.type)) {
+          const existingEdge = edges.find((e) => this._pairKey(e.source, e.target) === pk);
+          if (
+            existingEdge &&
+            existingEdge.target === c.id &&
+            existingEdge.reverseLabel === null &&
+            this._isValidReciprocal(existingEdge.type, rel.type)
+          ) {
             existingEdge.reverseLabel = this._friendlyType(rel.type);
           }
         }
@@ -626,7 +665,12 @@ class RelationshipBuilder {
     }
   }
 
-  _appendLikelyConnectionGroups(nodesMap, edges, pairSet, { includeLikelyFamily = true, includeLikelyConnections = true } = {}) {
+  _appendLikelyConnectionGroups(
+    nodesMap,
+    edges,
+    pairSet,
+    { includeLikelyFamily = true, includeLikelyConnections = true } = {},
+  ) {
     const hullSeeds = [];
     let edgeIdx = edges.length;
     if (includeLikelyFamily) {
@@ -693,7 +737,7 @@ class RelationshipBuilder {
     if (includeLikelyConnections) {
       const hashtagGroups = new Map();
       for (const c of this.contacts) {
-        for (const tag of (c.noteTags || [])) {
+        for (const tag of c.noteTags || []) {
           if (!hashtagGroups.has(tag)) hashtagGroups.set(tag, []);
           hashtagGroups.get(tag).push(c);
         }
@@ -753,7 +797,7 @@ class RelationshipBuilder {
     const adjacency = new Map();
     for (const c of this.contacts) {
       if (!adjacency.has(c.id)) adjacency.set(c.id, new Set());
-      for (const rel of (c.related || [])) {
+      for (const rel of c.related || []) {
         const target = this.findContact(rel.name);
         if (!target) continue;
         if (!adjacency.has(target.id)) adjacency.set(target.id, new Set());
@@ -788,14 +832,19 @@ class RelationshipBuilder {
   }
 
   _buildClusterHulls(nodes, hullSeeds) {
-    const visibleIds = new Set(nodes.map(n => n.id));
-    return hullSeeds.filter(hull => hull.memberIds.filter(id => visibleIds.has(id)).length >= 2);
+    const visibleIds = new Set(nodes.map((n) => n.id));
+    return hullSeeds.filter(
+      (hull) => hull.memberIds.filter((id) => visibleIds.has(id)).length >= 2,
+    );
   }
 
   _familyNameForContact(contact) {
     const family = String(contact?.name?.family || '').trim();
     if (family) return family;
-    const parts = String(contact?.fn || '').trim().split(/\s+/).filter(Boolean);
+    const parts = String(contact?.fn || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
     return parts.length >= 2 ? parts[parts.length - 1] : '';
   }
 
@@ -818,16 +867,36 @@ class RelationshipBuilder {
 
     const path = [];
     if (country) {
-      path.push({ level: 'country', key: this._normalizeGeoKey(country), label: country, description: 'Country cluster' });
+      path.push({
+        level: 'country',
+        key: this._normalizeGeoKey(country),
+        label: country,
+        description: 'Country cluster',
+      });
     }
     if (state) {
-      path.push({ level: 'state', key: this._normalizeGeoKey(state), label: state, description: 'State / province cluster' });
+      path.push({
+        level: 'state',
+        key: this._normalizeGeoKey(state),
+        label: state,
+        description: 'State / province cluster',
+      });
     }
     if (city) {
-      path.push({ level: 'city', key: this._normalizeGeoKey(city), label: city, description: 'City cluster' });
+      path.push({
+        level: 'city',
+        key: this._normalizeGeoKey(city),
+        label: city,
+        description: 'City cluster',
+      });
     }
     if (street) {
-      path.push({ level: 'street', key: this._normalizeGeoKey(street), label: street, description: 'Street cluster' });
+      path.push({
+        level: 'street',
+        key: this._normalizeGeoKey(street),
+        label: street,
+        description: 'Street cluster',
+      });
     }
     return path;
   }
@@ -837,7 +906,7 @@ class RelationshipBuilder {
     if (addresses.length === 0) return null;
 
     const score = (addr) => {
-      const types = (addr.types || []).map(t => String(t || '').toLowerCase());
+      const types = (addr.types || []).map((t) => String(t || '').toLowerCase());
       if (types.includes('home')) return 0;
       if (types.includes('work')) return 1;
       return 2;
@@ -847,7 +916,9 @@ class RelationshipBuilder {
   }
 
   _normalizeGeoLabel(value) {
-    return String(value || '').replace(/\s+/g, ' ').trim();
+    return String(value || '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   _normalizeStreet(value) {
@@ -888,27 +959,27 @@ class RelationshipBuilder {
     // Pairs listed once — checked in both directions below
     const pairs = [
       // Spouse
-      ['spouse',     'spouse'],
-      ['husband',    'wife'],
-      ['husband',    'spouse'],
-      ['wife',       'spouse'],
-      ['partner',    'partner'],
+      ['spouse', 'spouse'],
+      ['husband', 'wife'],
+      ['husband', 'spouse'],
+      ['wife', 'spouse'],
+      ['partner', 'partner'],
       // Professional / social
-      ['friend',     'friend'],
-      ['colleague',  'colleague'],
-      ['neighbor',   'neighbor'],
-      ['cousin',     'cousin'],
-      ['manager',    'assistant'],
+      ['friend', 'friend'],
+      ['colleague', 'colleague'],
+      ['neighbor', 'neighbor'],
+      ['cousin', 'cousin'],
+      ['manager', 'assistant'],
       // Parent / child
-      ['mother',     'son'],
-      ['mother',     'daughter'],
-      ['mother',     'child'],
-      ['father',     'son'],
-      ['father',     'daughter'],
-      ['father',     'child'],
-      ['parent',     'son'],
-      ['parent',     'daughter'],
-      ['parent',     'child'],
+      ['mother', 'son'],
+      ['mother', 'daughter'],
+      ['mother', 'child'],
+      ['father', 'son'],
+      ['father', 'daughter'],
+      ['father', 'child'],
+      ['parent', 'son'],
+      ['parent', 'daughter'],
+      ['parent', 'child'],
       // Step-parent / step-child (all combos, no hyphens)
       ['stepmother', 'stepson'],
       ['stepmother', 'stepdaughter'],
@@ -920,33 +991,33 @@ class RelationshipBuilder {
       ['stepparent', 'stepdaughter'],
       ['stepparent', 'stepchild'],
       // Backward compat: old hyphenated forms
-      ['step-parent','step-child'],
-      ['step-parent','stepson'],
-      ['step-parent','stepdaughter'],
-      ['step-parent','stepchild'],
+      ['step-parent', 'step-child'],
+      ['step-parent', 'stepson'],
+      ['step-parent', 'stepdaughter'],
+      ['step-parent', 'stepchild'],
       ['stepparent', 'step-child'],
       // Sibling
-      ['brother',    'brother'],
-      ['brother',    'sister'],
-      ['brother',    'sibling'],
-      ['sister',     'sister'],
-      ['sister',     'sibling'],
-      ['sibling',    'sibling'],
+      ['brother', 'brother'],
+      ['brother', 'sister'],
+      ['brother', 'sibling'],
+      ['sister', 'sister'],
+      ['sister', 'sibling'],
+      ['sibling', 'sibling'],
       // Grandparent / grandchild (all combos)
-      ['grandmother',  'grandson'],
-      ['grandmother',  'granddaughter'],
-      ['grandmother',  'grandchild'],
-      ['grandfather',  'grandson'],
-      ['grandfather',  'granddaughter'],
-      ['grandfather',  'grandchild'],
-      ['grandparent',  'grandson'],
-      ['grandparent',  'granddaughter'],
-      ['grandparent',  'grandchild'],
+      ['grandmother', 'grandson'],
+      ['grandmother', 'granddaughter'],
+      ['grandmother', 'grandchild'],
+      ['grandfather', 'grandson'],
+      ['grandfather', 'granddaughter'],
+      ['grandfather', 'grandchild'],
+      ['grandparent', 'grandson'],
+      ['grandparent', 'granddaughter'],
+      ['grandparent', 'grandchild'],
       // Uncle/Aunt — Nephew/Niece (all combos)
-      ['uncle',      'nephew'],
-      ['uncle',      'niece'],
-      ['aunt',       'nephew'],
-      ['aunt',       'niece'],
+      ['uncle', 'nephew'],
+      ['uncle', 'niece'],
+      ['aunt', 'nephew'],
+      ['aunt', 'niece'],
       // Backward compat for slash-combined forms
       ['uncle/aunt', 'nephew/niece'],
       ['uncle/aunt', 'nephew'],
@@ -960,66 +1031,89 @@ class RelationshipBuilder {
 
   _friendlyType(type) {
     const map = {
-      'spouse': 'Spouse',
-      'husband': 'Husband',
-      'wife': 'Wife',
-      'partner': 'Partner',
-      'mother': 'Mother',
-      'father': 'Father',
-      'parent': 'Parent',
-      'stepmother': 'Stepmother',
-      'stepfather': 'Stepfather',
-      'stepparent': 'Stepparent',
+      spouse: 'Spouse',
+      husband: 'Husband',
+      wife: 'Wife',
+      partner: 'Partner',
+      mother: 'Mother',
+      father: 'Father',
+      parent: 'Parent',
+      stepmother: 'Stepmother',
+      stepfather: 'Stepfather',
+      stepparent: 'Stepparent',
       'step-parent': 'Stepparent',
-      'son': 'Son',
-      'daughter': 'Daughter',
-      'child': 'Child',
-      'stepson': 'Stepson',
-      'stepdaughter': 'Stepdaughter',
-      'stepchild': 'Stepchild',
+      son: 'Son',
+      daughter: 'Daughter',
+      child: 'Child',
+      stepson: 'Stepson',
+      stepdaughter: 'Stepdaughter',
+      stepchild: 'Stepchild',
       'step-child': 'Stepchild',
-      'brother': 'Brother',
-      'sister': 'Sister',
-      'sibling': 'Sibling',
-      'grandmother': 'Grandmother',
-      'grandfather': 'Grandfather',
-      'grandparent': 'Grandparent',
-      'grandson': 'Grandson',
-      'granddaughter': 'Granddaughter',
-      'grandchild': 'Grandchild',
-      'uncle': 'Uncle',
-      'aunt': 'Aunt',
+      brother: 'Brother',
+      sister: 'Sister',
+      sibling: 'Sibling',
+      grandmother: 'Grandmother',
+      grandfather: 'Grandfather',
+      grandparent: 'Grandparent',
+      grandson: 'Grandson',
+      granddaughter: 'Granddaughter',
+      grandchild: 'Grandchild',
+      uncle: 'Uncle',
+      aunt: 'Aunt',
       'uncle/aunt': 'Uncle/Aunt',
-      'nephew': 'Nephew',
-      'niece': 'Niece',
+      nephew: 'Nephew',
+      niece: 'Niece',
       'nephew/niece': 'Nephew/Niece',
-      'cousin': 'Cousin',
-      'friend': 'Friend',
-      'colleague': 'Colleague',
-      'manager': 'Manager',
-      'assistant': 'Assistant',
-      'neighbor': 'Neighbor',
+      cousin: 'Cousin',
+      friend: 'Friend',
+      colleague: 'Colleague',
+      manager: 'Manager',
+      assistant: 'Assistant',
+      neighbor: 'Neighbor',
     };
     return map[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Related');
   }
 
   _edgeCategory(type) {
     const family = [
-      'spouse','husband','wife','partner',
-      'mother','father','parent',
-      'stepmother','stepfather','stepparent','step-parent',
-      'son','daughter','child',
-      'stepson','stepdaughter','stepchild','step-child',
-      'brother','sister','sibling',
-      'grandmother','grandfather','grandparent',
-      'grandson','granddaughter','grandchild',
-      'uncle','aunt','uncle/aunt',
+      'spouse',
+      'husband',
+      'wife',
+      'partner',
+      'mother',
+      'father',
+      'parent',
+      'stepmother',
+      'stepfather',
+      'stepparent',
+      'step-parent',
+      'son',
+      'daughter',
+      'child',
+      'stepson',
+      'stepdaughter',
+      'stepchild',
+      'step-child',
+      'brother',
+      'sister',
+      'sibling',
+      'grandmother',
+      'grandfather',
+      'grandparent',
+      'grandson',
+      'granddaughter',
+      'grandchild',
+      'uncle',
+      'aunt',
+      'uncle/aunt',
       'cousin',
-      'nephew','niece','nephew/niece',
+      'nephew',
+      'niece',
+      'nephew/niece',
     ];
     if (family.includes(type)) return 'family';
     if (type === 'friend') return 'friend';
-    if (['colleague','manager','assistant'].includes(type)) return 'work';
+    if (['colleague', 'manager', 'assistant'].includes(type)) return 'work';
     if (type === 'neighbor') return 'neighbor';
     return 'other';
   }
@@ -1045,8 +1139,8 @@ class RelationshipBuilder {
     }
     return {
       totalContacts: this.contacts.length,
-      visibleNodes: nodes.filter(n => !n.isGroupNode).length,
-      visibleGroups: nodes.filter(n => n.isGroupNode).length,
+      visibleNodes: nodes.filter((n) => !n.isGroupNode).length,
+      visibleGroups: nodes.filter((n) => n.isGroupNode).length,
       edges: edges.length,
       categories: categoryCounts,
       edgeCategories: edgeCategoryCounts,

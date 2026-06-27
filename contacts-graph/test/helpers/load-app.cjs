@@ -9,7 +9,9 @@ function createFakeDocument() {
   return {
     elements,
     addEventListener() {},
-    querySelectorAll() { return []; },
+    querySelectorAll() {
+      return [];
+    },
     createElement(tagName) {
       return {
         tagName: String(tagName || '').toUpperCase(),
@@ -19,13 +21,22 @@ function createFakeDocument() {
           add() {},
           remove() {},
           toggle() {},
-          contains() { return false; },
+          contains() {
+            return false;
+          },
         },
         dataset: {},
         style: {},
-        appendChild(child) { this.children.push(child); return child; },
-        append(...children) { this.children.push(...children); },
-        setAttribute(name, value) { this[name] = value; },
+        appendChild(child) {
+          this.children.push(child);
+          return child;
+        },
+        append(...children) {
+          this.children.push(...children);
+        },
+        setAttribute(name, value) {
+          this[name] = value;
+        },
         addEventListener() {},
         removeEventListener() {},
         replaceWith() {},
@@ -45,14 +56,20 @@ function createFakeDocument() {
             add() {},
             remove() {},
             toggle() {},
-            contains() { return false; },
+            contains() {
+              return false;
+            },
           },
           style: {},
           appendChild() {},
           append() {},
           addEventListener() {},
-          querySelectorAll() { return []; },
-          querySelector() { return null; },
+          querySelectorAll() {
+            return [];
+          },
+          querySelector() {
+            return null;
+          },
         });
       }
       return elements.get(id);
@@ -104,17 +121,18 @@ function loadBrowserClasses() {
     'js/app.js',
     'js/app-notes.js',
   ];
-  const source = files
-    .map(file => fs.readFileSync(path.join(root, file), 'utf8'))
-    .join('\n\n');
-  vm.runInContext(`${source}
+  const source = files.map((file) => fs.readFileSync(path.join(root, file), 'utf8')).join('\n\n');
+  vm.runInContext(
+    `${source}
 this.VCardUtils = VCardUtils;
 this.ContactRecord = ContactRecord;
 this.VCFParser = VCFParser;
 this.VCardAdapter = VCardAdapter;
 this.MarkdownAdapter = MarkdownAdapter;
 this.RelationshipBuilder = RelationshipBuilder;
-this.ContactRelationshipApp = ContactRelationshipApp;`, context);
+this.ContactRelationshipApp = ContactRelationshipApp;`,
+    context,
+  );
   return context;
 }
 

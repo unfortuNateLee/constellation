@@ -17,7 +17,7 @@ class MarkdownAdapter {
 
   canImportFile(file) {
     const name = String(file?.name || '').toLowerCase();
-    return this.extensions.some(ext => name.endsWith(`.${ext}`));
+    return this.extensions.some((ext) => name.endsWith(`.${ext}`));
   }
 
   parse(text, options = {}) {
@@ -26,21 +26,25 @@ class MarkdownAdapter {
     for (let i = 0; i < docs.length; i++) {
       const parsed = this._parseDocument(docs[i]);
       if (!parsed) continue;
-      contacts.push(this._contactFromDocument(parsed.data, parsed.body, {
-        raw: docs[i],
-        index: options.startIndex != null ? options.startIndex + i : i,
-      }));
+      contacts.push(
+        this._contactFromDocument(parsed.data, parsed.body, {
+          raw: docs[i],
+          index: options.startIndex != null ? options.startIndex + i : i,
+        }),
+      );
     }
     return contacts;
   }
 
   serialize(contacts, ids = null) {
     const selectedIds = ids ? new Set(ids) : null;
-    const selected = (contacts || []).filter(contact => !selectedIds || selectedIds.has(contact.id));
+    const selected = (contacts || []).filter(
+      (contact) => !selectedIds || selectedIds.has(contact.id),
+    );
     if (selected.length === 0) return '';
-    const docs = selected.map(contact => this._serializeContact(contact));
+    const docs = selected.map((contact) => this._serializeContact(contact));
     if (docs.length === 1) return `${docs[0]}\n`;
-    return `${docs.map(doc => `${this.bundleDelimiter}\n\n${doc}`).join('\n\n')}\n`;
+    return `${docs.map((doc) => `${this.bundleDelimiter}\n\n${doc}`).join('\n\n')}\n`;
   }
 
   exportBlob(contacts, ids = null) {
@@ -54,7 +58,7 @@ class MarkdownAdapter {
     if (!source.includes(this.bundleDelimiter)) return [source];
     return source
       .split(this.bundleDelimiter)
-      .map(part => part.trim())
+      .map((part) => part.trim())
       .filter(Boolean);
   }
 
@@ -70,9 +74,26 @@ class MarkdownAdapter {
 
   _contactFromDocument(data, body, source) {
     const known = new Set([
-      'contactgraph', 'id', 'uid', 'fn', 'name', 'org', 'title', 'isCompany',
-      'emails', 'phones', 'addresses', 'birthday', 'anniversary', 'notes',
-      'related', 'urls', 'photo', 'tags', 'noteTags', 'fields',
+      'contactgraph',
+      'id',
+      'uid',
+      'fn',
+      'name',
+      'org',
+      'title',
+      'isCompany',
+      'emails',
+      'phones',
+      'addresses',
+      'birthday',
+      'anniversary',
+      'notes',
+      'related',
+      'urls',
+      'photo',
+      'tags',
+      'noteTags',
+      'fields',
     ]);
     const customFields = this._normalizeFields(data.fields || {});
     for (const [key, value] of Object.entries(data)) {
@@ -83,7 +104,9 @@ class MarkdownAdapter {
       customFields.markdown_body = { type: 'markdown', value: bodyText };
     }
 
-    const fn = String(data.fn || data.name?.display || data.name?.given || data.uid || 'Markdown Contact');
+    const fn = String(
+      data.fn || data.name?.display || data.name?.given || data.uid || 'Markdown Contact',
+    );
     const contact = {
       id: data.id || this._generateId(),
       uid: data.uid || null,
@@ -183,7 +206,10 @@ class MarkdownAdapter {
       const trimmed = lines[i].slice(indent);
       if (trimmed.startsWith('- ')) break;
       const match = trimmed.match(/^([^:]+):(.*)$/);
-      if (!match) { i += 1; continue; }
+      if (!match) {
+        i += 1;
+        continue;
+      }
       const key = match[1].trim();
       const rest = match[2].trim();
       if (rest) {
@@ -243,17 +269,20 @@ class MarkdownAdapter {
     const pad = ' '.repeat(indent);
     if (Array.isArray(value)) {
       if (value.length === 0) return `${pad}[]\n`;
-      return value.map(item => {
-        if (item && typeof item === 'object' && !Array.isArray(item)) {
-          const keys = Object.keys(item);
-          if (keys.length === 0) return `${pad}- {}\n`;
-          const [first, ...rest] = keys;
-          let out = `${pad}- ${first}: ${this._inlineOrNested(item[first], indent + 4)}`;
-          for (const key of rest) out += `${pad}  ${key}: ${this._inlineOrNested(item[key], indent + 4)}`;
-          return out;
-        }
-        return `${pad}- ${this._formatScalar(item)}\n`;
-      }).join('');
+      return value
+        .map((item) => {
+          if (item && typeof item === 'object' && !Array.isArray(item)) {
+            const keys = Object.keys(item);
+            if (keys.length === 0) return `${pad}- {}\n`;
+            const [first, ...rest] = keys;
+            let out = `${pad}- ${first}: ${this._inlineOrNested(item[first], indent + 4)}`;
+            for (const key of rest)
+              out += `${pad}  ${key}: ${this._inlineOrNested(item[key], indent + 4)}`;
+            return out;
+          }
+          return `${pad}- ${this._formatScalar(item)}\n`;
+        })
+        .join('');
     }
     let out = '';
     for (const [key, item] of Object.entries(value || {})) {
@@ -279,7 +308,10 @@ class MarkdownAdapter {
     if (typeof value === 'boolean' || typeof value === 'number') return String(value);
     const str = String(value);
     if (/^-?\d+(?:\.\d+)?$/.test(str)) return JSON.stringify(str);
-    if (/^[A-Za-z0-9_@./:+-]+(?: [A-Za-z0-9_@./:+-]+)*$/.test(str) && !/^(true|false|null)$/i.test(str)) {
+    if (
+      /^[A-Za-z0-9_@./:+-]+(?: [A-Za-z0-9_@./:+-]+)*$/.test(str) &&
+      !/^(true|false|null)$/i.test(str)
+    ) {
       return str;
     }
     return JSON.stringify(str);
@@ -296,10 +328,14 @@ class MarkdownAdapter {
     if (raw.startsWith('[') && raw.endsWith(']')) {
       const inner = raw.slice(1, -1).trim();
       if (!inner) return [];
-      return this._splitInline(inner).map(part => this._parseScalar(part));
+      return this._splitInline(inner).map((part) => this._parseScalar(part));
     }
     if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
-      try { return JSON.parse(raw); } catch (_) { return raw.slice(1, -1); }
+      try {
+        return JSON.parse(raw);
+      } catch (_) {
+        return raw.slice(1, -1);
+      }
     }
     return raw;
   }
@@ -310,7 +346,8 @@ class MarkdownAdapter {
     let quote = null;
     for (let i = 0; i < value.length; i++) {
       const ch = value[i];
-      if ((ch === '"' || ch === "'") && value[i - 1] !== '\\') quote = quote === ch ? null : quote || ch;
+      if ((ch === '"' || ch === "'") && value[i - 1] !== '\\')
+        quote = quote === ch ? null : quote || ch;
       if (ch === ',' && !quote) {
         parts.push(current.trim());
         current = '';
@@ -323,7 +360,7 @@ class MarkdownAdapter {
   }
 
   _dropEmpty(value, preserve = false) {
-    if (Array.isArray(value)) return value.map(item => this._dropEmpty(item, preserve));
+    if (Array.isArray(value)) return value.map((item) => this._dropEmpty(item, preserve));
     if (!value || typeof value !== 'object') return value;
     const out = {};
     for (const [key, item] of Object.entries(value)) {
@@ -331,7 +368,8 @@ class MarkdownAdapter {
       if (!preserve) {
         if (next == null || next === '') continue;
         if (Array.isArray(next) && next.length === 0) continue;
-        if (typeof next === 'object' && !Array.isArray(next) && Object.keys(next).length === 0) continue;
+        if (typeof next === 'object' && !Array.isArray(next) && Object.keys(next).length === 0)
+          continue;
       }
       out[key] = next;
     }
@@ -345,7 +383,13 @@ class MarkdownAdapter {
   }
 
   _typedField(value) {
-    if (value && typeof value === 'object' && !Array.isArray(value) && 'type' in value && 'value' in value) {
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      'type' in value &&
+      'value' in value
+    ) {
       return value;
     }
     return { type: this._typeOf(value), value };
@@ -359,7 +403,7 @@ class MarkdownAdapter {
   }
 
   _notes(notes, body) {
-    if (Array.isArray(notes)) return notes.map(note => String(note));
+    if (Array.isArray(notes)) return notes.map((note) => String(note));
     if (notes) return [String(notes)];
     return body ? [body] : [];
   }

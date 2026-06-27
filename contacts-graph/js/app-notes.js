@@ -9,7 +9,8 @@ Object.assign(ContactRelationshipApp.prototype, {
       this._updateNotesAutocomplete(textarea);
     };
     textarea.onkeydown = (e) => {
-      if (!this._notesAutocomplete.textarea || this._notesAutocomplete.textarea !== textarea) return;
+      if (!this._notesAutocomplete.textarea || this._notesAutocomplete.textarea !== textarea)
+        return;
       const popup = document.getElementById('tag-autocomplete');
       if (popup.classList.contains('hidden')) return;
       if (e.key === 'ArrowDown') {
@@ -39,7 +40,7 @@ Object.assign(ContactRelationshipApp.prototype, {
       return;
     }
     const allTags = this._allKnownNoteTags();
-    const matches = allTags.filter(tag => tag.startsWith(ctx.query.toLowerCase()));
+    const matches = allTags.filter((tag) => tag.startsWith(ctx.query.toLowerCase()));
     this._notesAutocomplete = {
       textarea,
       matches,
@@ -61,9 +62,9 @@ Object.assign(ContactRelationshipApp.prototype, {
   },
 
   _allKnownNoteTags() {
-    return Array.from(new Set(
-      this.contacts.flatMap(contact => contact.noteTags || [])
-    )).sort((a, b) => a.localeCompare(b));
+    return Array.from(new Set(this.contacts.flatMap((contact) => contact.noteTags || []))).sort(
+      (a, b) => a.localeCompare(b),
+    );
   },
 
   _renderNotesAutocomplete(textarea, matches, query) {
@@ -79,7 +80,7 @@ Object.assign(ContactRelationshipApp.prototype, {
         const item = document.createElement('div');
         item.className = `tag-autocomplete-item${idx === this._notesAutocomplete.selectedIndex ? ' active' : ''}`;
         item.textContent = `#${tag}`;
-        item.addEventListener('mousedown', e => {
+        item.addEventListener('mousedown', (e) => {
           e.preventDefault();
           this._notesAutocomplete.selectedIndex = idx;
           this._applyNotesAutocompleteSelection();
@@ -131,12 +132,33 @@ Object.assign(ContactRelationshipApp.prototype, {
     const div = document.createElement('div');
     const style = window.getComputedStyle(textarea);
     for (const prop of [
-      'boxSizing', 'width', 'height', 'overflowX', 'overflowY',
-      'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
-      'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-      'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize',
-      'fontSizeAdjust', 'lineHeight', 'fontFamily', 'textAlign', 'textTransform',
-      'textIndent', 'textDecoration', 'letterSpacing', 'wordSpacing'
+      'boxSizing',
+      'width',
+      'height',
+      'overflowX',
+      'overflowY',
+      'borderTopWidth',
+      'borderRightWidth',
+      'borderBottomWidth',
+      'borderLeftWidth',
+      'paddingTop',
+      'paddingRight',
+      'paddingBottom',
+      'paddingLeft',
+      'fontStyle',
+      'fontVariant',
+      'fontWeight',
+      'fontStretch',
+      'fontSize',
+      'fontSizeAdjust',
+      'lineHeight',
+      'fontFamily',
+      'textAlign',
+      'textTransform',
+      'textIndent',
+      'textDecoration',
+      'letterSpacing',
+      'wordSpacing',
     ]) {
       div.style[prop] = style[prop];
     }

@@ -7,8 +7,8 @@ class VCFParser {
     // Pre-extract raw blocks and photos as ordered arrays (one entry per vCard, in file order).
     // Keying by position instead of FN avoids silent overwrites when two contacts share a
     // display name — the i-th parsed contact always gets the i-th raw block.
-    const rawBlocks = [];  // index → original raw vCard string
-    const photos    = [];  // index → data URI or null
+    const rawBlocks = []; // index → original raw vCard string
+    const photos = []; // index → data URI or null
 
     const rawVcardRe = /BEGIN:VCARD[\s\S]*?END:VCARD/gi;
     let rawMatch;
@@ -17,19 +17,28 @@ class VCFParser {
       rawBlocks.push(rawBlock);
 
       const photoM = rawBlock.match(/^(PHOTO[^\r\n]*)\r?\n((?:[ \t][^\r\n]*\r?\n)*)/m);
-      if (!photoM) { photos.push(null); continue; }
+      if (!photoM) {
+        photos.push(null);
+        continue;
+      }
 
       const firstLine = photoM[1];
       const contLines = photoM[2];
-      const colonIdx  = firstLine.indexOf(':');
-      if (colonIdx === -1) { photos.push(null); continue; }
+      const colonIdx = firstLine.indexOf(':');
+      if (colonIdx === -1) {
+        photos.push(null);
+        continue;
+      }
 
       let b64 = firstLine.substring(colonIdx + 1);
       for (const line of contLines.split(/\r?\n/)) {
         if (line.match(/^[ \t]/)) b64 += line.substring(1);
       }
       b64 = b64.trim();
-      if (!b64) { photos.push(null); continue; }
+      if (!b64) {
+        photos.push(null);
+        continue;
+      }
 
       const mimeType = /TYPE=PNG/i.test(firstLine) ? 'image/png' : 'image/jpeg';
       photos.push(`data:${mimeType};base64,${b64}`);
@@ -93,11 +102,11 @@ class VCFParser {
       birthday: null,
       anniversary: null,
       notes: [],
-      related: [],   // [{ name, type, rawType }]
+      related: [], // [{ name, type, rawType }]
       urls: [],
-      photo: null,   // base64 data URL if present
-      tags: [],      // reserved system tags
-      noteTags: [],  // hashtags parsed from notes
+      photo: null, // base64 data URL if present
+      tags: [], // reserved system tags
+      noteTags: [], // hashtags parsed from notes
     };
 
     const items = {}; // item1, item2, etc.
@@ -241,77 +250,80 @@ class VCFParser {
   }
 
   _normalizeRelType(label) {
-    const cleaned = label.replace(/^_\$!<(.+)>!\$_$/, '$1').toLowerCase().trim();
+    const cleaned = label
+      .replace(/^_\$!<(.+)>!\$_$/, '$1')
+      .toLowerCase()
+      .trim();
 
     const map = {
       // Spouse
-      'spouse': 'spouse',
-      'husband': 'husband',
-      'wife': 'wife',
-      'partner': 'partner',
+      spouse: 'spouse',
+      husband: 'husband',
+      wife: 'wife',
+      partner: 'partner',
       'domestic partner': 'partner',
       // Parent
-      'mother': 'mother',
-      'father': 'father',
-      'parent': 'parent',
+      mother: 'mother',
+      father: 'father',
+      parent: 'parent',
       // Step-parent (gendered, no hyphens)
-      'stepmother': 'stepmother',
-      'stepfather': 'stepfather',
+      stepmother: 'stepmother',
+      stepfather: 'stepfather',
       'step mother': 'stepmother',
       'step father': 'stepfather',
-      'stepparent': 'stepparent',
+      stepparent: 'stepparent',
       'step parent': 'stepparent',
-      'step-parent': 'stepparent',   // old hyphenated → no-hyphen
+      'step-parent': 'stepparent', // old hyphenated → no-hyphen
       // Child
-      'son': 'son',
-      'daughter': 'daughter',
-      'child': 'child',
+      son: 'son',
+      daughter: 'daughter',
+      child: 'child',
       // Step-child (gendered, no hyphens)
-      'stepson': 'stepson',
-      'stepdaughter': 'stepdaughter',
+      stepson: 'stepson',
+      stepdaughter: 'stepdaughter',
       'step son': 'stepson',
       'step daughter': 'stepdaughter',
-      'stepchild': 'stepchild',
-      'step child': 'stepchild',     // FIXES ROUND-TRIP BUG
-      'step-child': 'stepchild',     // old hyphenated → no-hyphen
+      stepchild: 'stepchild',
+      'step child': 'stepchild', // FIXES ROUND-TRIP BUG
+      'step-child': 'stepchild', // old hyphenated → no-hyphen
       // Sibling
-      'brother': 'brother',
-      'sister': 'sister',
-      'sibling': 'sibling',
+      brother: 'brother',
+      sister: 'sister',
+      sibling: 'sibling',
       // Grandparent (gendered)
-      'grandmother': 'grandmother',
-      'grandfather': 'grandfather',
+      grandmother: 'grandmother',
+      grandfather: 'grandfather',
       'grand mother': 'grandmother',
       'grand father': 'grandfather',
-      'grandparent': 'grandparent',
+      grandparent: 'grandparent',
       'grand parent': 'grandparent',
       // Grandchild (gendered)
-      'grandson': 'grandson',
-      'granddaughter': 'granddaughter',
+      grandson: 'grandson',
+      granddaughter: 'granddaughter',
       'grand son': 'grandson',
       'grand daughter': 'granddaughter',
-      'grandchild': 'grandchild',
+      grandchild: 'grandchild',
       'grand child': 'grandchild',
       // Uncle / Aunt (split)
-      'uncle': 'uncle',
-      'aunt': 'aunt',
-      'uncle/aunt': 'uncle/aunt',    // backward compat — kept as-is
+      uncle: 'uncle',
+      aunt: 'aunt',
+      'uncle/aunt': 'uncle/aunt', // backward compat — kept as-is
       // Nephew / Niece (split)
-      'nephew': 'nephew',
-      'niece': 'niece',
+      nephew: 'nephew',
+      niece: 'niece',
       'nephew/niece': 'nephew/niece', // backward compat — kept as-is
       // Other family
-      'cousin': 'cousin',
+      cousin: 'cousin',
       // Social / professional
-      'friend': 'friend',
+      friend: 'friend',
       'best friend': 'friend',
-      'colleague': 'colleague',
-      'coworker': 'colleague',
+      colleague: 'colleague',
+      coworker: 'colleague',
       'co-worker': 'colleague',
-      'manager': 'manager',
-      'boss': 'manager',
-      'assistant': 'assistant',
-      'neighbor': 'neighbor',
+      manager: 'manager',
+      boss: 'manager',
+      assistant: 'assistant',
+      neighbor: 'neighbor',
     };
 
     return map[cleaned] || cleaned;
@@ -327,7 +339,7 @@ class VCFParser {
   _extractHashtags(notes = []) {
     const tags = new Set();
     const pattern = /(^|[\s([{,;])#([A-Za-z0-9][A-Za-z0-9_-]*)/g;
-    for (const note of (notes || [])) {
+    for (const note of notes || []) {
       const text = String(note || '');
       let match;
       while ((match = pattern.exec(text)) !== null) {
@@ -339,7 +351,13 @@ class VCFParser {
 
   _parseTypes(paramStr) {
     if (Array.isArray(paramStr)) return VCardUtils.typesFromParams(paramStr);
-    return VCardUtils.typesFromParams(VCardUtils.parseParams(String(paramStr || '').split(';').filter(Boolean)));
+    return VCardUtils.typesFromParams(
+      VCardUtils.parseParams(
+        String(paramStr || '')
+          .split(';')
+          .filter(Boolean),
+      ),
+    );
   }
 
   _decode(value) {
@@ -352,12 +370,10 @@ class VCFParser {
 
   _composeDisplayName(name) {
     if (!name) return '';
-    return [
-      name.prefix,
-      name.given,
-      name.additional,
-      name.family,
-      name.suffix,
-    ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    return [name.prefix, name.given, name.additional, name.family, name.suffix]
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 }

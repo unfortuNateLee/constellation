@@ -1,10 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {
-  loadBrowserClasses,
-  makeTestApp,
-  readFixture,
-} = require('./helpers/load-app.cjs');
+const { loadBrowserClasses, makeTestApp, readFixture } = require('./helpers/load-app.cjs');
 
 function setup() {
   const context = loadBrowserClasses();
@@ -13,7 +9,7 @@ function setup() {
 }
 
 function byUid(app, uid) {
-  const contact = app.contacts.find(c => c.uid === uid);
+  const contact = app.contacts.find((c) => c.uid === uid);
   assert.ok(contact, `missing contact with UID ${uid}`);
   return contact;
 }
@@ -48,18 +44,15 @@ test('table edit updates notes, hashtags, raw vCard, and search-visible data imm
 
   app._searchQuery = 'updated note';
   app._renderTableMode = function renderTableSearchProbe() {
-    this._lastTableMatches = this.contacts.filter(contact => {
-      const haystack = [
-        contact.fn,
-        contact.org,
-        contact.title,
-        (contact.notes || []).join(' '),
-      ].join(' ').toLowerCase();
+    this._lastTableMatches = this.contacts.filter((contact) => {
+      const haystack = [contact.fn, contact.org, contact.title, (contact.notes || []).join(' ')]
+        .join(' ')
+        .toLowerCase();
       return haystack.includes(this._searchQuery);
     });
   };
   app._renderTableMode();
-  assert.deepEqual(plain(app._lastTableMatches.map(c => c.uid)), ['geo-work']);
+  assert.deepEqual(plain(app._lastTableMatches.map((c) => c.uid)), ['geo-work']);
 });
 
 test('detail edit path rewrites structured contact fields and preserves vCard metadata', () => {
@@ -84,27 +77,35 @@ test('relationship add, edit, delete, and type persistence survive export and re
   const { app } = setup();
   const jane = byUid(app, 'jane-doe-smith');
 
-  const usedItems = [...jane.rawVCard.matchAll(/^item(\d+)\./gim)].map(match => parseInt(match[1], 10));
+  const usedItems = [...jane.rawVCard.matchAll(/^item(\d+)\./gim)].map((match) =>
+    parseInt(match[1], 10),
+  );
   const nextItem = Math.max(...usedItems) + 1;
   const label = app._typeToVCardLabel('neighbor');
-  jane.rawVCard = app._insertBeforeEndVCard(jane.rawVCard, app._joinVCardLines([
-    `item${nextItem}.X-ABRELATEDNAMES:${app._vCardEscape('Taylor Geo')}`,
-    `item${nextItem}.X-ABLabel:${label}`,
-  ]));
+  jane.rawVCard = app._insertBeforeEndVCard(
+    jane.rawVCard,
+    app._joinVCardLines([
+      `item${nextItem}.X-ABRELATEDNAMES:${app._vCardEscape('Taylor Geo')}`,
+      `item${nextItem}.X-ABLabel:${label}`,
+    ]),
+  );
   jane.related.push({ name: 'Taylor Geo', type: 'neighbor', rawType: label });
 
   let reparsed = app.parser.parse(jane.rawVCard)[0];
-  assert.ok(reparsed.related.some(rel => rel.name === 'Taylor Geo' && rel.type === 'neighbor'));
+  assert.ok(reparsed.related.some((rel) => rel.name === 'Taylor Geo' && rel.type === 'neighbor'));
 
-  const husbandIdx = jane.related.findIndex(rel => rel.name === 'John Smith');
+  const husbandIdx = jane.related.findIndex((rel) => rel.name === 'John Smith');
   app._applyRelationshipEdit(jane, husbandIdx, 'John Smith', 'spouse');
   reparsed = app.parser.parse(jane.rawVCard)[0];
-  assert.equal(reparsed.related.find(rel => rel.name === 'John Smith').type, 'spouse');
+  assert.equal(reparsed.related.find((rel) => rel.name === 'John Smith').type, 'spouse');
 
-  const neighborIdx = jane.related.findIndex(rel => rel.name === 'Taylor Geo');
+  const neighborIdx = jane.related.findIndex((rel) => rel.name === 'Taylor Geo');
   app._deleteRelationship(jane, neighborIdx, { id: jane.id });
   reparsed = app.parser.parse(jane.rawVCard)[0];
-  assert.equal(reparsed.related.some(rel => rel.name === 'Taylor Geo'), false);
+  assert.equal(
+    reparsed.related.some((rel) => rel.name === 'Taylor Geo'),
+    false,
+  );
 });
 
 test('bulk normalize can append notes to empty contacts and replace address country values', () => {
@@ -168,7 +169,9 @@ test('notes hashtag autocomplete finds existing tags and inserts the selected ta
     classList: {
       add() {},
       remove() {},
-      contains() { return false; },
+      contains() {
+        return false;
+      },
     },
     style: {},
     appendChild() {},
@@ -203,7 +206,10 @@ test('contact deletion removes the contact from the working set and export outpu
 
   app._deleteContact(company.id);
 
-  assert.equal(app.contacts.some(contact => contact.uid === 'company-acme'), false);
+  assert.equal(
+    app.contacts.some((contact) => contact.uid === 'company-acme'),
+    false,
+  );
   assert.equal(app._serializeCurrentVCF().includes('company-acme'), false);
 });
 
@@ -220,13 +226,15 @@ test('multi-file import combines Markdown files into one working set', async () 
   context.document.__setElement('btn-export-md-all', { classList: { remove() {} } });
   context.document.__setElement('drop-zone', { classList: { add() {} } });
   app._showLoading = () => {};
-  app._showToast = (msg, type) => { labels.toast = { msg, type }; };
+  app._showToast = (msg, type) => {
+    labels.toast = { msg, type };
+  };
   app._persistSession = async () => {};
 
   await app._loadFiles(files);
 
   assert.equal(app.contacts.length, 4);
-  assert.deepEqual(plain(app.contacts.map(contact => contact.uid)), [
+  assert.deepEqual(plain(app.contacts.map((contact) => contact.uid)), [
     'md-ada-lovelace',
     'md-grace-hopper',
     'md-katherine-johnson',
@@ -239,10 +247,10 @@ test('multi-file import combines Markdown files into one working set', async () 
 test('detail rewrites preserve non-anniversary Apple date item groups', () => {
   const { app } = setup();
   const jane = byUid(app, 'jane-doe-smith');
-  jane.rawVCard = app._insertBeforeEndVCard(jane.rawVCard, app._joinVCardLines([
-    'item99.X-ABDATE:2020-01-02',
-    'item99.X-ABLabel:_$!<First met>!$_',
-  ]));
+  jane.rawVCard = app._insertBeforeEndVCard(
+    jane.rawVCard,
+    app._joinVCardLines(['item99.X-ABDATE:2020-01-02', 'item99.X-ABLabel:_$!<First met>!$_']),
+  );
 
   jane.title = 'Updated Title';
   app._rewriteEditableFields(jane);
@@ -285,11 +293,14 @@ test('custom fields render read-only display values', () => {
   const container = {
     children: [],
     innerHTML: '',
-    appendChild(child) { this.children.push(child); return child; },
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
   };
   app._renderReadOnlyCustomFields(container, jane);
 
-  const html = container.children.map(child => child.innerHTML).join('\n');
+  const html = container.children.map((child) => child.innerHTML).join('\n');
   assert.match(html, /Custom: Favorite Color/);
   assert.match(html, /#3366cc/);
   assert.match(html, /Custom: Emergency Priority/);
@@ -313,25 +324,33 @@ test('custom field edit collector updates scalar and list fields while preservin
       querySelector(selector) {
         return selector === 'input[data-role="custom-value"]' ? { value: '#ff0000' } : null;
       },
-      querySelectorAll() { return []; },
+      querySelectorAll() {
+        return [];
+      },
     },
     {
       dataset: { fieldKey: 'emergency_priority' },
       querySelector(selector) {
         return selector === 'input[data-role="custom-value"]' ? { value: '7' } : null;
       },
-      querySelectorAll() { return []; },
+      querySelectorAll() {
+        return [];
+      },
     },
     {
       dataset: { fieldKey: 'active' },
       querySelector(selector) {
         return selector === 'input[data-role="custom-value"]' ? { checked: true } : null;
       },
-      querySelectorAll() { return []; },
+      querySelectorAll() {
+        return [];
+      },
     },
     {
       dataset: { fieldKey: 'research_topics' },
-      querySelector() { return null; },
+      querySelector() {
+        return null;
+      },
       querySelectorAll(selector) {
         return selector === 'input[data-role="custom-list-value"]'
           ? [{ value: 'symbolic computation' }, { value: '' }, { value: 'compiler design' }]
@@ -340,11 +359,15 @@ test('custom field edit collector updates scalar and list fields while preservin
     },
     {
       dataset: { fieldKey: 'nested_profile' },
-      querySelector() { return null; },
-      querySelectorAll() { return []; },
+      querySelector() {
+        return null;
+      },
+      querySelectorAll() {
+        return [];
+      },
     },
   ];
-  context.document.querySelectorAll = selector =>
+  context.document.querySelectorAll = (selector) =>
     selector === '.detail-edit-item[data-kind="custom-field"]' ? items : [];
 
   const fields = app._collectEditedCustomFields(existing);
@@ -352,7 +375,10 @@ test('custom field edit collector updates scalar and list fields while preservin
   assert.equal(fields.favorite_color.value, '#ff0000');
   assert.equal(fields.emergency_priority.value, 7);
   assert.equal(fields.active.value, true);
-  assert.deepEqual(plain(fields.research_topics.value), ['symbolic computation', 'compiler design']);
+  assert.deepEqual(plain(fields.research_topics.value), [
+    'symbolic computation',
+    'compiler design',
+  ]);
   assert.deepEqual(plain(fields.nested_profile.value), { source: 'markdown' });
 });
 
@@ -363,7 +389,10 @@ test('HTML helpers escape custom relationship labels and unsafe hrefs', () => {
 
   assert.equal(app._escapeHtml(label), '&quot;&gt;&lt;img src=x onerror=alert(1)&gt;');
   assert.equal(app._safeExternalHref('javascript:alert(1)'), '');
-  assert.equal(app._safeExternalHref('https://example.com/a?b=1').startsWith('https://example.com/'), true);
+  assert.equal(
+    app._safeExternalHref('https://example.com/a?b=1').startsWith('https://example.com/'),
+    true,
+  );
 });
 
 test('vCard folding respects UTF-8 byte limits without corrupting text', () => {

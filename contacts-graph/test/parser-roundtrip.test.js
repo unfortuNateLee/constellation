@@ -1,13 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {
-  loadBrowserClasses,
-  makeTestApp,
-  readFixture,
-} = require('./helpers/load-app.cjs');
+const { loadBrowserClasses, makeTestApp, readFixture } = require('./helpers/load-app.cjs');
 
 function byUid(contacts, uid) {
-  const contact = contacts.find(c => c.uid === uid);
+  const contact = contacts.find((c) => c.uid === uid);
   assert.ok(contact, `missing contact with UID ${uid}`);
   return contact;
 }
@@ -76,9 +72,9 @@ test('relationship builder keeps duplicate names ambiguous and creates virtual c
     includeIsolated: true,
     rootContactId: null,
   });
-  const virtual = graph.nodes.find(node => node.isVirtual && node.name === 'Missing Child');
+  const virtual = graph.nodes.find((node) => node.isVirtual && node.name === 'Missing Child');
   assert.ok(virtual, 'expected unresolved related name to produce a virtual node');
-  assert.ok(graph.edges.some(edge => edge.target === virtual.id || edge.source === virtual.id));
+  assert.ok(graph.edges.some((edge) => edge.target === virtual.id || edge.source === virtual.id));
 });
 
 test('vCard adapter imports and serializes through the format boundary', () => {
@@ -177,7 +173,7 @@ fn: Contact Two
 Two body
 `);
 
-  assert.deepEqual(plain(contacts.map(contact => contact.uid)), ['one', 'two']);
+  assert.deepEqual(plain(contacts.map((contact) => contact.uid)), ['one', 'two']);
   const bundle = adapter.serialize(contacts);
   assert.match(bundle, /CONTACTGRAPH:CONTACT/);
   assert.equal(adapter.parse(bundle).length, 2);
@@ -192,7 +188,7 @@ test('Markdown sample files import as separate and bundled contacts', () => {
     ...adapter.parse(readFixture('markdown-bundle.md'), { startIndex: 2 }),
   ];
 
-  assert.deepEqual(plain(contacts.map(contact => contact.uid)), [
+  assert.deepEqual(plain(contacts.map((contact) => contact.uid)), [
     'md-ada-lovelace',
     'md-grace-hopper',
     'md-katherine-johnson',
@@ -248,8 +244,14 @@ test('Markdown import, export, and reimport preserves unknown fields, nested obj
       verified: true,
     },
   });
-  assert.equal(dorothy.customFields.nested_leadership_record.value.teams[1].name, 'Analysis and Computation Division');
-  assert.match(ada.customFields.markdown_body.value, /Wrote notes intended to survive Markdown export and reimport/);
+  assert.equal(
+    dorothy.customFields.nested_leadership_record.value.teams[1].name,
+    'Analysis and Computation Division',
+  );
+  assert.match(
+    ada.customFields.markdown_body.value,
+    /Wrote notes intended to survive Markdown export and reimport/,
+  );
   assert.match(grace.customFields.markdown_body.value, /not just as plain notes/);
 });
 

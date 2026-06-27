@@ -4,7 +4,9 @@
  */
 class VCardUtils {
   static unfold(text) {
-    return String(text || '').replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
+    return String(text || '')
+      .replace(/\r\n[ \t]/g, '')
+      .replace(/\n[ \t]/g, '');
   }
 
   static splitEscaped(value, delimiter = ';') {
@@ -65,7 +67,7 @@ class VCardUtils {
       }
       const name = part.slice(0, eqIdx).toUpperCase();
       const rawValue = part.slice(eqIdx + 1);
-      const values = this._splitParamValues(rawValue).map(value => this._unquoteParam(value));
+      const values = this._splitParamValues(rawValue).map((value) => this._unquoteParam(value));
       params.push({ name, values });
     }
     return params;
@@ -102,13 +104,20 @@ class VCardUtils {
 
   static buildTypeParams(types = []) {
     return (types || [])
-      .map(type => String(type || '').trim())
+      .map((type) => String(type || '').trim())
       .filter(Boolean)
       .filter((type, index, arr) => {
         const upper = type.toUpperCase();
-        return arr.findIndex(other => String(other || '').trim().toUpperCase() === upper) === index;
+        return (
+          arr.findIndex(
+            (other) =>
+              String(other || '')
+                .trim()
+                .toUpperCase() === upper,
+          ) === index
+        );
       })
-      .map(type => `;TYPE=${String(type).toUpperCase()}`)
+      .map((type) => `;TYPE=${String(type).toUpperCase()}`)
       .join('');
   }
 
@@ -143,7 +152,7 @@ class VCardUtils {
   }
 
   static foldLines(lines) {
-    return (lines || []).map(line => this.foldLine(line)).join('\r\n');
+    return (lines || []).map((line) => this.foldLine(line)).join('\r\n');
   }
 
   static _firstUnquotedColon(source) {
@@ -203,7 +212,7 @@ class VCardUtils {
     if (chars.length <= limit) return source;
     const chunks = [];
     let chunkLimit = limit;
-    for (let i = 0; i < chars.length;) {
+    for (let i = 0; i < chars.length; ) {
       const chunk = chars.slice(i, i + chunkLimit).join('');
       chunks.push(chunks.length === 0 ? chunk : ` ${chunk}`);
       i += chunkLimit;
