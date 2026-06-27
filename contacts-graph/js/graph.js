@@ -17,6 +17,9 @@ export class ContactGraph {
     this._edges = [];
     this._nodeById = new Map();
     this._edgesByNodeId = new Map();
+    // id → last {x, y, vx, vy, fx, fy}; lets a rebuild resume the existing
+    // layout instead of re-scattering the graph on every edit.
+    this._nodePositions = new Map();
     this._simulation = null;
     this._svg = null;
     this._zoomG = null;
@@ -562,6 +565,30 @@ export class ContactGraph {
         (exit) => exit.remove(),
       );
 
+    // Resume the previous layout: seed each node from its cached position so an
+    // edit doesn't re-scatter the graph. New nodes (no cache) use d3 defaults.
+    let seeded = 0;
+    for (const n of nodes) {
+      const prev = this._nodePositions.get(n.id);
+      if (prev) {
+        n.x = prev.x;
+        n.y = prev.y;
+        n.vx = prev.vx || 0;
+        n.vy = prev.vy || 0;
+        if (prev.fx != null) n.fx = prev.fx;
+        if (prev.fy != null) n.fy = prev.fy;
+        seeded += 1;
+      } else {
+        // New node: start near the center so it settles into view rather than
+        // crawling in from the origin.
+        n.x = this.width / 2 + (Math.random() - 0.5) * 80;
+        n.y = this.height / 2 + (Math.random() - 0.5) * 80;
+      }
+    }
+    // Settle gently when the graph is largely unchanged (an edit); run a full
+    // layout when most nodes are new (first load, mode/filter change).
+    const incremental = nodes.length > 0 && seeded >= nodes.length * 0.5;
+
     // ── Simulation ──
     this._simulation = d3
       .forceSimulation(nodes)
@@ -629,7 +656,21 @@ export class ContactGraph {
 
         node.attr('transform', (d) => `translate(${d.x},${d.y})`);
         label.attr('transform', (d) => `translate(${d.x},${d.y})`);
+
+        // Remember positions so the next rebuild can resume this layout.
+        for (const n of nodes) {
+          this._nodePositions.set(n.id, {
+            x: n.x,
+            y: n.y,
+            vx: n.vx,
+            vy: n.vy,
+            fx: n.fx,
+            fy: n.fy,
+          });
+        }
       });
+
+    this._simulation.alpha(incremental ? 0.3 : 1).restart();
 
     this._updateHullLabelScale();
   }
