@@ -1162,13 +1162,10 @@ class ContactRelationshipApp {
   }
 
   _tagColor(tag) {
-    const palette = {
-      family: '#e17055',
-      company: '#636e72',
-      virtual: '#b2bec3',
-      other: '#8395a7',
-    };
-    if (palette[tag]) return palette[tag];
+    // Known categories come from the shared CSS palette (single source).
+    if (['family', 'company', 'virtual', 'other'].includes(tag)) {
+      return Palette.category(tag);
+    }
 
     // Stable color for user hashtags.
     let hash = 0;

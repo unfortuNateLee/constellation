@@ -10,6 +10,7 @@ const prettier = require('eslint-config-prettier');
 const appGlobals = {
   d3: 'readonly',
   VCardUtils: 'readonly',
+  Palette: 'readonly',
   ContactRecord: 'readonly',
   RelationshipTaxonomy: 'readonly',
   VCFParser: 'readonly',

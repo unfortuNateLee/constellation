@@ -113,6 +113,7 @@ function loadBrowserClasses() {
 
   const files = [
     'js/vcard-utils.js',
+    'js/palette.js',
     'js/contact-record.js',
     'js/relationship-taxonomy.js',
     'js/vcf-parser.js',
@@ -126,6 +127,7 @@ function loadBrowserClasses() {
   vm.runInContext(
     `${source}
 this.VCardUtils = VCardUtils;
+this.Palette = Palette;
 this.ContactRecord = ContactRecord;
 this.RelationshipTaxonomy = RelationshipTaxonomy;
 this.VCFParser = VCFParser;

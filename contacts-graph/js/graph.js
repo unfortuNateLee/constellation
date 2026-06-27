@@ -33,28 +33,31 @@ class ContactGraph {
 
     this._listeners = {};
 
+    // Colors come from the CSS category tokens via Palette (single source).
+    const cat = (name) => Palette.category(name);
     this._colorScheme = {
       node: {
-        family: '#e17055',
-        friend: '#00b894',
-        mitre: '#0984e3',
-        work: '#74b9ff',
-        neighbor: '#fdcb6e',
-        church: '#a29bfe',
-        school: '#fd79a8',
-        medical: '#55efc4',
-        company: '#636e72',
-        virtual: '#b2bec3',
-        other: '#dfe6e9',
-        group: '#8e9aaf',
-        selected: '#ffd32a',
+        family: cat('family'),
+        friend: cat('friend'),
+        mitre: cat('mitre'),
+        work: cat('work'),
+        neighbor: cat('neighbor'),
+        church: cat('church'),
+        school: cat('school'),
+        medical: cat('medical'),
+        company: cat('company'),
+        virtual: cat('virtual'),
+        other: Palette.nodeDefault,
+        group: Palette.group,
+        selected: Palette.selected,
       },
       edge: {
-        family: '#e17055',
-        friend: '#00b894',
-        work: '#74b9ff',
-        neighbor: '#fdcb6e',
-        other: '#636e72',
+        family: cat('family'),
+        friend: cat('friend'),
+        work: cat('work'),
+        neighbor: cat('neighbor'),
+        other: cat('company'),
+        inferred: Palette.inferred,
       },
     };
 
@@ -380,7 +383,7 @@ class ContactGraph {
             .attr('class', 'node-ring')
             .attr('r', (d) => nodeRadius(d) + 5)
             .attr('fill', 'none')
-            .attr('stroke', '#ffd32a')
+            .attr('stroke', this._colorScheme.node.selected)
             .attr('stroke-width', 2)
             .attr('opacity', 0);
 
@@ -852,66 +855,41 @@ class ContactGraph {
 
   // ── Legend data ─────────────────────────────────────────────────
   getLegend(mode = this._mode) {
+    // Solid swatch colors come from the shared palette (via _colorScheme).
+    const node = this._colorScheme.node;
+    const edge = this._colorScheme.edge;
+    const dashed = (color, on, gap) =>
+      `background: repeating-linear-gradient(to right, ${color} 0, ${color} ${on}px, transparent ${on}px, transparent ${gap}px);`;
+    const hullStyle =
+      'background: rgba(116,185,255,0.12); border: 1px solid rgba(116,185,255,0.28);';
+
     if (mode === 'connections' || mode === 'likely-connections' || mode === 'likely-family') {
       return [
-        { label: 'Contact', color: '#dfe6e9', type: 'node' },
-        { label: 'Company', color: this._colorScheme.node.company, type: 'node' },
-        { label: 'Virtual', color: this._colorScheme.node.virtual, type: 'node' },
-        {
-          label: 'Likely cluster hull',
-          type: 'hull',
-          style: 'background: rgba(116,185,255,0.12); border: 1px solid rgba(116,185,255,0.28);',
-        },
-        {
-          label: 'Likely family',
-          type: 'line',
-          style:
-            'background: repeating-linear-gradient(to right, #e17055 0, #e17055 5px, transparent 5px, transparent 9px);',
-        },
-        {
-          label: 'Likely connection',
-          type: 'line',
-          style:
-            'background: repeating-linear-gradient(to right, #74b9ff 0, #74b9ff 5px, transparent 5px, transparent 9px);',
-        },
-        { label: 'Explicit relationship', type: 'line', style: 'background: #e17055;' },
-        {
-          label: 'Organization cluster',
-          type: 'line',
-          style:
-            'background: repeating-linear-gradient(to right, #aaa 0, #aaa 4px, transparent 4px, transparent 7px);',
-        },
+        { label: 'Contact', color: node.other, type: 'node' },
+        { label: 'Company', color: node.company, type: 'node' },
+        { label: 'Virtual', color: node.virtual, type: 'node' },
+        { label: 'Likely cluster hull', type: 'hull', style: hullStyle },
+        { label: 'Likely family', type: 'line', style: dashed(edge.family, 5, 9) },
+        { label: 'Likely connection', type: 'line', style: dashed(edge.work, 5, 9) },
+        { label: 'Explicit relationship', type: 'line', style: `background: ${edge.family};` },
+        { label: 'Organization cluster', type: 'line', style: dashed(edge.inferred, 4, 7) },
       ];
     }
     if (mode === 'geographic') {
       return [
-        { label: 'Contact', color: '#dfe6e9', type: 'node' },
-        { label: 'Location group', color: this._colorScheme.node.group, type: 'node' },
-        {
-          label: 'Geographic hull',
-          type: 'hull',
-          style: 'background: rgba(116,185,255,0.12); border: 1px solid rgba(116,185,255,0.28);',
-        },
-        { label: 'Hierarchy link', type: 'line', style: 'background: #74b9ff;' },
-        {
-          label: 'Contact membership',
-          type: 'line',
-          style:
-            'background: repeating-linear-gradient(to right, #636e72 0, #636e72 3px, transparent 3px, transparent 6px);',
-        },
+        { label: 'Contact', color: node.other, type: 'node' },
+        { label: 'Location group', color: node.group, type: 'node' },
+        { label: 'Geographic hull', type: 'hull', style: hullStyle },
+        { label: 'Hierarchy link', type: 'line', style: `background: ${edge.work};` },
+        { label: 'Contact membership', type: 'line', style: dashed(edge.other, 3, 6) },
       ];
     }
     return [
-      { label: 'Contact', color: this._colorScheme.node.other, type: 'node' },
-      { label: 'Company', color: this._colorScheme.node.company, type: 'node' },
-      { label: 'Virtual', color: this._colorScheme.node.virtual, type: 'node' },
-      { label: 'Family rel.', type: 'line', style: 'background: #e17055;' },
-      {
-        label: 'Inferred (org)',
-        type: 'line',
-        style:
-          'background: repeating-linear-gradient(to right, #aaa 0, #aaa 4px, transparent 4px, transparent 7px);',
-      },
+      { label: 'Contact', color: node.other, type: 'node' },
+      { label: 'Company', color: node.company, type: 'node' },
+      { label: 'Virtual', color: node.virtual, type: 'node' },
+      { label: 'Family rel.', type: 'line', style: `background: ${edge.family};` },
+      { label: 'Inferred (org)', type: 'line', style: dashed(edge.inferred, 4, 7) },
     ];
   }
 }

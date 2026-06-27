@@ -23,7 +23,8 @@
   --error: #e17055;
   --warn: #fdcb6e;
 
-  /* Category colors (match graph.js) */
+  /* Category colors — single source of truth; read by Palette (js/palette.js)
+     for graph nodes/edges/legend and contact-list dots. Edit here only. */
   --cat-family: #e17055;
   --cat-friend: #00b894;
   --cat-mitre: #0984e3;
@@ -35,6 +36,11 @@
   --cat-company: #636e72;
   --cat-virtual: #b2bec3;
   --cat-other: #8395a7;
+  /* Graph-only palette tokens (previously hardcoded in graph.js) */
+  --cat-node-default: #dfe6e9; /* node fill for plain contacts */
+  --cat-group: #8e9aaf; /* cluster / location group nodes */
+  --cat-selected: #ffd32a; /* selected-node ring */
+  --cat-edge-inferred: #aaa; /* inferred org-cluster links */
 
   --sidebar-toggle-w: 22px;
   --sidebar-list-w: 220px;
