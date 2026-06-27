@@ -69,6 +69,13 @@ export class VCardAdapter {
     if (contact.org) lines.push(`ORG:${this._escape(contact.org)}`);
     if (contact.title) lines.push(`TITLE:${this._escape(contact.title)}`);
 
+    // Non-system tags (markdown / in-app) → standard CATEGORIES so they aren't
+    // dropped on export. 'company' is already represented by X-ABSHOWAS.
+    const categories = (contact.tags || []).filter((tag) => tag && tag !== 'company');
+    if (categories.length) {
+      lines.push(`CATEGORIES:${categories.map((tag) => this._escape(tag)).join(',')}`);
+    }
+
     for (const email of contact.emails || []) {
       if (email?.value)
         lines.push(`EMAIL${this._typeParams(email.types)}:${this._escape(email.value)}`);

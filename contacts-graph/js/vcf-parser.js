@@ -113,6 +113,7 @@ export class VCFParser {
     const contact = ContactRecord.createEmptyContact();
 
     const items = {}; // item1, item2, etc.
+    const categories = []; // CATEGORIES values → merged into tags below
 
     for (const line of lines) {
       if (!line || line === 'BEGIN:VCARD' || line === 'END:VCARD') continue;
@@ -216,6 +217,13 @@ export class VCFParser {
           contact.uid = value;
           break;
 
+        case 'CATEGORIES':
+          for (const cat of VCardUtils.splitEscaped(value, ',')) {
+            const decoded = this._decode(cat);
+            if (decoded) categories.push(decoded);
+          }
+          break;
+
         case 'X-CONTACTGRAPH-FIELD': {
           // Round-tripped format-neutral custom field, JSON-encoded as
           // {key, type, value}. Emitted by VCardAdapter when a non-vCard-origin
@@ -263,9 +271,9 @@ export class VCFParser {
     }
     if (!contact.fn) return null;
 
-    // Infer tags
+    // Infer tags, then merge any CATEGORIES (user/markdown tags) round-tripped in.
     contact.noteTags = this._extractHashtags(contact.notes);
-    contact.tags = this._inferTags(contact);
+    contact.tags = Array.from(new Set([...this._inferTags(contact), ...categories]));
 
     return contact;
   }

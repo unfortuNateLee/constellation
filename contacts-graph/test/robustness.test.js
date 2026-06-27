@@ -162,3 +162,28 @@ test('custom-field values with vCard-special characters round-trip safely', () =
 
   assert.deepEqual(plain(reparsed.customFields.tricky), plain(contact.customFields.tricky));
 });
+
+test('vCard fallback serializes non-company tags as CATEGORIES and round-trips them', () => {
+  const { VCardAdapter, VCFParser } = loadBrowserClasses();
+  const vcard = new VCardAdapter(new VCFParser());
+  const contact = {
+    id: 'c_tags',
+    uid: 'tags-1',
+    fn: 'Tagged Person',
+    name: { family: '', given: '', additional: '', prefix: '', suffix: '' },
+    emails: [],
+    phones: [],
+    addresses: [],
+    urls: [],
+    notes: [],
+    related: [],
+    tags: ['company', 'vip', 'lead'], // 'company' is represented separately by X-ABSHOWAS
+    customFields: {},
+  };
+
+  const exported = vcard.serialize([contact]);
+  assert.match(exported, /CATEGORIES:vip,lead/);
+
+  const reparsed = vcard.parse(exported)[0];
+  assert.deepEqual(plain(reparsed.tags), ['vip', 'lead']);
+});
