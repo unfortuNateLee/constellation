@@ -23,15 +23,28 @@ class MarkdownAdapter {
   parse(text, options = {}) {
     const docs = this._splitDocuments(text);
     const contacts = [];
+    // Per-parse accumulators for deterministic, collision-free ids.
+    const idContext = { usedIds: new Set(), basisCounts: new Map() };
     for (let i = 0; i < docs.length; i++) {
-      const parsed = this._parseDocument(docs[i]);
-      if (!parsed) continue;
-      contacts.push(
-        this._contactFromDocument(parsed.data, parsed.body, {
-          raw: docs[i],
-          index: options.startIndex != null ? options.startIndex + i : i,
-        }),
-      );
+      // Isolate malformed documents: a single bad contact is skipped with a
+      // warning instead of aborting the whole import.
+      try {
+        const parsed = this._parseDocument(docs[i]);
+        if (!parsed) continue;
+        contacts.push(
+          this._contactFromDocument(
+            parsed.data,
+            parsed.body,
+            {
+              raw: docs[i],
+              index: options.startIndex != null ? options.startIndex + i : i,
+            },
+            idContext,
+          ),
+        );
+      } catch (err) {
+        console.warn(`[MarkdownAdapter] Skipping malformed contact at index ${i}: ${err.message}`);
+      }
     }
     return contacts;
   }
@@ -72,7 +85,7 @@ class MarkdownAdapter {
     };
   }
 
-  _contactFromDocument(data, body, source) {
+  _contactFromDocument(data, body, source, idContext = null) {
     const known = new Set([
       'contactgraph',
       'id',
@@ -107,9 +120,10 @@ class MarkdownAdapter {
     const fn = String(
       data.fn || data.name?.display || data.name?.given || data.uid || 'Markdown Contact',
     );
+    const uid = data.uid || null;
     const contact = {
-      id: data.id || this._generateId(),
-      uid: data.uid || null,
+      id: this._resolveId(data.id, { uid, fn }, idContext),
+      uid,
       fn,
       name: {
         family: data.name?.family || '',
@@ -431,6 +445,19 @@ class MarkdownAdapter {
 
   _indent(line) {
     return String(line || '').match(/^ */)[0].length;
+  }
+
+  // Prefer an id stored in frontmatter (preserves Markdown round-trips); otherwise
+  // derive a deterministic id from UID/FN so reparses stay stable.
+  _resolveId(providedId, basisContact, idContext) {
+    if (providedId) {
+      if (idContext) idContext.usedIds.add(providedId);
+      return providedId;
+    }
+    if (idContext && typeof ContactRecord !== 'undefined' && ContactRecord.assignStableId) {
+      return ContactRecord.assignStableId(basisContact, idContext.usedIds, idContext.basisCounts);
+    }
+    return this._generateId();
   }
 
   _generateId() {

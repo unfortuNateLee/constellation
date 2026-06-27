@@ -100,4 +100,45 @@ class ContactRecord {
     if (value == null) return value;
     return JSON.parse(JSON.stringify(value));
   }
+
+  /**
+   * Assign a deterministic, stable id to a contact based on its UID (preferred)
+   * or display name. The same source contact yields the same id across reparses,
+   * so in-memory references (selection, graph node identity) survive reload.
+   *
+   * `usedIds` and `basisCounts` are caller-owned per-parse accumulators that keep
+   * ids unique: duplicate-named contacts with no UID get a stable occurrence
+   * suffix (#2, #3, …) in file order rather than colliding.
+   */
+  static assignStableId(contact, usedIds, basisCounts) {
+    const base = contact.uid
+      ? `uid:${String(contact.uid).trim()}`
+      : `fn:${String(contact.fn || '')
+          .trim()
+          .toLowerCase()}`;
+    const occurrence = (basisCounts.get(base) || 0) + 1;
+    basisCounts.set(base, occurrence);
+    const basis = occurrence === 1 ? base : `${base}#${occurrence}`;
+
+    let id = `c_${this._hash(basis)}`;
+    let probe = 0;
+    while (usedIds.has(id)) {
+      probe += 1;
+      id = `c_${this._hash(`${basis}~${probe}`)}`;
+    }
+    usedIds.add(id);
+    contact.id = id;
+    return id;
+  }
+
+  // FNV-1a 32-bit hash → base36. Deterministic and dependency-free.
+  static _hash(str) {
+    let h = 0x811c9dc5;
+    const s = String(str);
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return (h >>> 0).toString(36);
+  }
 }

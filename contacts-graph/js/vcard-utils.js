@@ -94,12 +94,22 @@ class VCardUtils {
   }
 
   static decodeValue(value) {
-    return String(value || '')
-      .replace(/\\n/gi, '\n')
-      .replace(/\\N/g, '\n')
-      .replace(/\\,/g, ',')
-      .replace(/\\;/g, ';')
-      .replace(/\\\\/g, '\\');
+    // Single left-to-right pass: each backslash consumes exactly the next
+    // character. Sequential .replace() passes are wrong here — unescaping `\\`
+    // last makes `\\n` (escaped backslash + literal "n") decode as a newline.
+    const s = String(value || '');
+    let out = '';
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (ch === '\\' && i + 1 < s.length) {
+        const next = s[i + 1];
+        i += 1;
+        out += next === 'n' || next === 'N' ? '\n' : next;
+      } else {
+        out += ch;
+      }
+    }
+    return out;
   }
 
   static buildTypeParams(types = []) {

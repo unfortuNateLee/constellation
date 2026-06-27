@@ -113,6 +113,17 @@ class VCardAdapter {
       itemIndex += 1;
     }
 
+    // Preserve format-neutral custom fields so non-vCard-origin contacts
+    // (e.g. Markdown imports) don't silently lose data on vCard export. The
+    // markdown body is already carried as NOTE, so it's skipped here. These
+    // are read back by VCFParser's X-CONTACTGRAPH-FIELD case.
+    const customFields = contact.customFields || contact.record?.fields || {};
+    for (const [key, field] of Object.entries(customFields)) {
+      if (key === 'markdown_body') continue;
+      const payload = JSON.stringify({ key, type: field?.type, value: field?.value });
+      lines.push(`X-CONTACTGRAPH-FIELD:${this._escape(payload)}`);
+    }
+
     lines.push('END:VCARD');
     return typeof VCardUtils !== 'undefined' ? VCardUtils.foldLines(lines) : lines.join('\r\n');
   }

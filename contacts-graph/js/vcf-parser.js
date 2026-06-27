@@ -56,27 +56,47 @@ class VCFParser {
     const vcardPattern = /BEGIN:VCARD[\s\S]*?END:VCARD/gi;
     const blocks = unfolded.match(vcardPattern) || [];
 
+    // Per-parse accumulators for deterministic, collision-free ids.
+    const usedIds = new Set();
+    const basisCounts = new Map();
+
     // Parse each block and attach its corresponding raw block + photo by index.
     // blocks[i] (unfolded) always corresponds to rawBlocks[i] (original) because
     // folding never adds or removes BEGIN:/END:VCARD markers.
     for (let i = 0; i < blocks.length; i++) {
-      const contact = this._parseVCard(blocks[i]);
-      if (!contact) continue;
-      if (i < rawBlocks.length) {
-        contact.rawVCard = rawBlocks[i];
-        if (photos[i]) contact.photo = photos[i];
+      // Isolate malformed records: one bad block is skipped with a warning
+      // instead of aborting the whole import.
+      try {
+        const contact = this._parseVCard(blocks[i]);
+        if (!contact) continue;
+        if (i < rawBlocks.length) {
+          contact.rawVCard = rawBlocks[i];
+          if (photos[i]) contact.photo = photos[i];
+        }
+        this._assignStableId(contact, usedIds, basisCounts);
+        if (typeof ContactRecord !== 'undefined') {
+          ContactRecord.attachToLegacyContact(contact, {
+            format: 'vcard',
+            raw: contact.rawVCard || '',
+            index: i,
+          });
+        }
+        contacts.push(contact);
+      } catch (err) {
+        console.warn(`[VCFParser] Skipping malformed vCard at index ${i}: ${err.message}`);
       }
-      if (typeof ContactRecord !== 'undefined') {
-        ContactRecord.attachToLegacyContact(contact, {
-          format: 'vcard',
-          raw: contact.rawVCard || '',
-          index: i,
-        });
-      }
-      contacts.push(contact);
     }
 
     return contacts;
+  }
+
+  _assignStableId(contact, usedIds, basisCounts) {
+    if (typeof ContactRecord !== 'undefined' && ContactRecord.assignStableId) {
+      ContactRecord.assignStableId(contact, usedIds, basisCounts);
+    } else {
+      contact.id = this._generateId();
+      usedIds.add(contact.id);
+    }
   }
 
   _parseVCard(block) {
@@ -107,6 +127,7 @@ class VCFParser {
       photo: null, // base64 data URL if present
       tags: [], // reserved system tags
       noteTags: [], // hashtags parsed from notes
+      customFields: {}, // format-neutral extras (e.g. round-tripped via X-CONTACTGRAPH-FIELD)
     };
 
     const items = {}; // item1, item2, etc.
@@ -212,6 +233,24 @@ class VCFParser {
         case 'UID':
           contact.uid = value;
           break;
+
+        case 'X-CONTACTGRAPH-FIELD': {
+          // Round-tripped format-neutral custom field, JSON-encoded as
+          // {key, type, value}. Emitted by VCardAdapter when a non-vCard-origin
+          // contact (e.g. Markdown) is exported to vCard.
+          try {
+            const obj = JSON.parse(this._decode(value));
+            if (obj && obj.key) {
+              contact.customFields[obj.key] = {
+                type: obj.type || 'unknown',
+                value: obj.value,
+              };
+            }
+          } catch {
+            // Ignore an unparseable custom-field payload rather than failing the contact.
+          }
+          break;
+        }
 
         case 'X-ABRELATEDNAMES':
           // Will be processed via items map below
