@@ -35,7 +35,7 @@ The application is a browser-only contact explorer and editor for contact data s
 - Session restore storage: IndexedDB.
 - Network dependency: none at runtime. Third-party browser libraries must be vendored locally with the app.
 - D3 is loaded from `js/vendor/d3.v7.min.js`, not from a CDN, so the app runs with no internet connection.
-- Because it uses ES modules, the app **must be served over `http://`** (e.g. `python3 -m http.server` from `constellation/`); browsers will not load ES modules from `file://`. Serving locally still requires no network access beyond localhost.
+- Because it uses ES modules, the app **must be served over `http://`** (e.g. `python3 -m http.server` from the repo root); browsers will not load ES modules from `file://`. Serving locally still requires no network access beyond localhost.
 
 ## 5. High-Level User Flows
 
@@ -1215,7 +1215,7 @@ The repository includes an offline Node test suite runnable from the repository 
 npm test
 ```
 
-The automated suite lives under `constellation/test/` and uses fixture VCF files under `constellation/test/fixtures/`. The primary fixture is `comprehensive.vcf`, which covers:
+The automated suite lives under `test/` and uses fixture VCF files under `test/fixtures/`. The primary fixture is `comprehensive.vcf`, which covers:
 
 - normal Apple-style contacts
 - duplicate display names
@@ -1261,7 +1261,7 @@ Automated tests must cover:
 - HTML escaping and unsafe-href rejection for user/contact-provided display values
 - UTF-8 byte-safe vCard line folding
 
-Manual Apple Contacts validation is documented in `constellation/docs/APPLE_CONTACTS_ROUNDTRIP_CHECKLIST.md`.
+Manual Apple Contacts validation is documented in `docs/APPLE_CONTACTS_ROUNDTRIP_CHECKLIST.md`.
 
 At minimum, automated or manual coverage should include:
 

@@ -2,14 +2,14 @@
   "name": "constellation",
   "version": "0.1.0",
   "description": "Browser-only, offline contact relationship explorer and editor (vCard + Markdown import, D3 graph, table view, bulk-normalize, IndexedDB session persistence).",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test constellation/test/*.test.js",
+    "test": "node --test test/*.test.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

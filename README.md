@@ -36,19 +36,11 @@ It's a static site — no build step — but it uses **native ES modules**, whic
 browsers don't load over `file://`. So serve it from a local static server and
 open it over `http://` (no internet connection required once served).
 
-From inside the `constellation/` directory (the simplest, runs from anywhere):
+From the repo root:
 
 ```sh
-cd constellation
 python3 -m http.server 7891
 # then visit http://localhost:7891
-```
-
-Equivalently, from the repo root, point the server at the app directory
-(`--directory` is **relative to where you run it**, so don't double up the path):
-
-```sh
-python3 -m http.server 7891 --directory constellation   # run from the repo root only
 ```
 
 Any static file server works. (Opening `index.html` directly from disk will fail

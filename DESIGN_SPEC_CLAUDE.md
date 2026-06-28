@@ -1151,7 +1151,7 @@ When a contact lists a relationship with a name that doesn't resolve to any know
 ## 11. Build/Development Notes
 
 - **No bundler, but native ES modules** — the app code is plain ES modules (`package.json` has `"type":"module"`); there is no compile/bundle step.
-- **Must be served over `http://`** — browsers refuse ES modules from `file://`, so run any static server and open over http (no internet needed once served), e.g. from `constellation/`: `python3 -m http.server 7891` → `http://localhost:7891`.
+- **Must be served over `http://`** — browsers refuse ES modules from `file://`, so run any static server and open over http (no internet needed once served), e.g. from the repo root: `python3 -m http.server 7891` → `http://localhost:7891`.
 - **D3 version** — must be D3 **v7**, vendored locally at `js/vendor/d3.v7.min.js` and loaded as a classic global script before the module entry (uses `d3.zoom()`, `d3.forceSimulation()`, `d3.polygonHull()`, `d3.drag()`)
 - **No runtime dependencies** — the app needs no CDN, network, server, or package install at runtime. `npm install` pulls in dev tooling only (ESLint, Prettier).
 - **Browser requirements** — ES modules, IndexedDB, FileReader API, Blob/URL.createObjectURL, CSS Grid, `localStorage`; optionally the File System Access API (`showDirectoryPicker`) for grouped Markdown+image export (falls back to downloads).

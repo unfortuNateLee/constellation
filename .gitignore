@@ -4,7 +4,7 @@
 .LSOverride
 
 # --- Personal contact data (never commit real exports) ---
-# Synthetic test fixtures under constellation/test/fixtures/ are intentionally
+# Synthetic test fixtures under test/fixtures/ are intentionally
 # NOT ignored (these patterns are anchored to the repo root only).
 /*.vcf
 /*.vcard
