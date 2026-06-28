@@ -83,9 +83,11 @@ class DetailMixin {
       this._bindNotesAutocomplete(notesEl, false, contact.id);
     }
 
-    // Relationships — a single collapsible master section whose body holds the
-    // own relationships plus the "Referenced", "Inferred", and "Suggested
-    // Additions" subsections.
+    // Relationships — a collapsible master section holding this contact's own
+    // relationships plus the inferred (org-based) subsection. The "Referenced
+    // in Others' Cards" and "Suggested Additions" sections are siblings of the
+    // master, appended directly to detail-relationships at the same hierarchy
+    // level.
     const relsEl = document.getElementById('detail-relationships');
     relsEl.innerHTML = '';
 
@@ -151,7 +153,8 @@ class DetailMixin {
       if (canShowAddRelationship) body.appendChild(this._renderAddRelationshipAction());
     }
 
-    // ── Subsection: back-references (collapsible) ─────────────────────
+    // ── Top-level section: back-references (collapsible) ──────────────
+    // A sibling of the Relationships master, not nested inside it.
     if (referencedBy.length > 0) {
       const refSub = this._makeCollapsible("Referenced in Others' Cards", {
         collapsed: this._refSectionCollapsed,
@@ -160,7 +163,7 @@ class DetailMixin {
         },
         badgeText: String(referencedBy.length),
       });
-      body.appendChild(refSub.section);
+      relsEl.appendChild(refSub.section);
       const refBody = refSub.body;
 
       for (const { rel, fromNode } of referencedBy) {
@@ -231,7 +234,9 @@ class DetailMixin {
       }
     }
 
-    if (ownRelated.length === 0 && referencedBy.length === 0 && inferredRels.length === 0) {
+    // Emptiness now reflects only the Relationships section's own content
+    // (own + inferred); back-references live in their own sibling section.
+    if (ownRelated.length === 0 && inferredRels.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'rel-empty';
       empty.textContent = 'No relationships found';
@@ -241,8 +246,9 @@ class DetailMixin {
       body.prepend(this._renderAddRelationshipAction());
     }
 
-    // ── Subsection: Suggested Additions (its own collapsible) ─────────
-    this._renderSuggestions(node, body);
+    // ── Top-level section: Suggested Additions (its own collapsible) ──
+    // A sibling of the Relationships master, not nested inside it.
+    this._renderSuggestions(node, relsEl);
 
     // Store for add-relationship modal
     this._selectedNodeId = node.id;

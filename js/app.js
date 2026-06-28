@@ -251,11 +251,6 @@ export class ContactRelationshipApp {
       { label: 'Download TSV Template', onSelect: () => this._downloadTsvTemplate() },
     ]);
 
-    // Add relationship button (in detail panel)
-    document.getElementById('btn-add-rel').addEventListener('click', () => {
-      this._showAddRelationshipModal();
-    });
-
     document.getElementById('btn-edit-contact').addEventListener('click', () => {
       if (!this._selectedNodeId) return;
       const contact = this._contact(this._selectedNodeId);
@@ -330,6 +325,11 @@ export class ContactRelationshipApp {
       },
     ]);
 
+    // Delete selected (confirms first)
+    document.getElementById('btn-delete-selected').addEventListener('click', () => {
+      this._deleteSelectedContacts();
+    });
+
     // Clear selection
     document.getElementById('btn-clear-selection').addEventListener('click', () => {
       this._selectedForExport.clear();
@@ -392,9 +392,56 @@ export class ContactRelationshipApp {
 
     this._applySidebarCollapseState();
     this._initCollapsiblePanels();
+    this._initSidebarResizer();
     this._syncGraphModeControls();
     this._renderLegend();
     this._applyMainViewMode();
+  }
+
+  /**
+   * Make the contact/search list horizontally resizable by dragging the handle
+   * on the sidebar's right edge. The chosen width drives --sidebar-list-w and
+   * persists across reloads.
+   */
+  _initSidebarResizer() {
+    const handle = document.getElementById('sidebar-resizer');
+    if (!handle) return;
+    const root = document.documentElement;
+    const MIN = 220;
+    const MAX = 520;
+    const STORAGE_KEY = 'constellation:sidebar-list-w';
+
+    const apply = (px) => root.style.setProperty('--sidebar-list-w', `${px}px`);
+    const current = () =>
+      parseInt(getComputedStyle(root).getPropertyValue('--sidebar-list-w'), 10) || MIN;
+
+    const saved = Number(localStorage.getItem(STORAGE_KEY));
+    if (saved >= MIN && saved <= MAX) apply(saved);
+
+    let startX = 0;
+    let startW = 0;
+    const onMove = (e) => {
+      const next = Math.min(MAX, Math.max(MIN, startW + (e.clientX - startX)));
+      apply(next);
+    };
+    const onUp = () => {
+      document.body.classList.remove('resizing-sidebar');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      try {
+        localStorage.setItem(STORAGE_KEY, String(current()));
+      } catch {
+        /* storage unavailable — width still applied for this session */
+      }
+    };
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startX = e.clientX;
+      startW = current();
+      document.body.classList.add('resizing-sidebar');
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
   }
 
   /** Make sidebar section titles and the graph legend title click-to-collapse. */

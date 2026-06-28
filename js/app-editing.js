@@ -109,11 +109,6 @@ class EditingMixin {
     document
       .getElementById('btn-delete-contact')
       .classList.toggle('hidden', isEditing || !hasContact || isVirtual || isGroup);
-    // Add Relationship stays available while editing (in-progress edits are
-    // flushed to the model when the modal opens).
-    document
-      .getElementById('btn-add-rel')
-      .classList.toggle('hidden', !hasContact || isVirtual || isGroup);
     document
       .getElementById('btn-export-contact-menu')
       .classList.toggle('hidden', isEditing || !hasContact || isVirtual || isGroup);
@@ -188,7 +183,7 @@ class EditingMixin {
     for (const email of node.emails || []) {
       const emailValue = String(email.value || '').replace(/[\r\n]/g, '');
       const row = this._detailRow(
-        '✉',
+        '✉️',
         `<a href="mailto:${this._escapeHtml(emailValue)}">${this._escapeHtml(emailValue)}</a>`,
         email.types.filter((t) => !['INTERNET', 'PREF'].includes(t)).join(', ') || 'Email',
       );

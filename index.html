@@ -15,10 +15,10 @@
       <header class="app-header">
         <div class="build-stamp" title="Last edited build marker">
           <span class="build-stamp-label">Updated</span>
-          <span class="build-stamp-date">2026-06-27</span>
-          <span class="build-stamp-time">09:53:18 PDT</span>
+          <span class="build-stamp-date">2026-06-28</span>
+          <span class="build-stamp-time">15:57:06 EDT</span>
         </div>
-        <div class="app-title">Constella<span>tion</span></div>
+        <div class="app-title">Constellation</div>
         <div class="header-divider"></div>
         <button
           class="btn btn-primary"
@@ -84,20 +84,20 @@
 
         <div class="header-stats" id="header-stats">
           <div class="stat-item">
-            <span class="stat-value" id="stat-contacts">—</span>
             <span class="stat-label">Contacts</span>
+            <span class="stat-value" id="stat-contacts">—</span>
           </div>
           <div class="stat-item">
-            <span class="stat-value" id="stat-nodes">—</span>
             <span class="stat-label">Visible</span>
+            <span class="stat-value" id="stat-nodes">—</span>
           </div>
           <div class="stat-item">
-            <span class="stat-value" id="stat-explicit">—</span>
             <span class="stat-label">Explicit</span>
+            <span class="stat-value" id="stat-explicit">—</span>
           </div>
           <div class="stat-item">
-            <span class="stat-value" id="stat-edges">—</span>
             <span class="stat-label">Connections</span>
+            <span class="stat-value" id="stat-edges">—</span>
           </div>
         </div>
       </header>
@@ -204,7 +204,7 @@
               </select>
             </div>
             <div class="export-bar hidden" id="export-bar">
-              <span id="export-bar-count"></span>
+              <span id="export-bar-count" class="export-bar-count"></span>
               <div class="export-bar-actions">
                 <button
                   class="btn btn-primary btn-xs"
@@ -213,11 +213,25 @@
                 >
                   Export Selected ▾
                 </button>
+                <button
+                  class="btn btn-ghost btn-xs btn-danger-text"
+                  id="btn-delete-selected"
+                  title="Delete the selected contacts from the current working dataset"
+                >
+                  Delete Selected
+                </button>
                 <button class="btn btn-ghost btn-xs" id="btn-clear-selection">Clear</button>
               </div>
             </div>
             <div id="contact-list"></div>
           </div>
+          <div
+            class="sidebar-resizer"
+            id="sidebar-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            title="Drag to resize"
+          ></div>
         </aside>
 
         <!-- Graph -->
@@ -317,8 +331,6 @@
             </div>
           </div>
 
-          <button class="btn btn-ghost hidden" id="btn-add-rel">+ Add Relationship</button>
-
           <div class="detail-footer">
             <button class="btn btn-primary hidden" id="btn-create-contact" style="flex: 1">
               Create Contact
@@ -331,7 +343,7 @@
             </button>
             <button class="btn btn-ghost hidden" id="btn-cancel-edit">Cancel</button>
             <button
-              class="btn btn-ghost"
+              class="btn btn-ghost btn-danger-text"
               id="btn-delete-contact"
               title="Delete this contact from the current working dataset"
             >

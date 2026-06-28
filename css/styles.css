@@ -170,11 +170,6 @@ body {
   white-space: nowrap;
 }
 
-.app-title span {
-  color: var(--text2);
-  font-weight: 400;
-}
-
 .file-label {
   font-size: 12px;
   color: var(--text2);
@@ -226,6 +221,12 @@ body {
   background: var(--panel2);
   color: var(--text);
 }
+/* Red label for destructive actions (Delete / Delete Selected). Also wins on
+   hover, where .btn-ghost:hover would otherwise reset the color. */
+.btn-danger-text,
+.btn-danger-text:hover {
+  color: var(--error-text);
+}
 .btn-icon {
   padding: 6px 10px;
 }
@@ -248,14 +249,15 @@ body {
   flex-shrink: 0;
 }
 
-/* Compact inline stats: "7 Contacts · 8 Visible · …" rather than tall columns. */
+/* Compact stacked stats: the label sits above its number, columns kept narrow. */
 .stat-item {
   display: flex;
-  align-items: baseline;
-  gap: 4px;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
 }
 .stat-value {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--accent2);
   line-height: 1;
@@ -277,6 +279,7 @@ body {
 
 /* ── Sidebar ─────────────────────────────────────────────────────── */
 .sidebar {
+  position: relative;
   width: var(--sidebar-w);
   background: var(--panel);
   border-right: 1px solid var(--border);
@@ -285,6 +288,30 @@ body {
   flex-shrink: 0;
   overflow: hidden;
   transition: width 0.22s ease;
+}
+
+/* Drag handle pinned to the sidebar's right edge — resizes the contact/search
+   list horizontally. Sits within the (overflow:hidden) box so it isn't clipped. */
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 5;
+}
+.sidebar-resizer:hover,
+body.resizing-sidebar .sidebar-resizer {
+  background: var(--accent);
+}
+body.resizing-sidebar {
+  cursor: col-resize;
+  user-select: none;
+}
+/* No width animation while actively dragging. */
+body.resizing-sidebar .sidebar {
+  transition: none;
 }
 
 .sidebar.collapsed {
@@ -663,17 +690,33 @@ body {
 
 .export-bar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
   padding: 6px 12px;
   background: rgba(124, 92, 191, 0.15);
   border-bottom: 1px solid rgba(124, 92, 191, 0.3);
   font-size: 12px;
   color: var(--text2);
 }
+/* Full-width "[#] contacts selected" label above the action row. */
+.export-bar-count {
+  font-weight: 600;
+  color: var(--text);
+}
 .export-bar-actions {
   display: flex;
   gap: 6px;
+}
+/* The three actions share the constrained width equally and may wrap to two
+   lines so labels stay legible. */
+.export-bar-actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.15;
 }
 .btn-xs {
   padding: 3px 8px;
@@ -1488,8 +1531,13 @@ body {
 .rel-collapse.collapsed > .rel-collapse-body {
   display: none;
 }
-/* Nested subsections (Suggested Additions) sit slightly indented. */
+/* Nested subsections sit slightly indented. */
 .rel-collapse-body .rel-collapse {
+  margin-top: 8px;
+}
+/* Top-level relationship sections — Relationships, "Referenced in Others'
+   Cards", and "Suggested Additions" — are siblings; space them apart. */
+#detail-relationships > .rel-collapse + .rel-collapse {
   margin-top: 8px;
 }
 /* Plain subsection headers reuse rel-section-header; this just guarantees

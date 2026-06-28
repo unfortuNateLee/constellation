@@ -581,6 +581,28 @@ class TableMixin {
     this._rebuildGraph();
     void this._persistSession();
   }
+
+  /** Delete every contact currently checked in the sidebar selection (confirms first). */
+  _deleteSelectedContacts() {
+    const ids = [...this._selectedForExport];
+    if (ids.length === 0) return;
+    const ok = window.confirm(
+      `Delete ${ids.length} selected contact${ids.length !== 1 ? 's' : ''} from the current working dataset?`,
+    );
+    if (!ok) return;
+    const idSet = new Set(ids);
+    this.contacts = this.contacts.filter((c) => !idSet.has(c.id));
+    this.builder = new RelationshipBuilder(this.contacts);
+    if (this._selectedNodeId && idSet.has(this._selectedNodeId)) {
+      this._selectedNodeId = null;
+      this._editingContactId = null;
+      this._onNodeDeselect();
+    }
+    this._selectedForExport.clear();
+    this._updateExportBar();
+    this._rebuildGraph();
+    void this._persistSession();
+  }
 }
 
 applyMixin(ContactRelationshipApp.prototype, TableMixin);

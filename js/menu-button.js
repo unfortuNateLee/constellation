@@ -69,12 +69,21 @@ export function attachMenu(trigger, getItems) {
 
     document.body.appendChild(popover);
 
-    // Position under the trigger, kept within the viewport.
+    // Position under the trigger, kept within the viewport. Flip above the
+    // trigger when there isn't room below (e.g. trigger near the bottom edge).
     const r = trigger.getBoundingClientRect();
-    popover.style.top = `${Math.round(r.bottom + 4)}px`;
+    const margin = 8;
+    const h = popover.offsetHeight;
+    let top = r.bottom + 4;
+    if (top + h > window.innerHeight - margin) {
+      const above = r.top - 4 - h;
+      top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - h);
+    }
+    popover.style.top = `${Math.round(top)}px`;
     const w = popover.offsetWidth;
     let left = r.left;
-    if (left + w > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - w);
+    if (left + w > window.innerWidth - margin)
+      left = Math.max(margin, window.innerWidth - margin - w);
     popover.style.left = `${Math.round(left)}px`;
 
     trigger.setAttribute('aria-expanded', 'true');

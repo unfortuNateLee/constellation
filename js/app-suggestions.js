@@ -449,8 +449,8 @@ class SuggestionsMixin {
     const suggestions = this._findRelationshipSuggestions(node);
     if (suggestions.length === 0) return;
 
-    // Suggested Additions is its own collapsible subsection inside the
-    // Relationships body.
+    // Suggested Additions is its own top-level collapsible section, a sibling
+    // of the Relationships master (parentBody is detail-relationships).
     const sub = this._makeCollapsible('Suggested Additions', {
       collapsed: this._suggSectionCollapsed,
       onToggle: (c) => {
