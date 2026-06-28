@@ -343,3 +343,39 @@ test('serializer round-trips key fields, preferred flags, custom labels, photos,
   assert.equal(geo.addresses[0].types[0], 'WORK');
   assert.equal(geo.addresses[0].city, 'San Francisco');
 });
+
+test('Apple item-grouped custom labels on email/phone/address survive parse + edit', () => {
+  const context = loadBrowserClasses();
+  const vcard = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    'UID:label-test',
+    'N:Test;Label;;;',
+    'FN:Label Test',
+    'item1.EMAIL;type=INTERNET:lake@example.com',
+    'item1.X-ABLabel:_$!<Lake House>!$_',
+    'item2.TEL:555-9000',
+    'item2.X-ABLabel:_$!<Boat>!$_',
+    'item3.ADR:;;1 Dock Rd;Harbor;ME;04001;USA',
+    'item3.X-ABLabel:_$!<Marina>!$_',
+    'END:VCARD',
+  ].join('\r\n');
+
+  const contacts = new context.VCFParser().parse(vcard);
+  const app = makeTestApp(context, contacts);
+  const c = contacts[0];
+
+  // Parsed into the model as a per-instance label.
+  assert.equal(c.emails[0].label, 'Lake House');
+  assert.equal(c.phones[0].label, 'Boat');
+  assert.equal(c.addresses[0].label, 'Marina');
+
+  // Editing the contact regenerates the card from the model — labels must
+  // survive (regression: item-grouped labels used to be dropped on edit).
+  app._rewriteEditableFields(c);
+  assert.match(c.rawVCard, /X-ABLabel:_\$!<Lake House>!\$_/);
+  const reparsed = new context.VCFParser().parse(c.rawVCard)[0];
+  assert.equal(reparsed.emails[0].label, 'Lake House');
+  assert.equal(reparsed.phones[0].label, 'Boat');
+  assert.equal(reparsed.addresses[0].label, 'Marina');
+});

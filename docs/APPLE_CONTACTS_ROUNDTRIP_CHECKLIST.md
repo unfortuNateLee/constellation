@@ -28,6 +28,7 @@ Use this checklist for changes that affect vCard import, editing, serialization,
 - Preferred email, phone, and address items remain preferred in Apple Contacts and remain preferred when re-imported into the app.
 - Hidden Apple/system types such as `INTERNET`, `VOICE`, and `PREF` are not exposed as custom user labels in the app.
 - Custom type labels survive import/export when Apple Contacts preserves them.
+- Apple custom labels (`itemN.X-ABLabel`) on individual emails, phones, addresses, and URLs are preserved through import, in-app edit, and export — including a contact edited in the app (they used to be dropped on edit). Set a custom label via the "Custom" type option and confirm it survives a round-trip.
 - Photos appear in Apple Contacts and reappear in the app after Apple re-export.
 - Notes preserve escaped commas, semicolons, newlines, and hashtags.
 - Notes and other long text fields containing non-ASCII characters remain readable after app export, Apple import, Apple export, and app re-import.

@@ -185,7 +185,9 @@ class EditingMixin {
       const row = this._detailRow(
         '✉️',
         `<a href="mailto:${this._escapeHtml(emailValue)}">${this._escapeHtml(emailValue)}</a>`,
-        email.types.filter((t) => !['INTERNET', 'PREF'].includes(t)).join(', ') || 'Email',
+        email.label ||
+          email.types.filter((t) => !['INTERNET', 'PREF'].includes(t)).join(', ') ||
+          'Email',
       );
       contactInfo.appendChild(row);
     }
@@ -194,7 +196,9 @@ class EditingMixin {
       const row = this._detailRow(
         '📞',
         this._escapeHtml(phone.value),
-        phone.types.filter((t) => !['VOICE', 'PREF'].includes(t)).join(', ') || 'Phone',
+        phone.label ||
+          phone.types.filter((t) => !['VOICE', 'PREF'].includes(t)).join(', ') ||
+          'Phone',
       );
       contactInfo.appendChild(row);
     }
@@ -210,7 +214,9 @@ class EditingMixin {
         this._detailRow(
           '📍',
           html,
-          this._visibleTypes('address', address.types || []).join(', ') || 'Address',
+          address.label ||
+            this._visibleTypes('address', address.types || []).join(', ') ||
+            'Address',
         ),
       );
     }
@@ -222,13 +228,14 @@ class EditingMixin {
       const safeHref = this._safeExternalHref(urlValue);
       const types =
         typeof urlEntry === 'string' ? [] : this._visibleTypes('url', urlEntry.types || []);
+      const urlLabel = typeof urlEntry === 'string' ? '' : urlEntry.label;
       contactInfo.appendChild(
         this._detailRow(
           '🔗',
           safeHref
             ? `<a href="${this._escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`
             : safeUrl,
-          types.join(', ') || 'Website',
+          urlLabel || types.join(', ') || 'Website',
         ),
       );
     }
@@ -460,7 +467,7 @@ class EditingMixin {
       input.value = entry ? getValue(entry) : '';
       input.placeholder = label.slice(0, -1);
 
-      const typeState = this._typeSelectionState(kind, entry?.types || []);
+      const typeState = this._typeSelectionState(kind, entry?.types || [], entry?.label || '');
       const typeSelect = this._typeSelect(kind, typeState.selected);
       const typeInput = this._customTypeInput(
         kind,
@@ -647,7 +654,11 @@ class EditingMixin {
       const state = this._addressInput('State', 'state', address?.state || '');
       const zip = this._addressInput('ZIP', 'zip', address?.zip || '');
       const country = this._addressInput('Country', 'country', address?.country || '');
-      const typeState = this._typeSelectionState('address', address?.types || []);
+      const typeState = this._typeSelectionState(
+        'address',
+        address?.types || [],
+        address?.label || '',
+      );
       const typeSelect = this._typeSelect('address', typeState.selected, 'addr-type-select');
       const typeInput = this._customTypeInput(
         'address',
@@ -731,18 +742,9 @@ class EditingMixin {
       contact.photo = document.getElementById('edit-photo-data')?.value || null;
     }
     contact.notes = this._splitNotes(document.getElementById('edit-notes')?.value || '');
-    contact.emails = this._collectEditedCollection('email').map((entry) => ({
-      value: entry.value,
-      types: entry.types,
-    }));
-    contact.phones = this._collectEditedCollection('phone').map((entry) => ({
-      value: entry.value,
-      types: entry.types,
-    }));
-    contact.urls = this._collectEditedCollection('url').map((entry) => ({
-      value: entry.value,
-      types: entry.types,
-    }));
+    contact.emails = this._collectEditedCollection('email');
+    contact.phones = this._collectEditedCollection('phone');
+    contact.urls = this._collectEditedCollection('url');
     contact.addresses = this._collectEditedAddresses();
     contact.customFields = this._collectEditedCustomFields(
       contact.customFields || contact.record?.fields || {},
@@ -774,18 +776,18 @@ class EditingMixin {
       .map((item) => {
         const valueInput = item.querySelector('input[data-role="value"]');
         const typesInput = item.querySelector('input[data-role="types-custom"]');
+        const selected =
+          item.querySelector('select[data-role="types-select"]')?.value ||
+          this._defaultTypeOption(kind);
+        const preferred = !!item.querySelector('input[data-role="preferred"]')?.checked;
+        // "Custom" maps to an Apple X-ABLabel; any other choice is a standard TYPE.
+        const isCustom = selected === 'custom';
+        const label = isCustom ? (typesInput?.value || '').trim() : '';
+        const visibleTypes = isCustom ? [] : this._selectedTypesFromEditor(kind, selected, '');
         return {
           value: valueInput?.value.trim() || '',
-          types: this._normalizeStoredTypes(
-            kind,
-            this._selectedTypesFromEditor(
-              kind,
-              item.querySelector('select[data-role="types-select"]')?.value ||
-                this._defaultTypeOption(kind),
-              typesInput?.value || '',
-            ),
-            !!item.querySelector('input[data-role="preferred"]')?.checked,
-          ),
+          types: this._normalizeStoredTypes(kind, visibleTypes, preferred),
+          label,
         };
       })
       .filter((entry) => entry.value);
@@ -797,6 +799,15 @@ class EditingMixin {
       .map((item) => {
         const street = item.querySelector('[data-addr="street"]');
         if (!street) return null;
+        const selected =
+          item.querySelector('select[data-addr="type-select"]')?.value ||
+          this._defaultTypeOption('address');
+        const preferred = !!item.querySelector('input[data-role="preferred"]')?.checked;
+        const isCustom = selected === 'custom';
+        const label = isCustom
+          ? (item.querySelector('[data-addr="types"]')?.value || '').trim()
+          : '';
+        const visibleTypes = isCustom ? [] : this._selectedTypesFromEditor('address', selected, '');
         return {
           pobox: '',
           ext: '',
@@ -805,16 +816,8 @@ class EditingMixin {
           state: item.querySelector('[data-addr="state"]').value.trim(),
           zip: item.querySelector('[data-addr="zip"]').value.trim(),
           country: item.querySelector('[data-addr="country"]').value.trim(),
-          types: this._normalizeStoredTypes(
-            'address',
-            this._selectedTypesFromEditor(
-              'address',
-              item.querySelector('select[data-addr="type-select"]')?.value ||
-                this._defaultTypeOption('address'),
-              item.querySelector('[data-addr="types"]')?.value || '',
-            ),
-            !!item.querySelector('input[data-role="preferred"]')?.checked,
-          ),
+          types: this._normalizeStoredTypes('address', visibleTypes, preferred),
+          label,
         };
       })
       .filter(
@@ -965,25 +968,49 @@ class EditingMixin {
     if (contact.org) generated.push(`ORG:${this._vCardEscape(contact.org)}`);
     if (contact.title) generated.push(`TITLE:${this._vCardEscape(contact.title)}`);
     generated.push(...this._photoLines(contact.photo));
+    // Emit a contact field as a plain line, or — when the entry carries an Apple
+    // custom label — as an item group with an X-ABLabel (so the label survives).
+    const pushLabeledField = (prop, params, value, label) => {
+      if (label) {
+        generated.push(`item${nextItem}.${prop}${params}:${value}`);
+        generated.push(`item${nextItem}.X-ABLabel:${this._wrapLabel(label)}`);
+        nextItem += 1;
+      } else {
+        generated.push(`${prop}${params}:${value}`);
+      }
+    };
     for (const email of contact.emails || []) {
-      generated.push(
-        `EMAIL${this._buildTypeParams(email.types)}:${this._vCardEscape(email.value)}`,
+      pushLabeledField(
+        'EMAIL',
+        this._buildTypeParams(email.types),
+        this._vCardEscape(email.value),
+        email.label,
       );
     }
     for (const phone of contact.phones || []) {
-      generated.push(`TEL${this._buildTypeParams(phone.types)}:${this._vCardEscape(phone.value)}`);
+      pushLabeledField(
+        'TEL',
+        this._buildTypeParams(phone.types),
+        this._vCardEscape(phone.value),
+        phone.label,
+      );
     }
     for (const address of contact.addresses || []) {
       const params = this._buildTypeParams(address.types);
-      generated.push(
-        `ADR${params}:;;${this._vCardEscape(address.street || '')};${this._vCardEscape(address.city || '')};${this._vCardEscape(address.state || '')};${this._vCardEscape(address.zip || '')};${this._vCardEscape(address.country || '')}`,
-      );
+      const value = `;;${this._vCardEscape(address.street || '')};${this._vCardEscape(address.city || '')};${this._vCardEscape(address.state || '')};${this._vCardEscape(address.zip || '')};${this._vCardEscape(address.country || '')}`;
+      pushLabeledField('ADR', params, value, address.label);
     }
     for (const urlEntry of contact.urls || []) {
       const urlValue = typeof urlEntry === 'string' ? urlEntry : urlEntry.value;
       const urlTypes = typeof urlEntry === 'string' ? [] : urlEntry.types || [];
+      const urlLabel = typeof urlEntry === 'string' ? '' : urlEntry.label;
       if (!urlValue) continue;
-      generated.push(`URL${this._buildTypeParams(urlTypes)}:${this._vCardEscape(urlValue)}`);
+      pushLabeledField(
+        'URL',
+        this._buildTypeParams(urlTypes),
+        this._vCardEscape(urlValue),
+        urlLabel,
+      );
     }
     if (contact.birthday) generated.push(`BDAY:${contact.birthday}`);
     for (const note of contact.notes || []) {
@@ -1014,6 +1041,11 @@ class EditingMixin {
     ];
     contact.rawVCard = this._joinVCardLines(body);
     this._syncContactRecord(contact);
+  }
+
+  /** Wrap a custom field label in Apple's _$!<…>!$_ X-ABLabel form. */
+  _wrapLabel(label) {
+    return `_$!<${this._vCardEscape(label)}>!$_`;
   }
 
   _composeDisplayName(name) {
@@ -1200,7 +1232,10 @@ class EditingMixin {
     return (types || []).filter((type) => !hidden.has(String(type || '').toUpperCase()));
   }
 
-  _typeSelectionState(kind, types = []) {
+  _typeSelectionState(kind, types = [], label = '') {
+    // An Apple custom label (X-ABLabel) takes precedence over TYPE params and
+    // is edited through the "Custom" option.
+    if (label) return { selected: 'custom', customValue: label };
     const visible = this._visibleTypes(kind, types);
     if (visible.length === 0) {
       return { selected: this._defaultTypeOption(kind), customValue: '' };

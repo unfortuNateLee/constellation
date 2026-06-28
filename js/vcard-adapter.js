@@ -76,13 +76,27 @@ export class VCardAdapter {
       lines.push(`CATEGORIES:${categories.map((tag) => this._escape(tag)).join(',')}`);
     }
 
+    // Emit a contact field as a plain line, or — when it has an Apple custom
+    // label — as an item group with an X-ABLabel. itemIndex is shared with the
+    // anniversary/relationship groups below.
+    let itemIndex = 1;
+    const pushLabeled = (prop, params, value, label) => {
+      if (label) {
+        lines.push(`item${itemIndex}.${prop}${params}:${value}`);
+        lines.push(`item${itemIndex}.X-ABLabel:${this._wrapLabel(label)}`);
+        itemIndex += 1;
+      } else {
+        lines.push(`${prop}${params}:${value}`);
+      }
+    };
+
     for (const email of contact.emails || []) {
       if (email?.value)
-        lines.push(`EMAIL${this._typeParams(email.types)}:${this._escape(email.value)}`);
+        pushLabeled('EMAIL', this._typeParams(email.types), this._escape(email.value), email.label);
     }
     for (const phone of contact.phones || []) {
       if (phone?.value)
-        lines.push(`TEL${this._typeParams(phone.types)}:${this._escape(phone.value)}`);
+        pushLabeled('TEL', this._typeParams(phone.types), this._escape(phone.value), phone.label);
     }
     for (const address of contact.addresses || []) {
       if (!address) continue;
@@ -95,21 +109,20 @@ export class VCardAdapter {
         address.zip ||
         address.country;
       if (!hasAddress) continue;
-      lines.push(
-        `ADR${this._typeParams(address.types)}:${this._escape(address.pobox || '')};${this._escape(address.ext || '')};${this._escape(address.street || '')};${this._escape(address.city || '')};${this._escape(address.state || '')};${this._escape(address.zip || '')};${this._escape(address.country || '')}`,
-      );
+      const value = `${this._escape(address.pobox || '')};${this._escape(address.ext || '')};${this._escape(address.street || '')};${this._escape(address.city || '')};${this._escape(address.state || '')};${this._escape(address.zip || '')};${this._escape(address.country || '')}`;
+      pushLabeled('ADR', this._typeParams(address.types), value, address.label);
     }
     for (const urlEntry of contact.urls || []) {
       const value = typeof urlEntry === 'string' ? urlEntry : urlEntry?.value;
       const types = typeof urlEntry === 'string' ? [] : urlEntry?.types;
-      if (value) lines.push(`URL${this._typeParams(types)}:${this._escape(value)}`);
+      const label = typeof urlEntry === 'string' ? '' : urlEntry?.label;
+      if (value) pushLabeled('URL', this._typeParams(types), this._escape(value), label);
     }
     if (contact.birthday) lines.push(`BDAY:${this._escape(contact.birthday)}`);
     for (const note of contact.notes || []) {
       if (note) lines.push(`NOTE:${this._escape(note)}`);
     }
 
-    let itemIndex = 1;
     if (contact.anniversary) {
       lines.push(`item${itemIndex}.X-ABDATE:${this._escape(contact.anniversary)}`);
       lines.push(`item${itemIndex}.X-ABLabel:_$!<Anniversary>!$_`);
@@ -151,6 +164,10 @@ export class VCardAdapter {
 
   _typeParams(types = []) {
     return typeof VCardUtils !== 'undefined' ? VCardUtils.buildTypeParams(types) : '';
+  }
+
+  _wrapLabel(label) {
+    return `_$!<${this._escape(label)}>!$_`;
   }
 
   _relationshipLabel(type) {

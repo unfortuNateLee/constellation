@@ -113,6 +113,7 @@ export class VCFParser {
     const contact = ContactRecord.createEmptyContact();
 
     const items = {}; // item1, item2, etc.
+    const itemInstances = {}; // itemKey → the email/phone/address/url entry it labels
     const categories = []; // CATEGORIES values → merged into tags below
 
     for (const line of lines) {
@@ -172,19 +173,23 @@ export class VCFParser {
 
         case 'EMAIL':
           if (value && !value.startsWith('/9j/')) {
-            contact.emails.push({ value: this._decode(value).trim(), types });
+            const entry = { value: this._decode(value).trim(), types };
+            contact.emails.push(entry);
+            if (itemKey) itemInstances[itemKey] = entry;
           }
           break;
 
         case 'TEL':
           if (value) {
-            contact.phones.push({ value: this._decode(value).trim(), types });
+            const entry = { value: this._decode(value).trim(), types };
+            contact.phones.push(entry);
+            if (itemKey) itemInstances[itemKey] = entry;
           }
           break;
 
         case 'ADR': {
           const parts = VCardUtils.splitEscaped(value, ';');
-          contact.addresses.push({
+          const entry = {
             pobox: this._decode(parts[0] || ''),
             ext: this._decode(parts[1] || ''),
             street: this._decode(parts[2] || ''),
@@ -193,7 +198,9 @@ export class VCFParser {
             zip: this._decode(parts[5] || ''),
             country: this._decode(parts[6] || ''),
             types,
-          });
+          };
+          contact.addresses.push(entry);
+          if (itemKey) itemInstances[itemKey] = entry;
           break;
         }
 
@@ -209,7 +216,9 @@ export class VCFParser {
 
         case 'URL':
           if (value) {
-            contact.urls.push({ value: this._decode(value).trim(), types });
+            const entry = { value: this._decode(value).trim(), types };
+            contact.urls.push(entry);
+            if (itemKey) itemInstances[itemKey] = entry;
           }
           break;
 
@@ -248,8 +257,8 @@ export class VCFParser {
       }
     }
 
-    // Process item groups → related contacts, dates
-    for (const [, data] of Object.entries(items)) {
+    // Process item groups → related contacts, dates, and custom field labels.
+    for (const [key, data] of Object.entries(items)) {
       if (data['X-ABRELATEDNAMES'] && data['X-ABLABEL']) {
         const rawType = data['X-ABLABEL'];
         const relType = this._normalizeRelType(rawType);
@@ -257,12 +266,14 @@ export class VCFParser {
         if (name) {
           contact.related.push({ name, type: relType, rawType });
         }
-      }
-      if (data['X-ABDATE'] && data['X-ABLABEL']) {
+      } else if (data['X-ABDATE'] && data['X-ABLABEL']) {
         const label = data['X-ABLABEL'].toLowerCase();
         if (label.includes('anniversary')) {
           contact.anniversary = data['X-ABDATE'];
         }
+      } else if (data['X-ABLABEL'] && itemInstances[key]) {
+        // Apple custom label on an email/phone/address/url item group.
+        itemInstances[key].label = this._unwrapLabel(data['X-ABLABEL']);
       }
     }
 
@@ -280,6 +291,12 @@ export class VCFParser {
 
   _normalizeRelType(label) {
     return RelationshipTaxonomy.normalize(label);
+  }
+
+  /** Strip Apple's _$!<…>!$_ wrapper from an X-ABLabel and decode it. */
+  _unwrapLabel(label) {
+    const match = String(label || '').match(/^_\$!<(.*)>!\$_$/);
+    return this._decode(match ? match[1] : String(label || ''));
   }
 
   _inferTags(contact) {

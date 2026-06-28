@@ -202,6 +202,17 @@ class BulkMixin {
         },
       },
       {
+        key: 'email-label',
+        label: 'Custom Label',
+        group: 'Email',
+        entity: 'email',
+        valueType: 'text',
+        get: (_c, e) => (e && typeof e !== 'string' ? e.label || '' : ''),
+        setInst: (_c, e, v) => {
+          if (typeof e !== 'string') e.label = v;
+        },
+      },
+      {
         key: 'phone-value',
         label: 'Number',
         group: 'Phone',
@@ -213,6 +224,17 @@ class BulkMixin {
         },
       },
       {
+        key: 'phone-label',
+        label: 'Custom Label',
+        group: 'Phone',
+        entity: 'phone',
+        valueType: 'text',
+        get: (_c, p) => p?.label || '',
+        setInst: (_c, p, v) => {
+          p.label = v;
+        },
+      },
+      {
         key: 'url-value',
         label: 'Address',
         group: 'Website',
@@ -221,6 +243,17 @@ class BulkMixin {
         get: (_c, u) => (u ? (typeof u === 'string' ? u : u.value || '') : ''),
         setInst: (_c, u, v) => {
           if (typeof u !== 'string') u.value = v;
+        },
+      },
+      {
+        key: 'url-label',
+        label: 'Custom Label',
+        group: 'Website',
+        entity: 'url',
+        valueType: 'text',
+        get: (_c, u) => (u && typeof u !== 'string' ? u.label || '' : ''),
+        setInst: (_c, u, v) => {
+          if (typeof u !== 'string') u.label = v;
         },
       },
       {
@@ -276,6 +309,17 @@ class BulkMixin {
         get: (_c, a) => a?.country || '',
         setInst: (_c, a, v) => {
           a.country = v;
+        },
+      },
+      {
+        key: 'address-label',
+        label: 'Custom Label',
+        group: 'Address',
+        entity: 'address',
+        valueType: 'text',
+        get: (_c, a) => a?.label || '',
+        setInst: (_c, a, v) => {
+          a.label = v;
         },
       },
       {
