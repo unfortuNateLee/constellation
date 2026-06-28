@@ -1,4 +1,4 @@
-# ContactGraph — Design & Implementation Specification
+# Constellation — Design & Implementation Specification
 
 *Generated from live codebase review — March 2026; refreshed June 2026 for the ES-module migration, controller split, TSV adapter, light/dark theme, UID-based relationship resolution, and model-driven vCard editing.*
 
@@ -6,7 +6,7 @@
 
 ## 1. Overview
 
-**ContactGraph** is a single-page, client-side web application that imports Apple vCard (`.vcf`/`.vcard`), Markdown (`.md`/`.markdown`), or TSV (`.tsv`) contact files, parses the contacts, and visualises their relationships as a force-directed graph. There is no server and no build step — everything runs in the browser as native ES modules. (The app must be **served over `http://`**; ES modules will not load from `file://`. See §11.)
+**Constellation** is a single-page, client-side web application that imports Apple vCard (`.vcf`/`.vcard`), Markdown (`.md`/`.markdown`), or TSV (`.tsv`) contact files, parses the contacts, and visualises their relationships as a force-directed graph. There is no server and no build step — everything runs in the browser as native ES modules. (The app must be **served over `http://`**; ES modules will not load from `file://`. See §11.)
 
 ### 1.1 Key Capabilities
 
@@ -30,7 +30,7 @@
 ## 2. File Structure
 
 ```
-contacts-graph/
+constellation/
 ├── index.html                   # App shell + modals
 ├── css/
 │   └── styles.css               # Dark + light theme design system
@@ -54,7 +54,7 @@ contacts-graph/
     ├── markdown-adapter.js      # Markdown frontmatter/body import/export adapter
     ├── tsv-adapter.js           # TSV import/export adapter (+ template)
     ├── relationship-builder.js  # Contacts → { nodes, edges, hulls } (RelationshipBuilder)
-    ├── graph.js                 # D3 renderer (ContactGraph), decoupled via on/emit
+    ├── graph.js                 # D3 renderer (ConstellationGraph), decoupled via on/emit
     │   # — controller: one class split across mixin modules —
     ├── apply-mixin.js           # Grafts a mixin class's methods onto a prototype
     ├── app.js                   # Core ContactRelationshipApp: constructor, _init, rebuild/index pipeline
@@ -115,7 +115,7 @@ The controller is **one class (`ContactRelationshipApp`) split across modules**:
   tags: ['company'],        // system tags inferred at parse time
   noteTags: ['church', 'volunteer'],    // hashtags from NOTE fields
   customFields: {},         // arbitrary typed fields from non-vCard adapters
-  record: { schema: 'contactgraph.contact', version: 1, ... },
+  record: { schema: 'constellation.contact', version: 1, ... },
   sourceDocuments: [{ format: 'vcard', raw: 'BEGIN:VCARD...', dirty: false }],
   rawVCard: 'BEGIN:VCARD\r\n...\r\nEND:VCARD',  // original vCard text
 }
@@ -129,7 +129,7 @@ Phase 1 of multi-format support attaches a canonical `ContactRecord` beside the 
 
 ```js
 {
-  schema: 'contactgraph.contact',
+  schema: 'constellation.contact',
   version: 1,
   id: 'c_xxxxxxxx',
   uid: 'urn:uuid:...',
@@ -200,7 +200,7 @@ Markdown contacts use YAML-style frontmatter for structured fields and the body 
 
 ```md
 ---
-contactgraph: 1
+constellation: 1
 uid: jane-md
 fn: Jane Markdown
 name:
@@ -225,7 +225,7 @@ Known keys populate standard contact fields. Unknown top-level keys and all `fie
 Multiple Markdown contacts in one file are separated by:
 
 ```md
-<!-- CONTACTGRAPH:CONTACT -->
+<!-- CONSTELLATION:CONTACT -->
 ```
 
 ### 3.2 Node (output of RelationshipBuilder)
@@ -479,9 +479,9 @@ The type/category/reciprocal helpers all delegate to `RelationshipTaxonomy` (§4
 
 ---
 
-## 6. ContactGraph Renderer (`js/graph.js`)
+## 6. ConstellationGraph Renderer (`js/graph.js`)
 
-**Class:** `ContactGraph`
+**Class:** `ConstellationGraph`
 
 ### 6.1 Initialisation
 
@@ -613,7 +613,7 @@ The controller is a single class split across modules. `app.js` owns the core: t
 | `contacts` | `Contact[]` | Full parsed contact array |
 | `graphData` | `{nodes, edges, hulls}` | Last output of `builder.build()` |
 | `builder` | `RelationshipBuilder` | Rebuilt whenever contacts change |
-| `graph` | `ContactGraph` | D3 renderer instance |
+| `graph` | `ConstellationGraph` | D3 renderer instance |
 | `_graphMode` | string | `'connections'` or `'geographic'` |
 | `_mainViewMode` | string | `'graph'` or `'table'` |
 | `_showInferred` | bool | Toggle org-inferred edges |
@@ -639,7 +639,7 @@ The controller is a single class split across modules. `app.js` owns the core: t
 
 ### 7.2 Startup Flow
 
-1. `new ContactGraph(container)` — creates D3 renderer
+1. `new ConstellationGraph(container)` — creates D3 renderer
 2. Attach all DOM event listeners (file input, drag-drop, toggles, buttons)
 3. Check for persisted session in IndexedDB → restore if found
 4. Render empty state (drop zone visible)
@@ -822,7 +822,7 @@ Export goes through the format adapters and supports three **scopes** — a sing
 - `_exportMarkdownScope(ids, baseName)` uses `MarkdownAdapter.serializeBundle()`. A photo-free export is a single `.md`; if any contact has a photo, the `.md` and the **externalized image files** are written together via `_saveFilesSeparately()` — the File System Access directory picker (`showDirectoryPicker`) where available, otherwise sequential downloads.
 - `_downloadTsvTemplate()` downloads `TsvAdapter.templateText()` as `contacts-template.tsv` (every column in order + one worked example row).
 
-vCard export serializes selected contacts from `rawVCard` when available and synthesizes a standard-field vCard for contacts imported from Markdown/TSV (non-company tags via `CATEGORIES`, custom fields via `X-CONTACTGRAPH-FIELD`). Markdown export serializes standard fields, typed custom fields, and preserved body content (nested objects, lists, booleans, nulls, empty strings, numeric-looking strings). TSV export emits the flat one-row-per-contact format described in §3.1.2.
+vCard export serializes selected contacts from `rawVCard` when available and synthesizes a standard-field vCard for contacts imported from Markdown/TSV (non-company tags via `CATEGORIES`, custom fields via `X-CONSTELLATION-FIELD`). Markdown export serializes standard fields, typed custom fields, and preserved body content (nested objects, lists, booleans, nulls, empty strings, numeric-looking strings). TSV export emits the flat one-row-per-contact format described in §3.1.2.
 
 ### 7.14 Contact Creation
 
@@ -839,7 +839,7 @@ All three generate a new `id` via `parser._generateId()` and push to `this.conta
 
 ### 7.16 IndexedDB Session Persistence
 
-Uses `IndexedDB` (database: `contacts-graph-db`, store: `sessions`).
+Uses `IndexedDB` (database: `constellation-db`, store: `sessions`).
 
 `_persistSession()` — serializes the full state to a JSON object:
 ```js
@@ -961,7 +961,7 @@ Imported contacts and freeform user fields are treated as untrusted at render ti
 
 ### 7.24 Light / Dark Theme (`app-theme.js`)
 
-The two themes are pure CSS — `:root` (dark, default) and a `:root[data-theme='light']` override in `styles.css`. The mixin only flips the `data-theme` attribute on `<html>`, persists the choice to `localStorage` (`contacts-graph:theme`), and re-reads colours so the JS-built graph palette matches:
+The two themes are pure CSS — `:root` (dark, default) and a `:root[data-theme='light']` override in `styles.css`. The mixin only flips the `data-theme` attribute on `<html>`, persists the choice to `localStorage` (`constellation:theme`), and re-reads colours so the JS-built graph palette matches:
 
 - `_applyInitialTheme()` runs before the graph is created (reads the saved theme, defaults to dark, no re-render).
 - `_toggleTheme()` (header `#btn-theme-toggle`) flips dark↔light.
@@ -1151,7 +1151,7 @@ When a contact lists a relationship with a name that doesn't resolve to any know
 ## 11. Build/Development Notes
 
 - **No bundler, but native ES modules** — the app code is plain ES modules (`package.json` has `"type":"module"`); there is no compile/bundle step.
-- **Must be served over `http://`** — browsers refuse ES modules from `file://`, so run any static server and open over http (no internet needed once served), e.g. from `contacts-graph/`: `python3 -m http.server 7891` → `http://localhost:7891`.
+- **Must be served over `http://`** — browsers refuse ES modules from `file://`, so run any static server and open over http (no internet needed once served), e.g. from `constellation/`: `python3 -m http.server 7891` → `http://localhost:7891`.
 - **D3 version** — must be D3 **v7**, vendored locally at `js/vendor/d3.v7.min.js` and loaded as a classic global script before the module entry (uses `d3.zoom()`, `d3.forceSimulation()`, `d3.polygonHull()`, `d3.drag()`)
 - **No runtime dependencies** — the app needs no CDN, network, server, or package install at runtime. `npm install` pulls in dev tooling only (ESLint, Prettier).
 - **Browser requirements** — ES modules, IndexedDB, FileReader API, Blob/URL.createObjectURL, CSS Grid, `localStorage`; optionally the File System Access API (`showDirectoryPicker`) for grouped Markdown+image export (falls back to downloads).

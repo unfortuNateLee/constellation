@@ -1,8 +1,8 @@
-# Contacts Graph Design Spec
+# Constellation Design Spec
 
 ## 1. Purpose
 
-This document defines the current product behavior, architecture, data contracts, and acceptance criteria for the `contacts-graph` tool so another developer can reimplement it without relying on the existing source code structure.
+This document defines the current product behavior, architecture, data contracts, and acceptance criteria for the `constellation` tool so another developer can reimplement it without relying on the existing source code structure.
 
 The application is a browser-only contact explorer and editor for contact data stored in Apple-style vCards, Markdown contact files, or flat TSV spreadsheets. It imports `.vcf`, `.vcard`, `.md`, `.markdown`, and `.tsv` files, builds a relationship graph from explicit and inferred data, lets the user edit contacts and relationships in-browser, and exports edited data back out (vCard, Markdown, or TSV).
 
@@ -35,7 +35,7 @@ The application is a browser-only contact explorer and editor for contact data s
 - Session restore storage: IndexedDB.
 - Network dependency: none at runtime. Third-party browser libraries must be vendored locally with the app.
 - D3 is loaded from `js/vendor/d3.v7.min.js`, not from a CDN, so the app runs with no internet connection.
-- Because it uses ES modules, the app **must be served over `http://`** (e.g. `python3 -m http.server` from `contacts-graph/`); browsers will not load ES modules from `file://`. Serving locally still requires no network access beyond localhost.
+- Because it uses ES modules, the app **must be served over `http://`** (e.g. `python3 -m http.server` from `constellation/`); browsers will not load ES modules from `file://`. Serving locally still requires no network access beyond localhost.
 
 ## 5. High-Level User Flows
 
@@ -423,7 +423,7 @@ type SourceDocument = {
 }
 
 type ContactRecord = {
-  schema: 'contactgraph.contact'
+  schema: 'constellation.contact'
   version: 1
   id: string
   uid?: string | null
@@ -479,7 +479,7 @@ The current implementations are:
 - `VCardAdapter`
   - delegates parsing to `VCFParser`
   - serializes from current `rawVCard` blocks, with a standard-field fallback for contacts imported from a non-vCard format
-  - the fallback round-trips non-`company` tags via `CATEGORIES` and arbitrary custom fields via an `X-CONTACTGRAPH-FIELD` property
+  - the fallback round-trips non-`company` tags via `CATEGORIES` and arbitrary custom fields via an `X-CONSTELLATION-FIELD` property
   - keeps the existing app-facing contact model stable
 - `MarkdownAdapter`
   - parses YAML-style frontmatter plus Markdown body content
@@ -499,7 +499,7 @@ Markdown contacts use YAML-style frontmatter for structured data and the Markdow
 
 ```md
 ---
-contactgraph: 1
+constellation: 1
 uid: jane-md
 fn: Jane Markdown
 name:
@@ -528,7 +528,7 @@ Known frontmatter keys map into standard contact fields. Unknown top-level keys 
 Multiple contacts may be stored in one `.md` bundle using:
 
 ```md
-<!-- CONTACTGRAPH:CONTACT -->
+<!-- CONSTELLATION:CONTACT -->
 ```
 
 as the document delimiter.
@@ -627,7 +627,7 @@ The parser must read at least:
 - `X-ABLabel`
 - `X-ABDATE`
 - `CATEGORIES` (round-trips non-`company` tags)
-- `X-CONTACTGRAPH-FIELD` (round-trips arbitrary typed custom fields for contacts that originated in a non-vCard format)
+- `X-CONSTELLATION-FIELD` (round-trips arbitrary typed custom fields for contacts that originated in a non-vCard format)
 
 ### 9.2 Structured Names
 
@@ -953,7 +953,7 @@ Bulk (multi-contact) export filenames carry the date, e.g. `contacts 2026-06-26.
 
 Virtual-only contacts cannot be exported until converted into real contacts.
 
-Markdown export must include standard fields, typed custom fields, and preserved Markdown body content. Multi-contact Markdown exports use the `<!-- CONTACTGRAPH:CONTACT -->` bundle delimiter. Unknown custom field payloads must keep semantic values such as nested objects, lists, booleans, nulls, empty strings, and numeric-looking strings.
+Markdown export must include standard fields, typed custom fields, and preserved Markdown body content. Multi-contact Markdown exports use the `<!-- CONSTELLATION:CONTACT -->` bundle delimiter. Unknown custom field payloads must keep semantic values such as nested objects, lists, booleans, nulls, empty strings, and numeric-looking strings.
 
 Markdown export **externalizes photos**: instead of base64-embedding a photo, the `.md` references a separate, human-readably-named image file, and the image files are written alongside the `.md`. The app writes them together using the File System Access directory picker (`showDirectoryPicker`) where available, falling back to individual downloads. A photo-free export is a single `.md`.
 
@@ -1024,7 +1024,7 @@ When the selected node is a graph group node instead of a contact, the detail pa
 The app supports a light and a dark theme, toggled from a header control.
 
 - Themes are pure CSS: `css/styles.css` defines the dark palette on `:root` and a light override on `:root[data-theme="light"]`. The toggle only flips the `data-theme` attribute on the document element.
-- The default theme is dark. The current choice persists across reloads (localStorage key `contacts-graph:theme`); a missing or unreadable value falls back to dark.
+- The default theme is dark. The current choice persists across reloads (localStorage key `constellation:theme`); a missing or unreadable value falls back to dark.
 - Because category colors are CSS-driven (§11.2), switching theme recolors the sidebar and graph by refreshing the `Palette` cache and re-reading the `--cat-*` tokens.
 
 ## 17. Error Handling Requirements
@@ -1215,7 +1215,7 @@ The repository includes an offline Node test suite runnable from the repository 
 npm test
 ```
 
-The automated suite lives under `contacts-graph/test/` and uses fixture VCF files under `contacts-graph/test/fixtures/`. The primary fixture is `comprehensive.vcf`, which covers:
+The automated suite lives under `constellation/test/` and uses fixture VCF files under `constellation/test/fixtures/`. The primary fixture is `comprehensive.vcf`, which covers:
 
 - normal Apple-style contacts
 - duplicate display names
@@ -1261,7 +1261,7 @@ Automated tests must cover:
 - HTML escaping and unsafe-href rejection for user/contact-provided display values
 - UTF-8 byte-safe vCard line folding
 
-Manual Apple Contacts validation is documented in `contacts-graph/docs/APPLE_CONTACTS_ROUNDTRIP_CHECKLIST.md`.
+Manual Apple Contacts validation is documented in `constellation/docs/APPLE_CONTACTS_ROUNDTRIP_CHECKLIST.md`.
 
 At minimum, automated or manual coverage should include:
 
