@@ -16,7 +16,7 @@
         <div class="build-stamp" title="Last edited build marker">
           <span class="build-stamp-label">Updated</span>
           <span class="build-stamp-date">2026-06-28</span>
-          <span class="build-stamp-time">15:57:06 EDT</span>
+          <span class="build-stamp-time">17:20:51 EDT</span>
         </div>
         <div class="app-title">Constellation</div>
         <div class="header-divider"></div>
@@ -456,11 +456,8 @@
           <div class="bulk-section">
             <div class="bulk-section-title">THEN</div>
             <div class="bulk-action-row">
-              <select class="form-control" id="bulk-action-type">
-                <option value="set">Set field</option>
-                <option value="append">Append to field</option>
-                <option value="clear">Clear field</option>
-              </select>
+              <!-- Options are populated in JS (set/append/clear/remove vary by field). -->
+              <select class="form-control" id="bulk-action-type"></select>
               <select class="form-control" id="bulk-action-field"></select>
               <input
                 type="text"
@@ -468,15 +465,39 @@
                 id="bulk-action-value"
                 placeholder="New value"
               />
-              <!-- Relationship retype controls — shown only when the action field
-                   is "Relationship Type". Changes relationships of one type to
-                   another on matched contacts (reciprocals updated too). -->
-              <div class="bulk-rel-retype hidden" id="bulk-rel-retype">
-                <span class="bulk-rel-retype-label">from</span>
-                <select class="form-control" id="bulk-rel-from"></select>
-                <span class="bulk-rel-retype-arrow">→</span>
-                <span class="bulk-rel-retype-label">to</span>
-                <select class="form-control" id="bulk-rel-to"></select>
+              <!-- Relationship-type value picker (shown instead of the text input
+                   when the target field is a relationship type). -->
+              <select class="form-control hidden" id="bulk-action-rel"></select>
+            </div>
+            <!-- WHERE: per-instance filter, shown only for multi-instance target
+                 fields (email / phone / address / website / relationship). -->
+            <div class="bulk-where hidden" id="bulk-where">
+              <div class="bulk-where-row" id="bulk-where-row">
+                <span class="bulk-where-label">Only instances where</span>
+                <select class="form-control bulk-where-op" id="bulk-where-op">
+                  <option value="AND">ALL</option>
+                  <option value="OR">ANY</option>
+                </select>
+                <span class="bulk-where-label">of these match:</span>
+              </div>
+              <div id="bulk-where-conditions"></div>
+              <button class="btn btn-ghost btn-xs" type="button" id="bulk-where-add">
+                + Add condition
+              </button>
+              <div class="bulk-apply-scope">
+                <span class="bulk-where-label">Apply to:</span>
+                <label class="bulk-radio">
+                  <input type="radio" name="bulk-apply-to" value="matching" checked />
+                  matching <span id="bulk-scope-plural-a">instances</span>
+                </label>
+                <label class="bulk-radio">
+                  <input type="radio" name="bulk-apply-to" value="all" />
+                  <strong>all</strong> <span id="bulk-scope-plural-b">instances</span>
+                </label>
+              </div>
+              <div class="bulk-where-warning hidden" id="bulk-where-warning">
+                ⚠ This changes every matching instance on each affected contact — review the preview
+                carefully.
               </div>
             </div>
           </div>

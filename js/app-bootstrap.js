@@ -56,17 +56,37 @@ document.addEventListener('DOMContentLoaded', () => {
     window.app._updateBulkNormalizePreview();
   });
 
-  document.getElementById('bulk-rel-from').addEventListener('change', (e) => {
+  document.getElementById('bulk-action-rel').addEventListener('change', (e) => {
     if (!window.app._bulkRuleState) return;
-    window.app._bulkRuleState.action.fromType = e.target.value;
+    window.app._bulkRuleState.action.value = e.target.value;
     window.app._updateBulkNormalizePreview();
   });
 
-  document.getElementById('bulk-rel-to').addEventListener('change', (e) => {
+  document.getElementById('bulk-where-op').addEventListener('change', (e) => {
     if (!window.app._bulkRuleState) return;
-    window.app._bulkRuleState.action.toType = e.target.value;
+    window.app._bulkRuleState.action.where.op = e.target.value;
     window.app._updateBulkNormalizePreview();
   });
+
+  document.getElementById('bulk-where-add').addEventListener('click', () => {
+    if (!window.app._bulkRuleState) return;
+    const def = window.app._bulkFieldDef(window.app._bulkRuleState.action.field);
+    if (!def.entity) return;
+    window.app._bulkRuleState.action.where.conditions.push(
+      window.app._newBulkWhereCondition(def.entity),
+    );
+    window.app._syncBulkActionControls();
+    window.app._updateBulkNormalizePreview();
+  });
+
+  for (const radio of document.querySelectorAll('input[name="bulk-apply-to"]')) {
+    radio.addEventListener('change', (e) => {
+      if (!window.app._bulkRuleState || !e.target.checked) return;
+      window.app._bulkRuleState.action.applyTo = e.target.value;
+      window.app._syncBulkActionControls();
+      window.app._updateBulkNormalizePreview();
+    });
+  }
 
   document.getElementById('bulk-apply').addEventListener('click', () => {
     window.app._applyBulkNormalize();

@@ -2132,23 +2132,60 @@ body.resizing-sidebar .sidebar {
 .bulk-action-row {
   grid-template-columns: minmax(120px, 0.8fr) minmax(160px, 1fr) minmax(180px, 1.2fr);
 }
-/* Relationship retype: "from [type] → to [type]" spans the value columns. */
-.bulk-rel-retype {
-  grid-column: 2 / -1;
+/* WHERE: per-instance filter for multi-instance target fields. */
+.bulk-where {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bulk-where-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.bulk-rel-retype .searchable-select {
-  flex: 1;
-  min-width: 0;
-}
-.bulk-rel-retype-label {
+.bulk-where-label {
   font-size: 12px;
   color: var(--text2);
 }
-.bulk-rel-retype-arrow {
-  color: var(--text2);
+.bulk-where-op {
+  width: auto;
+  min-width: 72px;
+}
+#bulk-where-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bulk-where-hint {
+  font-size: 12px;
+  color: var(--text3);
+  font-style: italic;
+}
+.bulk-apply-scope {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.bulk-radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.bulk-where-warning {
+  font-size: 12px;
+  color: var(--error-text);
 }
 .bulk-group-actions {
   display: flex;

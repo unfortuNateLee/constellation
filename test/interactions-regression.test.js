@@ -114,10 +114,11 @@ test('bulk normalize can append notes to empty contacts and replace address coun
   assert.deepEqual(plain(duplicate.notes), []);
 
   context.document.__setElement('bulk-confirm-risk', { checked: true });
+  // Scalar target (notes): no WHERE needed — IF matches the email instance.
   app._bulkRuleState = {
     root: {
       type: 'condition',
-      field: 'email',
+      field: 'email-value',
       operator: 'contains',
       value: 'alex.a',
     },
@@ -125,6 +126,8 @@ test('bulk normalize can append notes to empty contacts and replace address coun
       type: 'append',
       field: 'notes',
       value: '#duplicate',
+      where: { op: 'AND', conditions: [] },
+      applyTo: 'matching',
     },
   };
   app._applyBulkNormalize();
@@ -132,6 +135,8 @@ test('bulk normalize can append notes to empty contacts and replace address coun
   assert.deepEqual(plain(duplicate.noteTags), ['duplicate']);
   assert.equal(app.parser.parse(duplicate.rawVCard)[0].notes[0], '#duplicate');
 
+  // Multi-instance target (address): the WHERE scopes the change to the VA
+  // address only — IF selects the contact, WHERE selects which address.
   app._bulkRuleState = {
     root: {
       type: 'condition',
@@ -143,12 +148,50 @@ test('bulk normalize can append notes to empty contacts and replace address coun
       type: 'set',
       field: 'address-country',
       value: '',
+      where: {
+        op: 'AND',
+        conditions: [{ id: 'w1', field: 'address-state', operator: 'equals', value: 'VA' }],
+      },
+      applyTo: 'matching',
     },
   };
   app._applyBulkNormalize();
   const jane = byUid(app, 'jane-doe-smith');
   assert.equal(jane.addresses[0].country, '');
   assert.equal(app.parser.parse(jane.rawVCard)[0].addresses[0].country, '');
+});
+
+test('bulk normalize retypes only the WHERE-matching relationship instances', () => {
+  const { context, app } = setup();
+  const jane = byUid(app, 'jane-doe-smith');
+  // Two relationships of different types on one contact.
+  jane.related = [
+    { name: 'Bob Example', type: 'husband', rawType: '_$!<Husband>!$_' },
+    { name: 'Sue Example', type: 'sister', rawType: '_$!<Sister>!$_' },
+  ];
+  app._rewriteEditableFields(jane);
+
+  context.document.__setElement('bulk-confirm-risk', { checked: true });
+  app._bulkRuleState = {
+    root: { type: 'condition', field: 'relationship-type', operator: 'has', value: 'husband' },
+    action: {
+      type: 'set',
+      field: 'relationship-type',
+      value: 'spouse',
+      where: {
+        op: 'AND',
+        conditions: [
+          { id: 'w1', field: 'relationship-type', operator: 'equals', value: 'husband' },
+        ],
+      },
+      applyTo: 'matching',
+    },
+  };
+  app._applyBulkNormalize();
+
+  const byName = Object.fromEntries(jane.related.map((r) => [r.name, r.type]));
+  assert.equal(byName['Bob Example'], 'spouse'); // Husband → Spouse
+  assert.equal(byName['Sue Example'], 'sister'); // Sister left untouched
 });
 
 test('photo edits update the serialized card immediately', () => {
