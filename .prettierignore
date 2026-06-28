@@ -6,5 +6,5 @@ js/vendor/
 test/fixtures/
 
 # Large design docs — leave formatting as authored.
-DESIGN_SPEC.md
-DESIGN_SPEC_CLAUDE.md
+docs/DESIGN_SPEC.md
+docs/DESIGN_SPEC_CLAUDE.md

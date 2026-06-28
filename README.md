@@ -98,8 +98,10 @@ constellation/
     app-theme.js             Light/dark theme toggle + persistence
     app-bootstrap.js         Entry module: startup + modal wiring
   test/                      Node test suite + fixtures
-  DESIGN_SPEC.md             Reimplementation spec
-  DESIGN_SPEC_CLAUDE.md      Codebase-grounded spec
+  docs/
+    DESIGN_SPEC.md           Reimplementation spec
+    DESIGN_SPEC_CLAUDE.md    Codebase-grounded spec
+    APPLE_CONTACTS_ROUNDTRIP_CHECKLIST.md  Manual round-trip validation steps
 ```
 
 ## Architecture notes & direction
