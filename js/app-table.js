@@ -1,6 +1,7 @@
 import { ContactRelationshipApp } from './app.js';
 import { applyMixin } from './apply-mixin.js';
 import { RelationshipBuilder } from './relationship-builder.js';
+import { RelationshipTaxonomy } from './relationship-taxonomy.js';
 
 /**
  * Table view: the editable spreadsheet-style contact table (render, sortable
@@ -670,22 +671,58 @@ class TableMixin {
   }
 
   /** Read-only relationships summary (edit in the contact card). */
+  /**
+   * Editable relationships cell: per row a name input + a type picker (the
+   * relationship taxonomy; a custom/unknown type is preserved as its own option).
+   * The target's UID, when present, is stashed so name-independent resolution
+   * survives. Note: reciprocal updates on the *other* contact are handled in the
+   * detail card, not here.
+   */
   _tableRelationshipsCell(contact) {
     const td = document.createElement('td');
-    const rels = contact.related || [];
-    if (!rels.length) {
-      td.innerHTML = '<span class="table-readonly-empty">—</span>';
-      return td;
-    }
-    const list = document.createElement('div');
-    list.className = 'table-readonly-list';
-    for (const rel of rels) {
-      const line = document.createElement('div');
-      line.className = 'table-readonly-line';
-      line.textContent = `${this._friendlyRelType(rel)}: ${rel.name}`;
-      list.appendChild(line);
-    }
-    td.appendChild(list);
+    const wrap = document.createElement('div');
+    wrap.className = 'table-metadata-list';
+    const save = () => {
+      const entries = [...wrap.querySelectorAll('.table-metadata-item')]
+        .map((item) => {
+          const name = item.querySelector('[data-role="rel-name"]')?.value.trim() || '';
+          if (!name) return null;
+          const type = item.querySelector('[data-role="rel-type"]')?.value || 'other';
+          const uid = item.querySelector('[data-role="rel-uid"]')?.value || '';
+          return { name, type, rawType: this._typeToVCardLabel(type), ...(uid ? { uid } : {}) };
+        })
+        .filter(Boolean);
+      this._applyTableEdit(contact.id, 'related', entries);
+    };
+    const addItem = (rel = null) => {
+      const item = document.createElement('div');
+      item.className = 'table-metadata-item';
+      const name = this._tableMetaInput('rel-name', rel?.name || '', 'Name');
+      const select = document.createElement('select');
+      select.className = 'table-cell-input';
+      select.dataset.role = 'rel-type';
+      select.innerHTML = RelationshipTaxonomy.optionsHtml(rel?.type || '', false);
+      // Preserve a custom/unknown relationship type as its own selected option.
+      if (rel?.type && ![...select.options].some((o) => o.value === rel.type)) {
+        const opt = document.createElement('option');
+        opt.value = rel.type;
+        opt.textContent = this._friendlyRelType(rel);
+        opt.selected = true;
+        select.insertBefore(opt, select.firstChild);
+      }
+      const uidStash = this._tableHidden('rel-uid', rel?.uid || '');
+      const remove = this._tableRemoveBtn(() => {
+        item.remove();
+        save();
+      });
+      name.addEventListener('change', save);
+      select.addEventListener('change', save);
+      item.append(name, select, uidStash, remove);
+      wrap.appendChild(item);
+    };
+    (contact.related || []).forEach(addItem);
+    const add = this._tableAddBtn('+ Add Relationship', () => addItem());
+    td.append(wrap, add);
     return td;
   }
 
@@ -697,23 +734,40 @@ class TableMixin {
     }
   }
 
-  /** Read-only custom-dates summary (edit in the contact card). */
+  /** Editable custom-dates cell: per row a label input + a date value (text, to
+   *  allow Apple's partial/odd date formats), plus add/remove. */
   _tableDatesCell(contact) {
     const td = document.createElement('td');
-    const dates = contact.dates || [];
-    if (!dates.length) {
-      td.innerHTML = '<span class="table-readonly-empty">—</span>';
-      return td;
-    }
-    const list = document.createElement('div');
-    list.className = 'table-readonly-list';
-    for (const d of dates) {
-      const line = document.createElement('div');
-      line.className = 'table-readonly-line';
-      line.textContent = `${d.label || 'Date'}: ${d.value}`;
-      list.appendChild(line);
-    }
-    td.appendChild(list);
+    const wrap = document.createElement('div');
+    wrap.className = 'table-metadata-list';
+    const save = () => {
+      const entries = [...wrap.querySelectorAll('.table-metadata-item')]
+        .map((item) => {
+          const value = item.querySelector('[data-role="date-value"]')?.value.trim() || '';
+          if (!value) return null;
+          const label = item.querySelector('[data-role="date-label"]')?.value.trim() || '';
+          return { label: label || 'Date', value };
+        })
+        .filter(Boolean);
+      this._applyTableEdit(contact.id, 'dates', entries);
+    };
+    const addItem = (d = null) => {
+      const item = document.createElement('div');
+      item.className = 'table-metadata-item';
+      const label = this._tableMetaInput('date-label', d?.label || '', 'Label');
+      const value = this._tableMetaInput('date-value', d?.value || '', 'YYYY-MM-DD');
+      const remove = this._tableRemoveBtn(() => {
+        item.remove();
+        save();
+      });
+      label.addEventListener('change', save);
+      value.addEventListener('change', save);
+      item.append(label, value, remove);
+      wrap.appendChild(item);
+    };
+    (contact.dates || []).forEach(addItem);
+    const add = this._tableAddBtn('+ Add Date', () => addItem());
+    td.append(wrap, add);
     return td;
   }
 
@@ -772,6 +826,10 @@ class TableMixin {
       contact.ims = Array.isArray(rawValue) ? rawValue : [];
     } else if (field === 'socialProfiles') {
       contact.socialProfiles = Array.isArray(rawValue) ? rawValue : [];
+    } else if (field === 'dates') {
+      contact.dates = Array.isArray(rawValue) ? rawValue : [];
+    } else if (field === 'related') {
+      contact.related = Array.isArray(rawValue) ? rawValue : [];
     } else if (field === 'birthday') {
       contact.birthday = value || null;
     } else if (field === 'anniversary') {
