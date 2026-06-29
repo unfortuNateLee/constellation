@@ -882,10 +882,10 @@ export class ConstellationGraph {
   _styleNodeCircle(sel) {
     sel
       .attr('fill', (d) => this._nodeColor(d))
-      .attr('fill-opacity', (d) => (d.isVirtual ? 0.16 : 1))
+      .attr('fill-opacity', (d) => (d.isVirtual ? 0.45 : 1))
       .attr('stroke', (d) => (d.isVirtual ? this._nodeColor(d) : '#1a1a2e'))
-      .attr('stroke-opacity', (d) => (d.isVirtual ? 0.9 : 1))
-      .attr('stroke-width', (d) => (d.isGroupNode ? 2 : 1.5))
+      .attr('stroke-opacity', 1)
+      .attr('stroke-width', (d) => (d.isGroupNode ? 2 : d.isVirtual ? 2 : 1.5))
       .attr('stroke-dasharray', (d) => (d.isGroupNode ? '5 3' : d.isVirtual ? '3 2' : null));
   }
 

@@ -442,6 +442,8 @@ class SidebarMixin {
   }
 
   _scheduleGraphResize() {
+    // No-op outside a real browser (e.g. headless tests have no window events).
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
     window.dispatchEvent(new Event('resize'));
     window.setTimeout(() => window.dispatchEvent(new Event('resize')), 240);
   }

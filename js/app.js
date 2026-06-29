@@ -614,8 +614,11 @@ export class ContactRelationshipApp {
 
       document.getElementById('file-label').textContent = label;
       document.getElementById('btn-export-all-menu').classList.remove('hidden');
-      // Reveal the side panels / header stats now that there's data to show.
+      // Reveal the side panels / header stats now that there's data to show, then
+      // re-measure the graph: showing the sidebar shrinks the graph container, and
+      // a stale width would make "Focus on Me" / centering land off-center.
       document.body?.classList.add('has-data');
+      this._scheduleGraphResize();
       this._selectedForExport.clear();
       this._updateExportBar();
       void this._persistSession({ fileLabel: label });

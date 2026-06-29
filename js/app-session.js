@@ -159,7 +159,10 @@ class SessionMixin {
         `${saved.fileLabel || 'restored-session.vcf'} (restored)`;
       document.getElementById('btn-export-all-menu').classList.remove('hidden');
       document.getElementById('drop-zone').classList.add('hidden');
+      // Reveal panels, then re-measure the graph (sidebar appearing shrinks the
+      // container — a stale width would make centering land off-center).
       document.body?.classList.add('has-data');
+      this._scheduleGraphResize();
       this._selectedForExport.clear();
       this._updateExportBar();
       this._rebuildGraph();

@@ -76,7 +76,7 @@
   --sidebar-w: calc(var(--sidebar-controls-w) + var(--sidebar-toggle-w) + var(--sidebar-list-w));
   --sidebar-controls-w: 220px;
   --detail-w: 320px;
-  --header-h: 52px;
+  --header-h: 58px;
 }
 
 /* Light theme — overrides only the structural colors and the few category
@@ -264,7 +264,7 @@ body {
   font-size: 13px;
   font-weight: 700;
   color: var(--accent2);
-  line-height: 1.1;
+  line-height: 1;
 }
 .stat-label {
   font-size: 9px;
