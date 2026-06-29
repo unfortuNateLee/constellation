@@ -251,6 +251,21 @@ class EditingMixin {
       );
     }
 
+    for (const sp of node.socialProfiles || []) {
+      if (!sp?.url) continue;
+      const safeHref = this._safeExternalHref(sp.url);
+      const safeUrl = this._escapeHtml(sp.url);
+      contactInfo.appendChild(
+        this._detailRow(
+          '🌐',
+          safeHref
+            ? `<a href="${this._escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`
+            : safeUrl,
+          sp.label || sp.service || 'Social Profile',
+        ),
+      );
+    }
+
     if (node.birthday)
       contactInfo.appendChild(
         this._detailRow('🎂', this._formatBirthday(node.birthday), 'Birthday'),
@@ -334,6 +349,7 @@ class EditingMixin {
       ),
     );
     grid.appendChild(this._editImField(contact.ims || []));
+    grid.appendChild(this._editSocialField(contact.socialProfiles || []));
     grid.appendChild(this._editCustomFields(contact.customFields || contact.record?.fields || {}));
 
     contactInfo.appendChild(grid);
@@ -682,6 +698,88 @@ class EditingMixin {
       .filter((im) => im.value);
   }
 
+  /** Editor for social profiles (URL + service + username + optional label). */
+  _editSocialField(profiles) {
+    const wrap = document.createElement('div');
+    wrap.className = 'detail-edit-row';
+    wrap.innerHTML = `<div class="detail-edit-label">Social Profiles</div>`;
+
+    const multi = document.createElement('div');
+    multi.className = 'detail-edit-multi';
+    wrap.appendChild(multi);
+
+    const addItem = (entry = null) => {
+      const item = document.createElement('div');
+      item.className = 'detail-edit-item';
+      item.dataset.kind = 'social';
+
+      const urlInput = document.createElement('input');
+      urlInput.className = 'form-control';
+      urlInput.dataset.role = 'social-url';
+      urlInput.placeholder = 'Profile URL';
+      urlInput.value = entry?.url || '';
+
+      const serviceInput = document.createElement('input');
+      serviceInput.className = 'form-control';
+      serviceInput.dataset.role = 'social-service';
+      serviceInput.placeholder = 'Service (e.g. Twitter)';
+      serviceInput.value = entry?.service || '';
+
+      const userInput = document.createElement('input');
+      userInput.className = 'form-control';
+      userInput.dataset.role = 'social-username';
+      userInput.placeholder = 'Username (optional)';
+      userInput.value = entry?.username || '';
+
+      const labelInput = document.createElement('input');
+      labelInput.className = 'form-control';
+      labelInput.dataset.role = 'social-label';
+      labelInput.placeholder = 'Custom label (optional)';
+      labelInput.value = entry?.label || '';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'btn btn-ghost btn-xs';
+      removeBtn.type = 'button';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => item.remove());
+
+      const valueRow = document.createElement('div');
+      valueRow.className = 'detail-edit-stack';
+      valueRow.appendChild(urlInput);
+      const metaRow = document.createElement('div');
+      metaRow.className = 'detail-edit-inline detail-edit-meta';
+      metaRow.append(serviceInput, userInput, labelInput);
+      const footerRow = document.createElement('div');
+      footerRow.className = 'detail-edit-inline detail-edit-footer';
+      footerRow.appendChild(removeBtn);
+
+      item.append(valueRow, metaRow, footerRow);
+      multi.appendChild(item);
+    };
+
+    if (profiles.length > 0) profiles.forEach(addItem);
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-ghost btn-xs';
+    addBtn.type = 'button';
+    addBtn.textContent = '+ Add Social Profile';
+    addBtn.addEventListener('click', () => addItem());
+    wrap.appendChild(addBtn);
+
+    return wrap;
+  }
+
+  _collectEditedSocialProfiles() {
+    return [...document.querySelectorAll('.detail-edit-item[data-kind="social"]')]
+      .map((item) => ({
+        url: item.querySelector('input[data-role="social-url"]')?.value.trim() || '',
+        service: item.querySelector('input[data-role="social-service"]')?.value.trim() || '',
+        username: item.querySelector('input[data-role="social-username"]')?.value.trim() || '',
+        label: item.querySelector('input[data-role="social-label"]')?.value.trim() || '',
+      }))
+      .filter((sp) => sp.url);
+  }
+
   _editCustomFields(fields) {
     const wrap = document.createElement('div');
     wrap.className = 'detail-edit-row detail-edit-custom-fields';
@@ -898,6 +996,7 @@ class EditingMixin {
     contact.anniversary = document.getElementById('edit-anniversary')?.value || null;
     contact.dates = this._collectEditedDates();
     contact.ims = this._collectEditedIms();
+    contact.socialProfiles = this._collectEditedSocialProfiles();
     if (document.getElementById('edit-photo-remove')?.value === '1') {
       contact.photo = null;
     } else {
@@ -1092,6 +1191,7 @@ class EditingMixin {
           'NOTE',
           'URL',
           'IMPP',
+          'X-SOCIALPROFILE',
           'PHOTO',
           'X-ABSHOWAS',
         ].includes(prop)
@@ -1114,7 +1214,8 @@ class EditingMixin {
         props.has('TEL') ||
         props.has('ADR') ||
         props.has('URL') ||
-        props.has('IMPP');
+        props.has('IMPP') ||
+        props.has('X-SOCIALPROFILE');
       const dateGroup = props.has('X-ABDATE');
       const relatedGroup = props.has('X-ABRELATEDNAMES');
       // Drop the groups we regenerate from the model below (editable contact
@@ -1184,6 +1285,13 @@ class EditingMixin {
       const svc = im.service ? `;X-SERVICE-TYPE=${im.service}` : '';
       const params = svc + this._buildTypeParams(im.types || []);
       pushLabeledField('IMPP', params, this._vCardEscape(im.value), im.label);
+    }
+    for (const sp of contact.socialProfiles || []) {
+      if (!sp || !sp.url) continue;
+      let params = '';
+      if (sp.service) params += `;TYPE=${sp.service}`;
+      if (sp.username) params += `;X-USER=${sp.username}`;
+      pushLabeledField('X-SOCIALPROFILE', params, this._vCardEscape(sp.url), sp.label);
     }
     if (contact.birthday) generated.push(`BDAY:${contact.birthday}`);
     for (const note of contact.notes || []) {

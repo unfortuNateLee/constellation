@@ -123,6 +123,13 @@ export class VCardAdapter {
       const svc = im.service ? `;X-SERVICE-TYPE=${im.service}` : '';
       pushLabeled('IMPP', svc + this._typeParams(im.types || []), this._escape(im.value), im.label);
     }
+    for (const sp of contact.socialProfiles || []) {
+      if (!sp?.url) continue;
+      let params = '';
+      if (sp.service) params += `;TYPE=${sp.service}`;
+      if (sp.username) params += `;X-USER=${sp.username}`;
+      pushLabeled('X-SOCIALPROFILE', params, this._escape(sp.url), sp.label);
+    }
     if (contact.birthday) lines.push(`BDAY:${this._escape(contact.birthday)}`);
     for (const note of contact.notes || []) {
       if (note) lines.push(`NOTE:${this._escape(note)}`);

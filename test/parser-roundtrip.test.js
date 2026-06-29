@@ -408,3 +408,35 @@ test('IMPP instant messages parse, model service, and survive an edit', () => {
   assert.equal(reparsed.ims[0].value, 'skype:johndoe');
   assert.equal(reparsed.ims[1].value, 'xmpp:john@example.com');
 });
+
+test('X-SOCIALPROFILE social profiles parse and survive an edit', () => {
+  const context = loadBrowserClasses();
+  const vcard = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    'UID:social-test',
+    'N:Test;Social;;;',
+    'FN:Social Test',
+    'X-SOCIALPROFILE;TYPE=Twitter;X-USER=johnd:https://twitter.com/johnd',
+    'item1.X-SOCIALPROFILE;TYPE=LinkedIn:https://linkedin.com/in/john',
+    'item1.X-ABLabel:_$!<Work>!$_',
+    'END:VCARD',
+  ].join('\r\n');
+
+  const contacts = new context.VCFParser().parse(vcard);
+  const app = makeTestApp(context, contacts);
+  const c = contacts[0];
+  assert.equal(c.socialProfiles.length, 2);
+  assert.equal(c.socialProfiles[0].service, 'Twitter');
+  assert.equal(c.socialProfiles[0].username, 'johnd');
+  assert.equal(c.socialProfiles[0].url, 'https://twitter.com/johnd');
+  assert.equal(c.socialProfiles[1].service, 'LinkedIn');
+  assert.equal(c.socialProfiles[1].label, 'Work');
+
+  app._rewriteEditableFields(c);
+  const reparsed = new context.VCFParser().parse(c.rawVCard)[0];
+  assert.equal(reparsed.socialProfiles.length, 2);
+  assert.equal(reparsed.socialProfiles[0].username, 'johnd');
+  assert.equal(reparsed.socialProfiles[1].label, 'Work');
+  assert.match(c.rawVCard, /X-SOCIALPROFILE;TYPE=Twitter;X-USER=johnd:/);
+});

@@ -34,6 +34,8 @@ export class ContactRecord {
     { key: 'dates', default: () => [] },
     // Instant-message handles (IMPP), each { value, service, types, label }.
     { key: 'ims', default: () => [] },
+    // Social profiles (X-SOCIALPROFILE), each { url, service, username, label }.
+    { key: 'socialProfiles', default: () => [] },
     { key: 'notes', default: () => [] },
     { key: 'related', default: () => [] },
     { key: 'urls', default: () => [] },

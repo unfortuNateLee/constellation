@@ -394,6 +394,50 @@ class BulkMixin {
           i.label = v;
         },
       },
+      {
+        key: 'social-url',
+        label: 'URL',
+        group: 'Social Profile',
+        entity: 'social',
+        valueType: 'text',
+        get: (_c, s) => s?.url || '',
+        setInst: (_c, s, v) => {
+          s.url = v;
+        },
+      },
+      {
+        key: 'social-service',
+        label: 'Service',
+        group: 'Social Profile',
+        entity: 'social',
+        valueType: 'text',
+        get: (_c, s) => s?.service || '',
+        setInst: (_c, s, v) => {
+          s.service = v;
+        },
+      },
+      {
+        key: 'social-username',
+        label: 'Username',
+        group: 'Social Profile',
+        entity: 'social',
+        valueType: 'text',
+        get: (_c, s) => s?.username || '',
+        setInst: (_c, s, v) => {
+          s.username = v;
+        },
+      },
+      {
+        key: 'social-label',
+        label: 'Custom Label',
+        group: 'Social Profile',
+        entity: 'social',
+        valueType: 'text',
+        get: (_c, s) => s?.label || '',
+        setInst: (_c, s, v) => {
+          s.label = v;
+        },
+      },
     ];
   }
 
@@ -454,6 +498,14 @@ class BulkMixin {
         getList: (c) => c.ims || [],
         setList: (c, a) => {
           c.ims = a;
+        },
+      },
+      social: {
+        singular: 'social profile',
+        plural: 'social profiles',
+        getList: (c) => c.socialProfiles || [],
+        setList: (c, a) => {
+          c.socialProfiles = a;
         },
       },
     };

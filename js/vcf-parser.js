@@ -234,6 +234,18 @@ export class VCFParser {
           }
           break;
 
+        case 'X-SOCIALPROFILE':
+          if (value) {
+            const entry = {
+              url: this._decode(value).trim(),
+              service: this._paramValue(parsedLine.params, 'TYPE'),
+              username: this._paramValue(parsedLine.params, 'X-USER'),
+            };
+            contact.socialProfiles.push(entry);
+            if (itemKey) itemInstances[itemKey] = entry;
+          }
+          break;
+
         case 'UID':
           contact.uid = value;
           break;
