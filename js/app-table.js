@@ -811,6 +811,14 @@ class TableMixin {
     const contact = this._contact(contactId);
     if (!contact) return;
     const value = String(rawValue ?? '');
+
+    // Only edits that change graph topology, clustering, or the sidebar list need
+    // the full builder + graph + list/table rebuild. Name (label + surname
+    // cluster), org (org cluster + list sub-line), and relationships (edges) do;
+    // notes do only when their #hashtags change (those feed clusters + filters).
+    // Everything else is "graph-neutral": regenerate the card + sync the node.
+    let needsFullRebuild = field === 'fn' || field === 'org' || field === 'related';
+
     if (field === 'fn') {
       contact.fn = value.trim();
       contact.name = this._namePartsFromDisplayName(contact.fn || '');
@@ -835,30 +843,32 @@ class TableMixin {
     } else if (field === 'anniversary') {
       contact.anniversary = value || null;
     } else if (field === 'emails') {
-      contact.emails = this._ensureSinglePreferred(
-        Array.isArray(rawValue) ? rawValue : [],
-        'email',
-      );
+      contact.emails = this._ensureSinglePreferred(Array.isArray(rawValue) ? rawValue : []);
     } else if (field === 'phones') {
-      contact.phones = this._ensureSinglePreferred(
-        Array.isArray(rawValue) ? rawValue : [],
-        'phone',
-      );
+      contact.phones = this._ensureSinglePreferred(Array.isArray(rawValue) ? rawValue : []);
     } else if (field === 'urls') {
-      contact.urls = this._ensureSinglePreferred(Array.isArray(rawValue) ? rawValue : [], 'url');
+      contact.urls = this._ensureSinglePreferred(Array.isArray(rawValue) ? rawValue : []);
     } else if (field === 'addresses') {
-      contact.addresses = this._ensureSinglePreferred(
-        Array.isArray(rawValue) ? rawValue : [],
-        'address',
-      );
+      contact.addresses = this._ensureSinglePreferred(Array.isArray(rawValue) ? rawValue : []);
     } else if (field === 'notes') {
+      const prevTags = (contact.noteTags || []).join('');
       contact.notes = this._splitNotes(value);
       contact.noteTags = this.parser._extractHashtags(contact.notes);
       contact.tags = this.parser._inferTags(contact);
+      if ((contact.noteTags || []).join('') !== prevTags) needsFullRebuild = true;
     }
+
     this._rewriteEditableFields(contact);
-    this.builder = new RelationshipBuilder(this.contacts);
-    this._rebuildGraph();
+
+    if (needsFullRebuild) {
+      this.builder = new RelationshipBuilder(this.contacts);
+      this._rebuildGraph();
+    } else {
+      // Fast path: no relationship/cluster/list change — just keep the graph node
+      // (and the detail panel that reads it) in sync. Skips the full re-render of
+      // the table/list/graph that dominated edit latency.
+      this._syncNodeFromContact(contact);
+    }
     void this._persistSession();
   }
 

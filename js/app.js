@@ -649,6 +649,29 @@ export class ContactRelationshipApp {
     });
   }
 
+  /**
+   * Copy a contact's fields onto its existing graph node so the detail panel and
+   * graph reflect an edit WITHOUT a full builder/graph rebuild. Mirrors how
+   * RelationshipBuilder._makeNode projects fn→name and name→structuredName, and
+   * leaves graph-derived fields (category, filterTags, position) untouched. Used
+   * by the fast path for edits that don't change graph topology/clustering.
+   */
+  _syncNodeFromContact(contact) {
+    this._syncContactRecord(contact);
+    const node = this._nodeById.get(contact.id);
+    if (!node) return;
+    node.name = contact.fn;
+    node.structuredName = contact.name || null;
+    node.customFields = contact.customFields || {};
+    node.record = contact.record || null;
+    node.sourceDocuments = contact.sourceDocuments || [];
+    node.rawVCard = contact.rawVCard || null;
+    for (const { key } of ContactRecord.STANDARD_FIELDS) {
+      if (key === 'fn' || key === 'name') continue;
+      node[key] = contact[key];
+    }
+  }
+
   _adapterForFile(file) {
     return this.formatAdapters.find((adapter) => adapter.canImportFile(file)) || null;
   }
