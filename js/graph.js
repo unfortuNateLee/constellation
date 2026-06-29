@@ -290,22 +290,25 @@ export class ConstellationGraph {
           )
           .map((n) => n.id),
       );
+      // Pull in group/cluster nodes connected to any visible node (transitively)
+      // via a single BFS over a precomputed adjacency map — O(V+E) instead of the
+      // old fixed-point rescan of every edge until stable (O(V*E)).
+      const adj = new Map();
+      for (const e of edges) {
+        const s = typeof e.source === 'object' ? e.source.id : e.source;
+        const t = typeof e.target === 'object' ? e.target.id : e.target;
+        (adj.get(s) || adj.set(s, []).get(s)).push(t);
+        (adj.get(t) || adj.set(t, []).get(t)).push(s);
+      }
       const visibleIds = new Set(matchingIds);
-      let changed = true;
-      while (changed) {
-        changed = false;
-        for (const e of edges) {
-          const s = typeof e.source === 'object' ? e.source.id : e.source;
-          const t = typeof e.target === 'object' ? e.target.id : e.target;
-          const sNode = nodeById.get(s);
-          const tNode = nodeById.get(t);
-          if (visibleIds.has(s) && tNode?.isGroupNode && !visibleIds.has(t)) {
-            visibleIds.add(t);
-            changed = true;
-          }
-          if (visibleIds.has(t) && sNode?.isGroupNode && !visibleIds.has(s)) {
-            visibleIds.add(s);
-            changed = true;
+      const queue = [...matchingIds];
+      while (queue.length) {
+        const cur = queue.shift();
+        for (const nb of adj.get(cur) || []) {
+          if (visibleIds.has(nb)) continue;
+          if (nodeById.get(nb)?.isGroupNode) {
+            visibleIds.add(nb);
+            queue.push(nb);
           }
         }
       }
@@ -634,87 +637,101 @@ export class ConstellationGraph {
     const incremental = nodes.length > 0 && seeded >= nodes.length * 0.5;
 
     // ── Simulation ──
-    this._simulation = d3
-      .forceSimulation(nodes)
-      .force(
-        'link',
-        d3
-          .forceLink(validEdges)
-          .id((d) => d.id)
-          .distance((d) => {
-            if (d.edgeKind === 'geographic-hierarchy') return 58;
-            if (d.edgeKind === 'geographic-membership') return 70;
-            if (['likely-surname', 'likely-tag', 'likely-family'].includes(d.edgeKind)) return 65;
-            if (d.category === 'family') return 80;
-            if (d.category === 'work') return 100;
-            return 120;
-          })
-          .strength((d) => {
-            if (d.edgeKind === 'geographic-hierarchy') return 0.9;
-            if (d.edgeKind === 'geographic-membership') return 0.82;
-            if (['likely-surname', 'likely-tag', 'likely-family'].includes(d.edgeKind)) return 0.76;
-            return 0.4;
-          }),
-      )
-      .force(
-        'charge',
-        d3
-          .forceManyBody()
-          .strength((d) => (d.isGroupNode ? -520 : d.isCompany ? -400 : -150))
-          .distanceMax(400),
-      )
-      .force('center', d3.forceCenter(this.width / 2, this.height / 2))
-      .force(
-        'collide',
-        d3.forceCollide((d) => nodeRadius(d) + 8),
-      )
-      .on('tick', () => {
-        hull.attr('d', (d) => this._hullPath(d, nodes, nodeRadius));
-        hullLabel
-          .attr('transform', (d) => this._hullLabelTransform(d, nodes))
-          .attr('opacity', (d) => this._hullLabelOpacity(d, nodes));
-        link
-          .select('line')
-          .attr('x1', (d) => d.source.x)
-          .attr('y1', (d) => d.source.y)
-          .attr('x2', (d) => d.target.x)
-          .attr('y2', (d) => d.target.y);
+    // The tick handler closes over this render's selections/nodes, so it's
+    // re-bound every render. The simulation object and its force objects are
+    // created once and reused (their accessors are pure functions of node/edge
+    // data) — only .nodes()/.links()/center are repointed — preserving velocity
+    // continuity and avoiding a full forceSimulation rebuild on every edit.
+    const tick = () => {
+      hull.attr('d', (d) => this._hullPath(d, nodes, nodeRadius));
+      hullLabel
+        .attr('transform', (d) => this._hullLabelTransform(d, nodes))
+        .attr('opacity', (d) => this._hullLabelOpacity(d, nodes));
+      link
+        .select('line')
+        .attr('x1', (d) => d.source.x)
+        .attr('y1', (d) => d.source.y)
+        .attr('x2', (d) => d.target.x)
+        .attr('y2', (d) => d.target.y);
 
-        // Position source label near source node (32% along) when dual labels,
-        // or centered (50%) when there is only one label
-        link
-          .select('text.edge-label-src')
-          .attr('x', (d) => {
-            const f = d.reverseLabel && d.reverseLabel !== d.label ? 0.32 : 0.5;
-            return d.source.x + f * (d.target.x - d.source.x);
-          })
-          .attr('y', (d) => {
-            const f = d.reverseLabel && d.reverseLabel !== d.label ? 0.32 : 0.5;
-            return d.source.y + f * (d.target.y - d.source.y);
-          });
-        // Position target label near target node (68% along)
-        link
-          .select('text.edge-label-tgt')
-          .attr('x', (d) => d.source.x + 0.68 * (d.target.x - d.source.x))
-          .attr('y', (d) => d.source.y + 0.68 * (d.target.y - d.source.y));
+      // Position source label near source node (32% along) when dual labels,
+      // or centered (50%) when there is only one label
+      link
+        .select('text.edge-label-src')
+        .attr('x', (d) => {
+          const f = d.reverseLabel && d.reverseLabel !== d.label ? 0.32 : 0.5;
+          return d.source.x + f * (d.target.x - d.source.x);
+        })
+        .attr('y', (d) => {
+          const f = d.reverseLabel && d.reverseLabel !== d.label ? 0.32 : 0.5;
+          return d.source.y + f * (d.target.y - d.source.y);
+        });
+      // Position target label near target node (68% along)
+      link
+        .select('text.edge-label-tgt')
+        .attr('x', (d) => d.source.x + 0.68 * (d.target.x - d.source.x))
+        .attr('y', (d) => d.source.y + 0.68 * (d.target.y - d.source.y));
 
-        node.attr('transform', (d) => `translate(${d.x},${d.y})`);
-        label.attr('transform', (d) => `translate(${d.x},${d.y})`);
+      node.attr('transform', (d) => `translate(${d.x},${d.y})`);
+      label.attr('transform', (d) => `translate(${d.x},${d.y})`);
 
-        // Remember positions so the next rebuild can resume this layout.
-        for (const n of nodes) {
-          this._nodePositions.set(n.id, {
-            x: n.x,
-            y: n.y,
-            vx: n.vx,
-            vy: n.vy,
-            fx: n.fx,
-            fy: n.fy,
-          });
-        }
-      });
+      // Remember positions so the next rebuild can resume this layout.
+      for (const n of nodes) {
+        this._nodePositions.set(n.id, {
+          x: n.x,
+          y: n.y,
+          vx: n.vx,
+          vy: n.vy,
+          fx: n.fx,
+          fy: n.fy,
+        });
+      }
+    };
 
-    this._simulation.alpha(incremental ? 0.3 : 1).restart();
+    if (!this._simulation) {
+      this._simulation = d3
+        .forceSimulation()
+        .force(
+          'link',
+          d3
+            .forceLink()
+            .id((d) => d.id)
+            .distance((d) => {
+              if (d.edgeKind === 'geographic-hierarchy') return 58;
+              if (d.edgeKind === 'geographic-membership') return 70;
+              if (['likely-surname', 'likely-tag', 'likely-family'].includes(d.edgeKind)) return 65;
+              if (d.category === 'family') return 80;
+              if (d.category === 'work') return 100;
+              return 120;
+            })
+            .strength((d) => {
+              if (d.edgeKind === 'geographic-hierarchy') return 0.9;
+              if (d.edgeKind === 'geographic-membership') return 0.82;
+              if (['likely-surname', 'likely-tag', 'likely-family'].includes(d.edgeKind))
+                return 0.76;
+              return 0.4;
+            }),
+        )
+        .force(
+          'charge',
+          d3
+            .forceManyBody()
+            .strength((d) => (d.isGroupNode ? -520 : d.isCompany ? -400 : -150))
+            .distanceMax(400),
+        )
+        .force('center', d3.forceCenter(this.width / 2, this.height / 2))
+        .force(
+          'collide',
+          d3.forceCollide((d) => nodeRadius(d) + 8),
+        );
+    }
+
+    const sim = this._simulation;
+    sim.nodes(nodes);
+    sim.force('link').links(validEdges);
+    sim.force('center', d3.forceCenter(this.width / 2, this.height / 2));
+    sim.on('tick', tick);
+    sim.alpha(incremental ? 0.3 : 1).restart();
   }
 
   // ── Selection & Highlighting ────────────────────────────────────

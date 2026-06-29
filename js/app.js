@@ -112,12 +112,16 @@ export class ContactRelationshipApp {
       }
     });
 
-    // Search
+    // Search — debounced so typing doesn't re-render the (potentially large)
+    // list + table on every keystroke.
     const searchInput = document.getElementById('search-input');
     searchInput.addEventListener('input', (e) => {
       this._searchQuery = e.target.value.toLowerCase();
-      this._renderContactList();
-      this._renderTableMode();
+      clearTimeout(this._searchDebounceTimer);
+      this._searchDebounceTimer = setTimeout(() => {
+        this._renderContactList();
+        this._renderTableMode();
+      }, 120);
     });
 
     document.getElementById('contact-sort-mode').addEventListener('change', (e) => {
