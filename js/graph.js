@@ -181,8 +181,17 @@ export class ConstellationGraph {
   }
 
   _onResize() {
-    this.width = this.container.clientWidth;
-    this.height = this.container.clientHeight;
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+    // Ignore resizes while the graph is hidden (0×0) — e.g. when the Table view is
+    // showing. Acting on them would re-center the simulation on (0,0) and leave it
+    // primed at a high alpha, making the graph janky when you switch back.
+    if (!w || !h) return;
+    // Only react to a real size change; otherwise leave the settled layout alone so
+    // returning to the graph at the same size doesn't needlessly re-animate it.
+    if (w === this.width && h === this.height) return;
+    this.width = w;
+    this.height = h;
     if (this._simulation) {
       this._simulation.force('center', d3.forceCenter(this.width / 2, this.height / 2));
       this._simulation.alpha(0.3).restart();
