@@ -162,7 +162,9 @@ body {
 }
 
 .build-stamp {
-  display: flex;
+  /* Hidden from the UI but kept in the DOM (and still updated each build) so the
+     dev build marker remains available in the page source. */
+  display: none;
   flex-direction: column;
   color: var(--text3);
   font-size: 10px;
