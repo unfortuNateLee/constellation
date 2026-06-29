@@ -379,3 +379,32 @@ test('Apple item-grouped custom labels on email/phone/address survive parse + ed
   assert.equal(reparsed.phones[0].label, 'Boat');
   assert.equal(reparsed.addresses[0].label, 'Marina');
 });
+
+test('IMPP instant messages parse, model service, and survive an edit', () => {
+  const context = loadBrowserClasses();
+  const vcard = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    'UID:im-test',
+    'N:Test;Im;;;',
+    'FN:Im Test',
+    'IMPP;X-SERVICE-TYPE=Skype:skype:johndoe',
+    'IMPP;X-SERVICE-TYPE=Jabber:xmpp:john@example.com',
+    'END:VCARD',
+  ].join('\r\n');
+
+  const contacts = new context.VCFParser().parse(vcard);
+  const app = makeTestApp(context, contacts);
+  const c = contacts[0];
+  assert.equal(c.ims.length, 2);
+  assert.equal(c.ims[0].service, 'Skype');
+  assert.equal(c.ims[0].value, 'skype:johndoe');
+  assert.equal(c.ims[1].service, 'Jabber');
+
+  app._rewriteEditableFields(c);
+  const reparsed = new context.VCFParser().parse(c.rawVCard)[0];
+  assert.equal(reparsed.ims.length, 2);
+  assert.equal(reparsed.ims[0].service, 'Skype');
+  assert.equal(reparsed.ims[0].value, 'skype:johndoe');
+  assert.equal(reparsed.ims[1].value, 'xmpp:john@example.com');
+});

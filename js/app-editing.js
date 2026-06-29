@@ -240,6 +240,17 @@ class EditingMixin {
       );
     }
 
+    for (const im of node.ims || []) {
+      if (!im?.value) continue;
+      contactInfo.appendChild(
+        this._detailRow(
+          '💬',
+          this._escapeHtml(im.value),
+          im.label || im.service || 'Instant Message',
+        ),
+      );
+    }
+
     if (node.birthday)
       contactInfo.appendChild(
         this._detailRow('🎂', this._formatBirthday(node.birthday), 'Birthday'),
@@ -322,6 +333,7 @@ class EditingMixin {
         typeof entry === 'string' ? entry : entry.value,
       ),
     );
+    grid.appendChild(this._editImField(contact.ims || []));
     grid.appendChild(this._editCustomFields(contact.customFields || contact.record?.fields || {}));
 
     contactInfo.appendChild(grid);
@@ -595,6 +607,81 @@ class EditingMixin {
       .map((entry) => ({ label: entry.label || 'Date', value: entry.value }));
   }
 
+  /** Editor for instant-message handles (handle + service + optional label). */
+  _editImField(ims) {
+    const wrap = document.createElement('div');
+    wrap.className = 'detail-edit-row';
+    wrap.innerHTML = `<div class="detail-edit-label">Instant Messages</div>`;
+
+    const multi = document.createElement('div');
+    multi.className = 'detail-edit-multi';
+    wrap.appendChild(multi);
+
+    const addItem = (entry = null) => {
+      const item = document.createElement('div');
+      item.className = 'detail-edit-item';
+      item.dataset.kind = 'im';
+
+      const valueInput = document.createElement('input');
+      valueInput.className = 'form-control';
+      valueInput.dataset.role = 'im-value';
+      valueInput.placeholder = 'Handle';
+      valueInput.value = entry?.value || '';
+
+      const serviceInput = document.createElement('input');
+      serviceInput.className = 'form-control';
+      serviceInput.dataset.role = 'im-service';
+      serviceInput.placeholder = 'Service (e.g. Skype)';
+      serviceInput.value = entry?.service || '';
+
+      const labelInput = document.createElement('input');
+      labelInput.className = 'form-control';
+      labelInput.dataset.role = 'im-label';
+      labelInput.placeholder = 'Custom label (optional)';
+      labelInput.value = entry?.label || '';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'btn btn-ghost btn-xs';
+      removeBtn.type = 'button';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => item.remove());
+
+      const valueRow = document.createElement('div');
+      valueRow.className = 'detail-edit-stack';
+      valueRow.appendChild(valueInput);
+      const metaRow = document.createElement('div');
+      metaRow.className = 'detail-edit-inline detail-edit-meta';
+      metaRow.append(serviceInput, labelInput);
+      const footerRow = document.createElement('div');
+      footerRow.className = 'detail-edit-inline detail-edit-footer';
+      footerRow.appendChild(removeBtn);
+
+      item.append(valueRow, metaRow, footerRow);
+      multi.appendChild(item);
+    };
+
+    if (ims.length > 0) ims.forEach(addItem);
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-ghost btn-xs';
+    addBtn.type = 'button';
+    addBtn.textContent = '+ Add Instant Message';
+    addBtn.addEventListener('click', () => addItem());
+    wrap.appendChild(addBtn);
+
+    return wrap;
+  }
+
+  _collectEditedIms() {
+    return [...document.querySelectorAll('.detail-edit-item[data-kind="im"]')]
+      .map((item) => ({
+        value: item.querySelector('input[data-role="im-value"]')?.value.trim() || '',
+        service: item.querySelector('input[data-role="im-service"]')?.value.trim() || '',
+        label: item.querySelector('input[data-role="im-label"]')?.value.trim() || '',
+      }))
+      .filter((im) => im.value);
+  }
+
   _editCustomFields(fields) {
     const wrap = document.createElement('div');
     wrap.className = 'detail-edit-row detail-edit-custom-fields';
@@ -810,6 +897,7 @@ class EditingMixin {
     contact.birthday = document.getElementById('edit-bday')?.value || null;
     contact.anniversary = document.getElementById('edit-anniversary')?.value || null;
     contact.dates = this._collectEditedDates();
+    contact.ims = this._collectEditedIms();
     if (document.getElementById('edit-photo-remove')?.value === '1') {
       contact.photo = null;
     } else {
@@ -1003,6 +1091,7 @@ class EditingMixin {
           'BDAY',
           'NOTE',
           'URL',
+          'IMPP',
           'PHOTO',
           'X-ABSHOWAS',
         ].includes(prop)
@@ -1021,7 +1110,11 @@ class EditingMixin {
         }),
       );
       const editableContactGroup =
-        props.has('EMAIL') || props.has('TEL') || props.has('ADR') || props.has('URL');
+        props.has('EMAIL') ||
+        props.has('TEL') ||
+        props.has('ADR') ||
+        props.has('URL') ||
+        props.has('IMPP');
       const dateGroup = props.has('X-ABDATE');
       const relatedGroup = props.has('X-ABRELATEDNAMES');
       // Drop the groups we regenerate from the model below (editable contact
@@ -1085,6 +1178,12 @@ class EditingMixin {
         this._vCardEscape(urlValue),
         urlLabel,
       );
+    }
+    for (const im of contact.ims || []) {
+      if (!im || !im.value) continue;
+      const svc = im.service ? `;X-SERVICE-TYPE=${im.service}` : '';
+      const params = svc + this._buildTypeParams(im.types || []);
+      pushLabeledField('IMPP', params, this._vCardEscape(im.value), im.label);
     }
     if (contact.birthday) generated.push(`BDAY:${contact.birthday}`);
     for (const note of contact.notes || []) {

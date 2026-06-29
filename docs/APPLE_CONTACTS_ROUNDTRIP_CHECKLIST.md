@@ -38,6 +38,7 @@ Use this checklist for changes that affect vCard import, editing, serialization,
 - Birthday and anniversary values remain attached to the correct contacts.
 - Non-anniversary Apple custom date fields (`X-ABDATE` with a custom `X-ABLabel`) are imported into the contact's "Other Dates", remain editable, and survive in-app edits and export (anniversary keeps its own dedicated field). Multiple custom dates on one contact are all preserved.
 - Geographic addresses preserve street, city, state/province, postal code, country, and preferred address type.
+- Instant-message handles (`IMPP`) import with their service (`X-SERVICE-TYPE`, whether inline or item-grouped) and any custom `X-ABLabel`, remain editable, and survive in-app edits and export. (Note: a `TYPE` param on an IMPP is preserved on import/export but is dropped if that IM is edited in the app.)
 
 ## Failure Capture
 

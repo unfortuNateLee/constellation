@@ -32,6 +32,8 @@ export class ContactRecord {
     // Additional Apple custom-labeled dates (X-ABDATE) beyond anniversary,
     // each { label, value }. Anniversary keeps its own dedicated scalar above.
     { key: 'dates', default: () => [] },
+    // Instant-message handles (IMPP), each { value, service, types, label }.
+    { key: 'ims', default: () => [] },
     { key: 'notes', default: () => [] },
     { key: 'related', default: () => [] },
     { key: 'urls', default: () => [] },

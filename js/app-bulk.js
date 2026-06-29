@@ -361,6 +361,39 @@ class BulkMixin {
           d.value = v;
         },
       },
+      {
+        key: 'im-value',
+        label: 'Handle',
+        group: 'Instant Message',
+        entity: 'im',
+        valueType: 'text',
+        get: (_c, i) => i?.value || '',
+        setInst: (_c, i, v) => {
+          i.value = v;
+        },
+      },
+      {
+        key: 'im-service',
+        label: 'Service',
+        group: 'Instant Message',
+        entity: 'im',
+        valueType: 'text',
+        get: (_c, i) => i?.service || '',
+        setInst: (_c, i, v) => {
+          i.service = v;
+        },
+      },
+      {
+        key: 'im-label',
+        label: 'Custom Label',
+        group: 'Instant Message',
+        entity: 'im',
+        valueType: 'text',
+        get: (_c, i) => i?.label || '',
+        setInst: (_c, i, v) => {
+          i.label = v;
+        },
+      },
     ];
   }
 
@@ -413,6 +446,14 @@ class BulkMixin {
         getList: (c) => c.dates || [],
         setList: (c, a) => {
           c.dates = a;
+        },
+      },
+      im: {
+        singular: 'IM',
+        plural: 'IMs',
+        getList: (c) => c.ims || [],
+        setList: (c, a) => {
+          c.ims = a;
         },
       },
     };

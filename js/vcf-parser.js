@@ -222,6 +222,18 @@ export class VCFParser {
           }
           break;
 
+        case 'IMPP':
+          if (value) {
+            const entry = {
+              value: this._decode(value).trim(),
+              service: this._paramValue(parsedLine.params, 'X-SERVICE-TYPE'),
+              types,
+            };
+            contact.ims.push(entry);
+            if (itemKey) itemInstances[itemKey] = entry;
+          }
+          break;
+
         case 'UID':
           contact.uid = value;
           break;
@@ -275,8 +287,12 @@ export class VCFParser {
           contact.dates.push({ label: label || 'Date', value: data['X-ABDATE'] });
         }
       } else if (data['X-ABLABEL'] && itemInstances[key]) {
-        // Apple custom label on an email/phone/address/url item group.
+        // Apple custom label on an email/phone/address/url/im item group.
         itemInstances[key].label = this._unwrapLabel(data['X-ABLABEL']);
+      }
+      // An item-grouped IMPP may carry its service as a sibling property.
+      if (itemInstances[key] && data['X-SERVICE-TYPE'] && !itemInstances[key].service) {
+        itemInstances[key].service = data['X-SERVICE-TYPE'];
       }
     }
 
@@ -294,6 +310,13 @@ export class VCFParser {
 
   _normalizeRelType(label) {
     return RelationshipTaxonomy.normalize(label);
+  }
+
+  /** First value of a named vCard parameter (e.g. X-SERVICE-TYPE), or ''. */
+  _paramValue(params, name) {
+    if (!Array.isArray(params)) return '';
+    const found = params.find((p) => p && p.name === name);
+    return found && found.values ? found.values[0] || '' : '';
   }
 
   /** Strip Apple's _$!<…>!$_ wrapper from an X-ABLabel and decode it. */

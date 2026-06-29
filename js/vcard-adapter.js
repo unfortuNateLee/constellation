@@ -118,6 +118,11 @@ export class VCardAdapter {
       const label = typeof urlEntry === 'string' ? '' : urlEntry?.label;
       if (value) pushLabeled('URL', this._typeParams(types), this._escape(value), label);
     }
+    for (const im of contact.ims || []) {
+      if (!im?.value) continue;
+      const svc = im.service ? `;X-SERVICE-TYPE=${im.service}` : '';
+      pushLabeled('IMPP', svc + this._typeParams(im.types || []), this._escape(im.value), im.label);
+    }
     if (contact.birthday) lines.push(`BDAY:${this._escape(contact.birthday)}`);
     for (const note of contact.notes || []) {
       if (note) lines.push(`NOTE:${this._escape(note)}`);
