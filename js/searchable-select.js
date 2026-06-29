@@ -12,6 +12,7 @@
  */
 
 const ACTIVE_CLASS = 'searchable-item-active';
+let comboCounter = 0;
 
 class SearchableSelect {
   constructor(select, opts = {}) {
@@ -36,16 +37,24 @@ class SearchableSelect {
     if (select.parentNode) select.parentNode.insertBefore(wrap, select);
     wrap.appendChild(select);
 
+    const listId = `searchable-list-${++comboCounter}`;
+    this._listId = listId;
+
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'form-control searchable-input';
     input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-expanded', 'false');
+    input.setAttribute('aria-controls', listId);
     input.autocomplete = 'off';
     input.placeholder = this.placeholder;
     wrap.appendChild(input);
 
     const list = document.createElement('ul');
     list.className = 'searchable-list hidden';
+    list.id = listId;
+    list.setAttribute('role', 'listbox');
     wrap.appendChild(list);
 
     this.wrap = wrap;
@@ -102,9 +111,13 @@ class SearchableSelect {
       if (q && !label.toLowerCase().includes(q)) return;
       const li = document.createElement('li');
       li.className = 'searchable-item';
+      li.id = `${this._listId}-opt-${idx}`;
+      li.setAttribute('role', 'option');
+      const selected = opt.value === this.select.value;
+      li.setAttribute('aria-selected', selected ? 'true' : 'false');
       li.textContent = opt.textContent; // preserve subtype indentation
       li.dataset.index = String(idx);
-      if (opt.value === this.select.value) li.classList.add('searchable-item-selected');
+      if (selected) li.classList.add('searchable-item-selected');
       li.addEventListener('mousedown', (e) => {
         e.preventDefault();
         this._choose(idx);
@@ -114,13 +127,20 @@ class SearchableSelect {
     });
     this.activeIndex = this._items.length ? 0 : -1;
     this._highlight();
-    list.classList.toggle('hidden', this._items.length === 0);
+    const hasItems = this._items.length > 0;
+    list.classList.toggle('hidden', !hasItems);
+    this.input.setAttribute('aria-expanded', hasItems ? 'true' : 'false');
   }
 
   _highlight() {
     this._items.forEach((li, i) => li.classList.toggle(ACTIVE_CLASS, i === this.activeIndex));
     const active = this._items[this.activeIndex];
-    if (active) active.scrollIntoView({ block: 'nearest' });
+    if (active) {
+      active.scrollIntoView({ block: 'nearest' });
+      this.input.setAttribute('aria-activedescendant', active.id);
+    } else {
+      this.input.removeAttribute('aria-activedescendant');
+    }
   }
 
   _move(delta) {
@@ -175,6 +195,8 @@ class SearchableSelect {
 
   close() {
     this.list.classList.add('hidden');
+    this.input.setAttribute('aria-expanded', 'false');
+    this.input.removeAttribute('aria-activedescendant');
     this._syncDisplay();
   }
 

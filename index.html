@@ -16,7 +16,7 @@
         <div class="build-stamp" title="Last edited build marker">
           <span class="build-stamp-label">Updated</span>
           <span class="build-stamp-date">2026-06-29</span>
-          <span class="build-stamp-time">09:06:33 EDT</span>
+          <span class="build-stamp-time">09:37:20 EDT</span>
         </div>
         <div class="app-title">Constellation</div>
         <div class="header-divider"></div>
@@ -385,9 +385,9 @@
 
     <!-- ── Add Relationship Modal ─────────────────────────────────────── -->
     <div class="modal-backdrop hidden" id="add-rel-modal">
-      <div class="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="add-rel-modal-title">
         <div class="modal-header">
-          <span class="modal-title">Add Relationship</span>
+          <span class="modal-title" id="add-rel-modal-title">Add Relationship</span>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -454,9 +454,14 @@
 
     <!-- ── Bulk Normalize Modal ─────────────────────────────────────── -->
     <div class="modal-backdrop hidden" id="bulk-normalize-modal">
-      <div class="modal bulk-modal">
+      <div
+        class="modal bulk-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bulk-modal-title"
+      >
         <div class="modal-header">
-          <span class="modal-title">Rule-Based Normalize</span>
+          <span class="modal-title" id="bulk-modal-title">Rule-Based Normalize</span>
         </div>
         <div class="modal-body">
           <div class="bulk-warning">

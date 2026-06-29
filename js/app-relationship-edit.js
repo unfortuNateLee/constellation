@@ -267,6 +267,7 @@ class RelationshipEditMixin {
     document.getElementById('modal-create-mode-row').classList.add('hidden');
     document.getElementById('modal-target-name').value = '';
     document.getElementById('modal-create-mode').value = 'virtual';
+    this._focusModal('add-rel-modal');
   }
 
   /**

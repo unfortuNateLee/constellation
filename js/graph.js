@@ -124,6 +124,11 @@ export class ConstellationGraph {
       .append('svg')
       .attr('width', '100%')
       .attr('height', '100%')
+      .attr('role', 'group')
+      .attr(
+        'aria-label',
+        'Contact relationship graph. Use Tab to move between contacts, Enter to open one.',
+      )
       .style('background', 'transparent')
       .call(this._zoom)
       .on('click', (e) => {
@@ -448,6 +453,10 @@ export class ConstellationGraph {
             .append('g')
             .attr('class', (d) => `node node-${d.category}`)
             .style('cursor', 'pointer')
+            // Keyboard-accessible: each node is a focusable button labeled by name.
+            .attr('tabindex', 0)
+            .attr('role', 'button')
+            .attr('aria-label', (d) => d.name || 'contact')
             .call(
               d3
                 .drag()
@@ -458,6 +467,12 @@ export class ConstellationGraph {
             .on('click', (e, d) => {
               e.stopPropagation();
               this._selectNode(d.id);
+            })
+            .on('keydown', (e, d) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this._selectNode(d.id);
+              }
             })
             .on('mouseover', (e, d) => this._onHover(e, d, true))
             .on('mouseout', (e, d) => this._onHover(e, d, false));

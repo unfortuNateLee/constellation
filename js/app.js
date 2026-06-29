@@ -401,6 +401,7 @@ export class ContactRelationshipApp {
 
     this._applySidebarCollapseState();
     this._initCollapsiblePanels();
+    this._initModalA11y();
     this._initSidebarResizer();
     this._syncGraphModeControls();
     this._renderLegend();
@@ -451,6 +452,53 @@ export class ContactRelationshipApp {
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
+  }
+
+  /**
+   * Modal accessibility: Escape closes the open modal, Tab is trapped inside it.
+   * Pairs with role="dialog"/aria-modal in the markup and _focusModal on open.
+   */
+  _initModalA11y() {
+    document.addEventListener('keydown', (e) => {
+      const modal = document.querySelector('.modal-backdrop:not(.hidden)');
+      if (!modal) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (modal.id === 'bulk-normalize-modal') this._closeBulkNormalizeModal();
+        else modal.classList.add('hidden');
+      } else if (e.key === 'Tab') {
+        const focusables = [
+          ...modal.querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        ].filter((el) => el.offsetParent !== null);
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    });
+  }
+
+  /** Move focus to the first useful, visible control inside a freshly-opened modal. */
+  _focusModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    const candidates = modal.querySelectorAll(
+      'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+    );
+    // Skip controls that are hidden (e.g. the native <select> behind a searchable
+    // combobox) — pick the first one that's actually visible/focusable.
+    const target = [...candidates].find(
+      (el) => el.offsetParent !== null && el.getAttribute('aria-hidden') !== 'true',
+    );
+    if (target) target.focus();
   }
 
   /** Make sidebar section titles and the graph legend title click-to-collapse. */
@@ -936,11 +984,27 @@ export class ContactRelationshipApp {
     }
   }
 
-  _showToast(msg, type = 'info') {
+  _showToast(msg, type = 'info', action = null) {
     const toast = document.getElementById('toast');
-    toast.textContent = msg;
+    toast.innerHTML = '';
+    const span = document.createElement('span');
+    span.textContent = msg;
+    toast.appendChild(span);
+    if (action && action.label) {
+      const btn = document.createElement('button');
+      btn.className = 'toast-action';
+      btn.type = 'button';
+      btn.textContent = action.label;
+      btn.addEventListener('click', () => {
+        toast.classList.remove('show');
+        action.onClick();
+      });
+      toast.appendChild(btn);
+    }
     toast.className = `toast toast-${type} show`;
-    setTimeout(() => toast.classList.remove('show'), 3500);
+    clearTimeout(this._toastTimer);
+    // Give actionable toasts longer to be clicked.
+    this._toastTimer = setTimeout(() => toast.classList.remove('show'), action ? 8000 : 3500);
   }
 
   _nextTick() {

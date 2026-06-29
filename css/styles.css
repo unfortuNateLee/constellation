@@ -16,8 +16,8 @@
   --border: #2e2e5e;
   --text: #e0e0f0;
   --text-strong: #ffffff;
-  --text2: #9090b0;
-  --text3: #6060a0;
+  --text2: #a6a6c8;
+  --text3: #9090c4;
   --accent: #7c5cbf;
   --accent2: #a07ee8;
   --success: #00b894;
@@ -57,8 +57,8 @@
   --cat-group: #8e9aaf; /* cluster / location group nodes */
   --cat-selected: #ffd32a; /* selected-node ring */
   --cat-edge-inferred: #aaa; /* inferred org-cluster links */
-  --graph-label: #cccccc; /* node label text */
-  --graph-edge-label: #aaaaaa; /* relationship label text */
+  --graph-label: #d6d6e0; /* node label text */
+  --graph-edge-label: #c4c4d0; /* relationship label text */
   --label-shadow:
     0 1px 3px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.6); /* halo for graph labels */
 
@@ -91,8 +91,8 @@
   --border: #d3d9e6;
   --text: #1b1d2a;
   --text-strong: #0a0c14;
-  --text2: #57607a;
-  --text3: #8088a4;
+  --text2: #4a5270;
+  --text3: #6b7390;
 
   /* Darken the accent/status text so it stays readable on a pale background.
      The "on-*" fill tokens are inherited from :root (their backgrounds are
@@ -2059,9 +2059,30 @@ body.resizing-col {
   white-space: nowrap;
 }
 
+.toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .toast.show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.toast-action {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.toast-action:hover {
+  background: var(--accent2);
 }
 
 .toast-success {
@@ -2472,4 +2493,66 @@ textarea:focus-visible,
   outline: 2px solid var(--accent2);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────
+   The app is a 3-column desktop layout; these breakpoints keep it usable as the
+   viewport narrows — condensing the header, floating the detail panel over the
+   graph, and shrinking/floating the sidebar — without a separate mobile build. */
+@media (max-width: 1180px) {
+  /* The decorative header stat block is the first thing to go. */
+  .header-stats {
+    display: none;
+  }
+}
+
+@media (max-width: 1000px) {
+  .app-header {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--header-h);
+    padding: 6px 12px;
+    gap: 8px;
+  }
+  /* Float the detail panel over the graph so it never squeezes the main view. */
+  .detail-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: min(360px, 92vw);
+    z-index: 30;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.45);
+  }
+  :root {
+    --sidebar-list-w: 200px;
+    --sidebar-controls-w: 200px;
+  }
+}
+
+@media (max-width: 720px) {
+  /* Float the sidebar over the graph too; its collapse button still toggles the
+     controls, and the contact list scrolls within. */
+  .sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    z-index: 31;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.45);
+  }
+  :root {
+    --sidebar-list-w: 180px;
+  }
+  .detail-panel {
+    width: 100vw;
+  }
+  .app-title {
+    font-size: 14px;
+  }
+  /* Let header buttons shrink so the toolbar wraps tidily. */
+  .app-header .btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
 }

@@ -39,6 +39,7 @@ class BulkMixin {
     this._renderBulkRuleBuilder();
     document.getElementById('bulk-confirm-risk').checked = false;
     document.getElementById('bulk-normalize-modal').classList.remove('hidden');
+    this._focusModal('bulk-normalize-modal');
   }
 
   _closeBulkNormalizeModal() {
@@ -1269,6 +1270,9 @@ class BulkMixin {
       return;
     }
 
+    // Snapshot the full working set before mutating so a bad rule is recoverable.
+    this._bulkUndoSnapshot = this.contacts.map((c) => JSON.parse(JSON.stringify(c)));
+
     const touched = new Set();
     let changeCount = 0;
 
@@ -1374,7 +1378,19 @@ class BulkMixin {
     this._showToast(
       `Applied rule to ${touched.size} contact${touched.size !== 1 ? 's' : ''} and updated ${changeCount} value${changeCount !== 1 ? 's' : ''}`,
       'success',
+      { label: 'Undo', onClick: () => this._undoBulkNormalize() },
     );
+  }
+
+  /** Restore the working set captured before the last bulk-normalize apply. */
+  _undoBulkNormalize() {
+    if (!this._bulkUndoSnapshot) return;
+    this.contacts = this._bulkUndoSnapshot;
+    this._bulkUndoSnapshot = null;
+    this.builder = new RelationshipBuilder(this.contacts);
+    this._rebuildGraph();
+    void this._persistSession();
+    this._showToast('Bulk change undone', 'success');
   }
 }
 
