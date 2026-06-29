@@ -61,7 +61,7 @@ test('detail edit path rewrites structured contact fields and preserves vCard me
   jane.title = 'Director; Contacts';
   jane.emails.push({
     value: 'jane.extra@example.com',
-    types: app._normalizeStoredTypes('email', ['work'], false),
+    types: ['INTERNET', 'WORK'],
   });
 
   app._rewriteEditableFields(jane);

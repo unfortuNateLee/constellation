@@ -573,7 +573,11 @@ export class ContactRelationshipApp {
       this._syncContactRecord(contact);
       this._contactById.set(contact.id, contact);
       if (contact.uid) this._contactsByUid.set(contact.uid, contact);
-      if (contact.fn) this._contactsByFn.set(contact.fn.toLowerCase().trim(), contact);
+      // Index by display name as a UID-less fallback. On duplicate names keep the
+      // FIRST (file order) rather than letting a later duplicate silently win —
+      // deterministic, and UID resolution already takes precedence where present.
+      const fnKey = contact.fn ? contact.fn.toLowerCase().trim() : '';
+      if (fnKey && !this._contactsByFn.has(fnKey)) this._contactsByFn.set(fnKey, contact);
     }
   }
 

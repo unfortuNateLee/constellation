@@ -1353,6 +1353,47 @@ body.resizing-sidebar .sidebar {
   flex: 1;
 }
 
+/* Multi-select TYPE checkboxes (email/phone/url/address editors). */
+.detail-type-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.detail-type-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.detail-type-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.detail-type-check input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.detail-type-controls .detail-type-input {
+  width: 100%;
+}
+
+.table-type-controls {
+  gap: 4px;
+}
+
+.table-type-controls .detail-type-checks {
+  gap: 2px 8px;
+}
+
 .detail-preferred-toggle {
   display: inline-flex;
   align-items: center;

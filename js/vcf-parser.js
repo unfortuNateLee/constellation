@@ -107,6 +107,7 @@ export class VCFParser {
 
     const items = {}; // item1, item2, etc.
     const itemInstances = {}; // itemKey → the email/phone/address/url entry it labels
+    const itemRawLines = {}; // itemKey → original (unfolded) source lines, for raw preservation
     const categories = []; // CATEGORIES values → merged into tags below
 
     for (const line of lines) {
@@ -125,6 +126,7 @@ export class VCFParser {
         items[itemKey][propName] = value;
         items[itemKey]._params = items[itemKey]._params || {};
         items[itemKey]._params[propName] = parsedLine.params;
+        (itemRawLines[itemKey] = itemRawLines[itemKey] || []).push(line);
       }
 
       // Parse types from params
@@ -153,8 +155,34 @@ export class VCFParser {
         case 'ORG': {
           const orgParts = VCardUtils.splitEscaped(value, ';');
           contact.org = this._decode(orgParts[0]).trim();
+          contact.department = this._decode(orgParts[1] || '').trim();
           break;
         }
+
+        case 'NICKNAME':
+          contact.nickname = this._decode(value).trim();
+          break;
+
+        case 'X-MAIDENNAME':
+          contact.maidenName = this._decode(value).trim();
+          break;
+
+        case 'X-PHONETIC-FIRST-NAME':
+          contact.phoneticFirst = this._decode(value).trim();
+          break;
+
+        case 'X-PHONETIC-LAST-NAME':
+          contact.phoneticLast = this._decode(value).trim();
+          break;
+
+        case 'X-PHONETIC-ORG':
+          contact.phoneticOrg = this._decode(value).trim();
+          break;
+
+        case 'X-ALTBDAY':
+          // Display + preserve only; the raw line (incl. CALSCALE) is kept verbatim.
+          contact.altBirthday = this._decode(value).trim();
+          break;
 
         case 'TITLE':
           contact.title = this._decode(value);
@@ -166,7 +194,11 @@ export class VCFParser {
 
         case 'EMAIL':
           if (value && !value.startsWith('/9j/')) {
-            const entry = { value: this._decode(value).trim(), types };
+            const entry = {
+              value: this._decode(value).trim(),
+              types,
+              __raw: itemKey ? null : [line],
+            };
             contact.emails.push(entry);
             if (itemKey) itemInstances[itemKey] = entry;
           }
@@ -174,7 +206,11 @@ export class VCFParser {
 
         case 'TEL':
           if (value) {
-            const entry = { value: this._decode(value).trim(), types };
+            const entry = {
+              value: this._decode(value).trim(),
+              types,
+              __raw: itemKey ? null : [line],
+            };
             contact.phones.push(entry);
             if (itemKey) itemInstances[itemKey] = entry;
           }
@@ -191,6 +227,7 @@ export class VCFParser {
             zip: this._decode(parts[5] || ''),
             country: this._decode(parts[6] || ''),
             types,
+            __raw: itemKey ? null : [line],
           };
           contact.addresses.push(entry);
           if (itemKey) itemInstances[itemKey] = entry;
@@ -209,7 +246,11 @@ export class VCFParser {
 
         case 'URL':
           if (value) {
-            const entry = { value: this._decode(value).trim(), types };
+            const entry = {
+              value: this._decode(value).trim(),
+              types,
+              __raw: itemKey ? null : [line],
+            };
             contact.urls.push(entry);
             if (itemKey) itemInstances[itemKey] = entry;
           }
@@ -221,6 +262,7 @@ export class VCFParser {
               value: this._decode(value).trim(),
               service: this._paramValue(parsedLine.params, 'X-SERVICE-TYPE'),
               types,
+              __raw: itemKey ? null : [line],
             };
             contact.ims.push(entry);
             if (itemKey) itemInstances[itemKey] = entry;
@@ -233,6 +275,7 @@ export class VCFParser {
               url: this._decode(value).trim(),
               service: this._paramValue(parsedLine.params, 'TYPE'),
               username: this._paramValue(parsedLine.params, 'X-USER'),
+              __raw: itemKey ? null : [line],
             };
             contact.socialProfiles.push(entry);
             if (itemKey) itemInstances[itemKey] = entry;
@@ -298,6 +341,33 @@ export class VCFParser {
       // An item-grouped IMPP may carry its service as a sibling property.
       if (itemInstances[key] && data['X-SERVICE-TYPE'] && !itemInstances[key].service) {
         itemInstances[key].service = data['X-SERVICE-TYPE'];
+      }
+    }
+
+    // Index every contact-method instance by its content key → original raw
+    // line(s), so the serializer can re-emit untouched instances byte-for-byte
+    // (hybrid raw preservation). Grouped instances pick up their full item group
+    // (value + X-ABLabel + X-SERVICE-TYPE siblings). `__raw` is a temporary
+    // capture and is stripped from the model here.
+    for (const [key, entry] of Object.entries(itemInstances)) {
+      if (entry && entry.__raw == null) entry.__raw = itemRawLines[key] || null;
+    }
+    contact._rawByKey = {};
+    const methodArrays = [
+      ['email', contact.emails],
+      ['phone', contact.phones],
+      ['address', contact.addresses],
+      ['url', contact.urls],
+      ['im', contact.ims],
+      ['social', contact.socialProfiles],
+    ];
+    for (const [kind, arr] of methodArrays) {
+      for (const entry of arr || []) {
+        const raw = entry.__raw;
+        delete entry.__raw;
+        if (raw && raw.length) {
+          contact._rawByKey[VCardUtils.contactMethodKey(kind, entry)] = raw;
+        }
       }
     }
 

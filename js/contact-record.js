@@ -21,9 +21,19 @@ export class ContactRecord {
       key: 'name',
       default: () => ({ family: '', given: '', additional: '', prefix: '', suffix: '' }),
     },
+    { key: 'nickname', default: () => '' },
+    { key: 'maidenName', default: () => '' },
+    { key: 'phoneticFirst', default: () => '' },
+    { key: 'phoneticLast', default: () => '' },
     { key: 'org', default: () => '' },
+    // Second ORG component (e.g. "ACME Inc.;Development" → department "Development").
+    { key: 'department', default: () => '' },
+    { key: 'phoneticOrg', default: () => '' },
     { key: 'title', default: () => '' },
     { key: 'isCompany', default: () => false },
+    // Apple alternate/lunar birthday (X-ALTBDAY). Display + preserve only — the
+    // raw line (incl. CALSCALE) is kept verbatim through edits, not regenerated.
+    { key: 'altBirthday', default: () => '' },
     { key: 'emails', default: () => [] },
     { key: 'phones', default: () => [] },
     { key: 'addresses', default: () => [] },

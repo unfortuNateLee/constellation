@@ -191,22 +191,11 @@ class TableMixin {
         .map((item) => {
           const value = item.querySelector('[data-role="value"]')?.value.trim() || '';
           if (!value) return null;
-          const typeSelect = item.querySelector('select[data-role="types-select"]');
-          const typesInput = item.querySelector('input[data-role="types-custom"]');
-          return {
-            value,
-            types: this._normalizeStoredTypes(
-              kind,
-              this._selectedTypesFromEditor(
-                kind,
-                typeSelect?.value || this._defaultTypeOption(kind),
-                typesInput?.value || '',
-              ),
-              !!item.querySelector('input[data-role="preferred"]')?.checked,
-            ),
-          };
+          const { types, label } = this._collectTypesFromItem(item);
+          return { value, types, label };
         })
         .filter(Boolean);
+      this._ensureSinglePreferred(nextEntries);
       this._applyTableEdit(contact.id, kind === 'url' ? 'urls' : `${kind}s`, nextEntries);
     };
 
@@ -221,22 +210,12 @@ class TableMixin {
       valueInput.value = entry ? getValue(entry) : '';
       valueInput.placeholder = this._tableCollectionPlaceholder(kind);
 
-      const typeState = this._typeSelectionState(kind, entry?.types || []);
-      const typeSelect = this._typeSelect(kind, typeState.selected);
-      typeSelect.classList.add('table-type-select');
-      const typeInput = this._customTypeInput(
-        kind,
-        'types-custom',
-        typeState.customValue,
-        typeState.selected === 'custom',
-      );
-      typeInput.classList.add('table-type-input');
-      this._bindTypeEditor(typeSelect, typeInput);
+      const typeControls = this._renderTypeControls(kind, entry);
+      typeControls.classList.add('table-type-controls');
 
       const metaRow = document.createElement('div');
       metaRow.className = 'table-metadata-meta';
-      metaRow.appendChild(typeSelect);
-      metaRow.appendChild(typeInput);
+      metaRow.appendChild(typeControls);
 
       const footer = document.createElement('div');
       footer.className = 'table-metadata-footer';
@@ -254,9 +233,8 @@ class TableMixin {
       });
       footer.appendChild(removeBtn);
 
-      [valueInput, typeSelect, typeInput].forEach((el) => {
-        el.addEventListener('change', save);
-      });
+      valueInput.addEventListener('change', save);
+      typeControls.addEventListener('change', save);
       footer.querySelector('input[data-role="preferred"]').addEventListener('change', save);
 
       item.appendChild(valueInput);
@@ -293,27 +271,11 @@ class TableMixin {
           const zip = item.querySelector('[data-addr="zip"]')?.value.trim() || '';
           const country = item.querySelector('[data-addr="country"]')?.value.trim() || '';
           if (!street && !city && !state && !zip && !country) return null;
-          return {
-            pobox: '',
-            ext: '',
-            street,
-            city,
-            state,
-            zip,
-            country,
-            types: this._normalizeStoredTypes(
-              'address',
-              this._selectedTypesFromEditor(
-                'address',
-                item.querySelector('select[data-addr="type-select"]')?.value ||
-                  this._defaultTypeOption('address'),
-                item.querySelector('[data-addr="types"]')?.value || '',
-              ),
-              !!item.querySelector('input[data-role="preferred"]')?.checked,
-            ),
-          };
+          const { types, label } = this._collectTypesFromItem(item);
+          return { pobox: '', ext: '', street, city, state, zip, country, types, label };
         })
         .filter(Boolean);
+      this._ensureSinglePreferred(nextAddresses);
       this._applyTableEdit(contact.id, 'addresses', nextAddresses);
     };
 
@@ -339,22 +301,12 @@ class TableMixin {
         fields.appendChild(input);
       }
 
-      const typeState = this._typeSelectionState('address', address?.types || []);
-      const typeSelect = this._typeSelect('address', typeState.selected, 'addr-type-select');
-      typeSelect.classList.add('table-type-select');
-      const typeInput = this._customTypeInput(
-        'address',
-        'types',
-        typeState.customValue,
-        typeState.selected === 'custom',
-      );
-      typeInput.classList.add('table-type-input');
-      this._bindTypeEditor(typeSelect, typeInput);
+      const typeControls = this._renderTypeControls('address', address);
+      typeControls.classList.add('table-type-controls');
 
       const metaRow = document.createElement('div');
       metaRow.className = 'table-metadata-meta';
-      metaRow.appendChild(typeSelect);
-      metaRow.appendChild(typeInput);
+      metaRow.appendChild(typeControls);
 
       const footer = document.createElement('div');
       footer.className = 'table-metadata-footer';
@@ -372,7 +324,7 @@ class TableMixin {
       });
       footer.appendChild(removeBtn);
 
-      [typeSelect, typeInput].forEach((el) => el.addEventListener('change', save));
+      typeControls.addEventListener('change', save);
       footer.querySelector('input[data-role="preferred"]').addEventListener('change', save);
 
       item.appendChild(fields);

@@ -63,8 +63,20 @@ export class VCardAdapter {
     lines.push(
       `N:${this._escape(name.family || '')};${this._escape(name.given || '')};${this._escape(name.additional || '')};${this._escape(name.prefix || '')};${this._escape(name.suffix || '')}`,
     );
+    if (contact.nickname) lines.push(`NICKNAME:${this._escape(contact.nickname)}`);
+    if (contact.maidenName) lines.push(`X-MAIDENNAME:${this._escape(contact.maidenName)}`);
+    if (contact.phoneticFirst)
+      lines.push(`X-PHONETIC-FIRST-NAME:${this._escape(contact.phoneticFirst)}`);
+    if (contact.phoneticLast)
+      lines.push(`X-PHONETIC-LAST-NAME:${this._escape(contact.phoneticLast)}`);
     if (contact.isCompany) lines.push('X-ABSHOWAS:COMPANY');
-    if (contact.org) lines.push(`ORG:${this._escape(contact.org)}`);
+    if (contact.org || contact.department) {
+      const orgValue = contact.department
+        ? `${this._escape(contact.org || '')};${this._escape(contact.department)}`
+        : this._escape(contact.org || '');
+      lines.push(`ORG:${orgValue}`);
+    }
+    if (contact.phoneticOrg) lines.push(`X-PHONETIC-ORG:${this._escape(contact.phoneticOrg)}`);
     if (contact.title) lines.push(`TITLE:${this._escape(contact.title)}`);
 
     // Non-system tags (markdown / in-app) → standard CATEGORIES so they aren't

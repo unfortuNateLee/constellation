@@ -28,6 +28,23 @@ class EditingMixin {
     return String(rawVCard || '').replace(/END:VCARD/i, `${block}\r\nEND:VCARD`);
   }
 
+  /**
+   * Split a leading URI scheme off an IM/social value so the UI can show just the
+   * handle while the scheme is preserved for round-trip. `xmpp:Nathan.Lee` →
+   * { scheme: 'xmpp:', handle: 'Nathan.Lee' }; `x-apple:edifyyo` → { 'x-apple:',
+   * 'edifyyo' }. Real web URLs (http/https) are left whole (scheme '').
+   */
+  _splitUriScheme(value) {
+    const str = String(value || '');
+    const m = str.match(/^([a-z][a-z0-9.+-]*:)(.*)$/i);
+    if (!m || /^https?:/i.test(m[1])) return { scheme: '', handle: str };
+    return { scheme: m[1], handle: m[2] };
+  }
+
+  _imHandle(value) {
+    return this._splitUriScheme(value).handle;
+  }
+
   _renderAddRelationshipAction() {
     const actions = document.createElement('div');
     actions.className = 'detail-section-actions';
@@ -120,8 +137,30 @@ class EditingMixin {
     contactInfo.innerHTML = '';
 
     contactInfo.appendChild(this._detailRow('👤', this._escapeHtml(node.name), 'Full Name'));
+    if (node.nickname)
+      contactInfo.appendChild(this._detailRow('🙂', this._escapeHtml(node.nickname), 'Nickname'));
+    if (node.maidenName)
+      contactInfo.appendChild(
+        this._detailRow('👤', this._escapeHtml(node.maidenName), 'Maiden Name'),
+      );
+    if (node.phoneticFirst || node.phoneticLast)
+      contactInfo.appendChild(
+        this._detailRow(
+          '🔤',
+          this._escapeHtml([node.phoneticFirst, node.phoneticLast].filter(Boolean).join(' ')),
+          'Phonetic Name',
+        ),
+      );
     if (node.org)
       contactInfo.appendChild(this._detailRow('🏢', this._escapeHtml(node.org), 'Organization'));
+    if (node.department)
+      contactInfo.appendChild(
+        this._detailRow('🏬', this._escapeHtml(node.department), 'Department'),
+      );
+    if (node.phoneticOrg)
+      contactInfo.appendChild(
+        this._detailRow('🔤', this._escapeHtml(node.phoneticOrg), 'Phonetic Org'),
+      );
     if (node.title)
       contactInfo.appendChild(this._detailRow('💼', this._escapeHtml(node.title), 'Title'));
 
@@ -187,26 +226,28 @@ class EditingMixin {
 
     for (const im of node.ims || []) {
       if (!im?.value) continue;
+      // Show the handle (scheme stripped) and surface the service as the label —
+      // a custom label, if any, is appended so neither is hidden.
+      const imLabel = [im.service, im.label].filter(Boolean).join(' · ') || 'Instant Message';
       contactInfo.appendChild(
-        this._detailRow(
-          '💬',
-          this._escapeHtml(im.value),
-          im.label || im.service || 'Instant Message',
-        ),
+        this._detailRow('💬', this._escapeHtml(this._imHandle(im.value)), imLabel),
       );
     }
 
     for (const sp of node.socialProfiles || []) {
       if (!sp?.url) continue;
       const safeHref = this._safeExternalHref(sp.url);
-      const safeUrl = this._escapeHtml(sp.url);
+      // Prefer the explicit username; otherwise show the handle (scheme stripped).
+      const handle = sp.username || this._splitUriScheme(sp.url).handle;
+      const safeHandle = this._escapeHtml(handle);
+      const spLabel = [sp.service, sp.label].filter(Boolean).join(' · ') || 'Social Profile';
       contactInfo.appendChild(
         this._detailRow(
           '🌐',
           safeHref
-            ? `<a href="${this._escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`
-            : safeUrl,
-          sp.label || sp.service || 'Social Profile',
+            ? `<a href="${this._escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${safeHandle}</a>`
+            : safeHandle,
+          spLabel,
         ),
       );
     }
@@ -214,6 +255,10 @@ class EditingMixin {
     if (node.birthday)
       contactInfo.appendChild(
         this._detailRow('🎂', this._formatBirthday(node.birthday), 'Birthday'),
+      );
+    if (node.altBirthday)
+      contactInfo.appendChild(
+        this._detailRow('🌙', this._escapeHtml(node.altBirthday), 'Alternate Birthday'),
       );
     if (node.anniversary)
       contactInfo.appendChild(
@@ -266,10 +311,22 @@ class EditingMixin {
     grid.appendChild(this._editField('Last Name', 'edit-name-family', contact.name?.family || ''));
     grid.appendChild(this._editField('Prefix', 'edit-name-prefix', contact.name?.prefix || ''));
     grid.appendChild(this._editField('Suffix', 'edit-name-suffix', contact.name?.suffix || ''));
+    grid.appendChild(this._editField('Nickname', 'edit-nickname', contact.nickname || ''));
+    grid.appendChild(this._editField('Maiden Name', 'edit-maiden-name', contact.maidenName || ''));
+    grid.appendChild(
+      this._editField('Phonetic First', 'edit-phonetic-first', contact.phoneticFirst || ''),
+    );
+    grid.appendChild(
+      this._editField('Phonetic Last', 'edit-phonetic-last', contact.phoneticLast || ''),
+    );
     grid.appendChild(
       this._editCheckboxField('Treat as Company', 'edit-is-company', !!contact.isCompany),
     );
     grid.appendChild(this._editField('Organization', 'edit-org', contact.org || ''));
+    grid.appendChild(this._editField('Department', 'edit-department', contact.department || ''));
+    grid.appendChild(
+      this._editField('Phonetic Org', 'edit-phonetic-org', contact.phoneticOrg || ''),
+    );
     grid.appendChild(this._editField('Title', 'edit-title', contact.title || ''));
     grid.appendChild(this._editField('Birthday', 'edit-bday', contact.birthday || '', 'date'));
     grid.appendChild(
@@ -445,15 +502,7 @@ class EditingMixin {
       input.value = entry ? getValue(entry) : '';
       input.placeholder = label.slice(0, -1);
 
-      const typeState = this._typeSelectionState(kind, entry?.types || [], entry?.label || '');
-      const typeSelect = this._typeSelect(kind, typeState.selected);
-      const typeInput = this._customTypeInput(
-        kind,
-        'types-custom',
-        typeState.customValue,
-        typeState.selected === 'custom',
-      );
-      this._bindTypeEditor(typeSelect, typeInput);
+      const typeControls = this._renderTypeControls(kind, entry);
       const preferred = this._preferredRadio(kind, this._isPreferred(entry?.types || []));
 
       const removeBtn = document.createElement('button');
@@ -474,10 +523,9 @@ class EditingMixin {
 
       const help = document.createElement('div');
       help.className = 'detail-edit-help';
-      help.textContent = 'Choose a type. Select Custom to enter your own.';
+      help.textContent = 'Check all that apply, or add a custom label.';
 
-      metaRow.appendChild(typeSelect);
-      metaRow.appendChild(typeInput);
+      metaRow.appendChild(typeControls);
       footerRow.appendChild(preferred);
       footerRow.appendChild(removeBtn);
       item.appendChild(valueRow);
@@ -577,11 +625,24 @@ class EditingMixin {
       item.className = 'detail-edit-item';
       item.dataset.kind = 'im';
 
+      const { scheme, handle } = this._splitUriScheme(entry?.value || '');
       const valueInput = document.createElement('input');
       valueInput.className = 'form-control';
       valueInput.dataset.role = 'im-value';
       valueInput.placeholder = 'Handle';
-      valueInput.value = entry?.value || '';
+      valueInput.value = handle;
+
+      // Preserve the original URI scheme (xmpp:/aim:/x-apple:…) and TYPE params
+      // (HOME/WORK/PREF) that the editor doesn't surface, so an untouched IM
+      // round-trips byte-for-byte.
+      const schemeStash = document.createElement('input');
+      schemeStash.type = 'hidden';
+      schemeStash.dataset.role = 'im-scheme';
+      schemeStash.value = scheme;
+      const typesStash = document.createElement('input');
+      typesStash.type = 'hidden';
+      typesStash.dataset.role = 'im-types';
+      typesStash.value = JSON.stringify(entry?.types || []);
 
       const serviceInput = document.createElement('input');
       serviceInput.className = 'form-control';
@@ -603,7 +664,7 @@ class EditingMixin {
 
       const valueRow = document.createElement('div');
       valueRow.className = 'detail-edit-stack';
-      valueRow.appendChild(valueInput);
+      valueRow.append(valueInput, schemeStash, typesStash);
       const metaRow = document.createElement('div');
       metaRow.className = 'detail-edit-inline detail-edit-meta';
       metaRow.append(serviceInput, labelInput);
@@ -629,11 +690,22 @@ class EditingMixin {
 
   _collectEditedIms() {
     return [...document.querySelectorAll('.detail-edit-item[data-kind="im"]')]
-      .map((item) => ({
-        value: item.querySelector('input[data-role="im-value"]')?.value.trim() || '',
-        service: item.querySelector('input[data-role="im-service"]')?.value.trim() || '',
-        label: item.querySelector('input[data-role="im-label"]')?.value.trim() || '',
-      }))
+      .map((item) => {
+        const handle = item.querySelector('input[data-role="im-value"]')?.value.trim() || '';
+        const scheme = item.querySelector('input[data-role="im-scheme"]')?.value || '';
+        let types = [];
+        try {
+          types = JSON.parse(item.querySelector('input[data-role="im-types"]')?.value || '[]');
+        } catch {
+          types = [];
+        }
+        return {
+          value: handle ? scheme + handle : '',
+          service: item.querySelector('input[data-role="im-service"]')?.value.trim() || '',
+          label: item.querySelector('input[data-role="im-label"]')?.value.trim() || '',
+          types,
+        };
+      })
       .filter((im) => im.value);
   }
 
@@ -652,11 +724,19 @@ class EditingMixin {
       item.className = 'detail-edit-item';
       item.dataset.kind = 'social';
 
+      const { scheme: urlScheme, handle: urlHandle } = this._splitUriScheme(entry?.url || '');
       const urlInput = document.createElement('input');
       urlInput.className = 'form-control';
       urlInput.dataset.role = 'social-url';
-      urlInput.placeholder = 'Profile URL';
-      urlInput.value = entry?.url || '';
+      urlInput.placeholder = 'Profile URL or handle';
+      urlInput.value = urlHandle;
+
+      // Preserve a custom URI scheme (e.g. x-apple:) so the handle shows cleanly
+      // but the original value round-trips. Web URLs keep their full value here.
+      const urlSchemeStash = document.createElement('input');
+      urlSchemeStash.type = 'hidden';
+      urlSchemeStash.dataset.role = 'social-scheme';
+      urlSchemeStash.value = urlScheme;
 
       const serviceInput = document.createElement('input');
       serviceInput.className = 'form-control';
@@ -684,7 +764,7 @@ class EditingMixin {
 
       const valueRow = document.createElement('div');
       valueRow.className = 'detail-edit-stack';
-      valueRow.appendChild(urlInput);
+      valueRow.append(urlInput, urlSchemeStash);
       const metaRow = document.createElement('div');
       metaRow.className = 'detail-edit-inline detail-edit-meta';
       metaRow.append(serviceInput, userInput, labelInput);
@@ -710,12 +790,16 @@ class EditingMixin {
 
   _collectEditedSocialProfiles() {
     return [...document.querySelectorAll('.detail-edit-item[data-kind="social"]')]
-      .map((item) => ({
-        url: item.querySelector('input[data-role="social-url"]')?.value.trim() || '',
-        service: item.querySelector('input[data-role="social-service"]')?.value.trim() || '',
-        username: item.querySelector('input[data-role="social-username"]')?.value.trim() || '',
-        label: item.querySelector('input[data-role="social-label"]')?.value.trim() || '',
-      }))
+      .map((item) => {
+        const handle = item.querySelector('input[data-role="social-url"]')?.value.trim() || '';
+        const scheme = item.querySelector('input[data-role="social-scheme"]')?.value || '';
+        return {
+          url: handle ? scheme + handle : '',
+          service: item.querySelector('input[data-role="social-service"]')?.value.trim() || '',
+          username: item.querySelector('input[data-role="social-username"]')?.value.trim() || '',
+          label: item.querySelector('input[data-role="social-label"]')?.value.trim() || '',
+        };
+      })
       .filter((sp) => sp.url);
   }
 
@@ -851,19 +935,7 @@ class EditingMixin {
       const state = this._addressInput('State', 'state', address?.state || '');
       const zip = this._addressInput('ZIP', 'zip', address?.zip || '');
       const country = this._addressInput('Country', 'country', address?.country || '');
-      const typeState = this._typeSelectionState(
-        'address',
-        address?.types || [],
-        address?.label || '',
-      );
-      const typeSelect = this._typeSelect('address', typeState.selected, 'addr-type-select');
-      const typeInput = this._customTypeInput(
-        'address',
-        'types',
-        typeState.customValue,
-        typeState.selected === 'custom',
-      );
-      this._bindTypeEditor(typeSelect, typeInput);
+      const typeControls = this._renderTypeControls('address', address);
 
       const metaRow = document.createElement('div');
       metaRow.className = 'detail-edit-inline detail-edit-meta detail-edit-grid-span';
@@ -876,8 +948,7 @@ class EditingMixin {
       removeBtn.textContent = 'Remove Address';
       removeBtn.addEventListener('click', () => item.remove());
 
-      metaRow.appendChild(typeSelect);
-      metaRow.appendChild(typeInput);
+      metaRow.appendChild(typeControls);
       footerRow.appendChild(preferred);
       footerRow.appendChild(removeBtn);
 
@@ -891,7 +962,7 @@ class EditingMixin {
 
       const help = document.createElement('div');
       help.className = 'detail-edit-help';
-      help.textContent = 'Choose a type. Select Custom to enter your own.';
+      help.textContent = 'Check all that apply, or add a custom label.';
       item.appendChild(help);
       item.appendChild(footerRow);
       multi.appendChild(item);
@@ -929,7 +1000,13 @@ class EditingMixin {
     const explicitDisplayName = document.getElementById('edit-fn')?.value.trim() || '';
     contact.fn = explicitDisplayName || this._composeDisplayName(contact.name) || contact.fn;
     contact.isCompany = !!document.getElementById('edit-is-company')?.checked;
+    contact.nickname = document.getElementById('edit-nickname')?.value.trim() || '';
+    contact.maidenName = document.getElementById('edit-maiden-name')?.value.trim() || '';
+    contact.phoneticFirst = document.getElementById('edit-phonetic-first')?.value.trim() || '';
+    contact.phoneticLast = document.getElementById('edit-phonetic-last')?.value.trim() || '';
     contact.org = document.getElementById('edit-org')?.value.trim() || '';
+    contact.department = document.getElementById('edit-department')?.value.trim() || '';
+    contact.phoneticOrg = document.getElementById('edit-phonetic-org')?.value.trim() || '';
     contact.title = document.getElementById('edit-title')?.value.trim() || '';
     contact.birthday = document.getElementById('edit-bday')?.value || null;
     contact.anniversary = document.getElementById('edit-anniversary')?.value || null;
@@ -975,23 +1052,11 @@ class EditingMixin {
     const entries = [...document.querySelectorAll(`.detail-edit-item[data-kind="${kind}"]`)]
       .map((item) => {
         const valueInput = item.querySelector('input[data-role="value"]');
-        const typesInput = item.querySelector('input[data-role="types-custom"]');
-        const selected =
-          item.querySelector('select[data-role="types-select"]')?.value ||
-          this._defaultTypeOption(kind);
-        const preferred = !!item.querySelector('input[data-role="preferred"]')?.checked;
-        // "Custom" maps to an Apple X-ABLabel; any other choice is a standard TYPE.
-        const isCustom = selected === 'custom';
-        const label = isCustom ? (typesInput?.value || '').trim() : '';
-        const visibleTypes = isCustom ? [] : this._selectedTypesFromEditor(kind, selected, '');
-        return {
-          value: valueInput?.value.trim() || '',
-          types: this._normalizeStoredTypes(kind, visibleTypes, preferred),
-          label,
-        };
+        const { types, label } = this._collectTypesFromItem(item);
+        return { value: valueInput?.value.trim() || '', types, label };
       })
       .filter((entry) => entry.value);
-    return this._ensureSinglePreferred(entries, kind);
+    return this._ensureSinglePreferred(entries);
   }
 
   _collectEditedAddresses() {
@@ -999,15 +1064,7 @@ class EditingMixin {
       .map((item) => {
         const street = item.querySelector('[data-addr="street"]');
         if (!street) return null;
-        const selected =
-          item.querySelector('select[data-addr="type-select"]')?.value ||
-          this._defaultTypeOption('address');
-        const preferred = !!item.querySelector('input[data-role="preferred"]')?.checked;
-        const isCustom = selected === 'custom';
-        const label = isCustom
-          ? (item.querySelector('[data-addr="types"]')?.value || '').trim()
-          : '';
-        const visibleTypes = isCustom ? [] : this._selectedTypesFromEditor('address', selected, '');
+        const { types, label } = this._collectTypesFromItem(item);
         return {
           pobox: '',
           ext: '',
@@ -1016,14 +1073,14 @@ class EditingMixin {
           state: item.querySelector('[data-addr="state"]').value.trim(),
           zip: item.querySelector('[data-addr="zip"]').value.trim(),
           country: item.querySelector('[data-addr="country"]').value.trim(),
-          types: this._normalizeStoredTypes('address', visibleTypes, preferred),
+          types,
           label,
         };
       })
       .filter(
         (addr) => addr && (addr.street || addr.city || addr.state || addr.zip || addr.country),
       );
-    return this._ensureSinglePreferred(entries, 'address');
+    return this._ensureSinglePreferred(entries);
   }
 
   _collectEditedCustomFields(existingFields = {}) {
@@ -1121,6 +1178,11 @@ class EditingMixin {
         [
           'FN',
           'N',
+          'NICKNAME',
+          'X-MAIDENNAME',
+          'X-PHONETIC-FIRST-NAME',
+          'X-PHONETIC-LAST-NAME',
+          'X-PHONETIC-ORG',
           'ORG',
           'TITLE',
           'EMAIL',
@@ -1171,8 +1233,21 @@ class EditingMixin {
     generated.push(
       `N:${this._vCardEscape(name.family || '')};${this._vCardEscape(name.given || '')};${this._vCardEscape(name.additional || '')};${this._vCardEscape(name.prefix || '')};${this._vCardEscape(name.suffix || '')}`,
     );
+    if (contact.nickname) generated.push(`NICKNAME:${this._vCardEscape(contact.nickname)}`);
+    if (contact.maidenName) generated.push(`X-MAIDENNAME:${this._vCardEscape(contact.maidenName)}`);
+    if (contact.phoneticFirst)
+      generated.push(`X-PHONETIC-FIRST-NAME:${this._vCardEscape(contact.phoneticFirst)}`);
+    if (contact.phoneticLast)
+      generated.push(`X-PHONETIC-LAST-NAME:${this._vCardEscape(contact.phoneticLast)}`);
     if (contact.isCompany) generated.push('X-ABSHOWAS:COMPANY');
-    if (contact.org) generated.push(`ORG:${this._vCardEscape(contact.org)}`);
+    if (contact.org || contact.department) {
+      const orgValue = contact.department
+        ? `${this._vCardEscape(contact.org || '')};${this._vCardEscape(contact.department)}`
+        : this._vCardEscape(contact.org || '');
+      generated.push(`ORG:${orgValue}`);
+    }
+    if (contact.phoneticOrg)
+      generated.push(`X-PHONETIC-ORG:${this._vCardEscape(contact.phoneticOrg)}`);
     if (contact.title) generated.push(`TITLE:${this._vCardEscape(contact.title)}`);
     generated.push(...this._photoLines(contact.photo));
     // Emit a contact field as a plain line, or — when the entry carries an Apple
@@ -1186,51 +1261,73 @@ class EditingMixin {
         generated.push(`${prop}${params}:${value}`);
       }
     };
+    // Hybrid raw preservation: if this instance is unchanged since parse (its
+    // content key still maps to original raw line(s)), re-emit those bytes
+    // verbatim — preserving Apple's exact TYPE casing/order (e.g. the
+    // iPhone TEL;type=IPHONE;type=CELL;type=VOICE;type=pref line). Only edited
+    // instances are regenerated from the model.
+    const rawByKey = contact._rawByKey || {};
+    const pushMethod = (kind, entry, regenerate) => {
+      const raw = rawByKey[VCardUtils.contactMethodKey(kind, entry)];
+      if (raw && raw.length) generated.push(...raw);
+      else regenerate();
+    };
     for (const email of contact.emails || []) {
-      pushLabeledField(
-        'EMAIL',
-        this._buildTypeParams(email.types),
-        this._vCardEscape(email.value),
-        email.label,
+      pushMethod('email', email, () =>
+        pushLabeledField(
+          'EMAIL',
+          this._buildTypeParams(email.types),
+          this._vCardEscape(email.value),
+          email.label,
+        ),
       );
     }
     for (const phone of contact.phones || []) {
-      pushLabeledField(
-        'TEL',
-        this._buildTypeParams(phone.types),
-        this._vCardEscape(phone.value),
-        phone.label,
+      pushMethod('phone', phone, () =>
+        pushLabeledField(
+          'TEL',
+          this._buildTypeParams(phone.types),
+          this._vCardEscape(phone.value),
+          phone.label,
+        ),
       );
     }
     for (const address of contact.addresses || []) {
-      const params = this._buildTypeParams(address.types);
-      const value = `;;${this._vCardEscape(address.street || '')};${this._vCardEscape(address.city || '')};${this._vCardEscape(address.state || '')};${this._vCardEscape(address.zip || '')};${this._vCardEscape(address.country || '')}`;
-      pushLabeledField('ADR', params, value, address.label);
+      pushMethod('address', address, () => {
+        const params = this._buildTypeParams(address.types);
+        const value = `;;${this._vCardEscape(address.street || '')};${this._vCardEscape(address.city || '')};${this._vCardEscape(address.state || '')};${this._vCardEscape(address.zip || '')};${this._vCardEscape(address.country || '')}`;
+        pushLabeledField('ADR', params, value, address.label);
+      });
     }
     for (const urlEntry of contact.urls || []) {
-      const urlValue = typeof urlEntry === 'string' ? urlEntry : urlEntry.value;
-      const urlTypes = typeof urlEntry === 'string' ? [] : urlEntry.types || [];
-      const urlLabel = typeof urlEntry === 'string' ? '' : urlEntry.label;
-      if (!urlValue) continue;
-      pushLabeledField(
-        'URL',
-        this._buildTypeParams(urlTypes),
-        this._vCardEscape(urlValue),
-        urlLabel,
+      const entry =
+        typeof urlEntry === 'string' ? { value: urlEntry, types: [], label: '' } : urlEntry;
+      if (!entry.value) continue;
+      pushMethod('url', entry, () =>
+        pushLabeledField(
+          'URL',
+          this._buildTypeParams(entry.types || []),
+          this._vCardEscape(entry.value),
+          entry.label,
+        ),
       );
     }
     for (const im of contact.ims || []) {
       if (!im || !im.value) continue;
-      const svc = im.service ? `;X-SERVICE-TYPE=${VCardUtils.encodeParamValue(im.service)}` : '';
-      const params = svc + this._buildTypeParams(im.types || []);
-      pushLabeledField('IMPP', params, this._vCardEscape(im.value), im.label);
+      pushMethod('im', im, () => {
+        const svc = im.service ? `;X-SERVICE-TYPE=${VCardUtils.encodeParamValue(im.service)}` : '';
+        const params = svc + this._buildTypeParams(im.types || []);
+        pushLabeledField('IMPP', params, this._vCardEscape(im.value), im.label);
+      });
     }
     for (const sp of contact.socialProfiles || []) {
       if (!sp || !sp.url) continue;
-      let params = '';
-      if (sp.service) params += `;TYPE=${VCardUtils.encodeParamValue(sp.service)}`;
-      if (sp.username) params += `;X-USER=${VCardUtils.encodeParamValue(sp.username)}`;
-      pushLabeledField('X-SOCIALPROFILE', params, this._vCardEscape(sp.url), sp.label);
+      pushMethod('social', sp, () => {
+        let params = '';
+        if (sp.service) params += `;TYPE=${VCardUtils.encodeParamValue(sp.service)}`;
+        if (sp.username) params += `;X-USER=${VCardUtils.encodeParamValue(sp.username)}`;
+        pushLabeledField('X-SOCIALPROFILE', params, this._vCardEscape(sp.url), sp.label);
+      });
     }
     if (contact.birthday) generated.push(`BDAY:${contact.birthday}`);
     for (const note of contact.notes || []) {
@@ -1364,14 +1461,119 @@ class EditingMixin {
     };
   }
 
-  _typePlaceholder(kind) {
-    const examples = {
-      email: 'custom email type',
-      phone: 'custom phone type',
-      address: 'custom address type',
-      url: 'custom website type',
+  /**
+   * The user-facing standard TYPE set per kind, as ordered
+   * { value: <vCard TYPE>, label: <display> } pairs. Apple's `CELL` shows as
+   * "Mobile". Multi-type lines (e.g. an iPhone = IPHONE+CELL) are expressed by
+   * checking more than one box. Structural types (VOICE/INTERNET) and PREF are
+   * NOT listed here — they're preserved separately so a round-trip is exact.
+   */
+  _typeTaxonomy(kind) {
+    const sets = {
+      phone: [
+        ['CELL', 'Mobile'],
+        ['IPHONE', 'iPhone'],
+        ['APPLEWATCH', 'Apple Watch'],
+        ['HOME', 'Home'],
+        ['WORK', 'Work'],
+        ['MAIN', 'Main'],
+        ['FAX', 'Fax'],
+        ['PAGER', 'Pager'],
+        ['OTHER', 'Other'],
+      ],
+      email: [
+        ['HOME', 'Home'],
+        ['WORK', 'Work'],
+        ['SCHOOL', 'School'],
+        ['ICLOUD', 'iCloud'],
+        ['OTHER', 'Other'],
+      ],
+      url: [
+        ['HOME', 'Home'],
+        ['WORK', 'Work'],
+        ['OTHER', 'Other'],
+      ],
+      address: [
+        ['HOME', 'Home'],
+        ['WORK', 'Work'],
+        ['OTHER', 'Other'],
+      ],
     };
-    return examples[kind] || 'custom type';
+    return (sets[kind] || sets.address).map(([value, label]) => ({ value, label }));
+  }
+
+  /**
+   * Multi-select type controls for one collection item: a checkbox per standard
+   * TYPE (pre-checked from the entry), a free-text custom-label (Apple X-ABLabel),
+   * and a hidden stash of "structural" types (VOICE/INTERNET/anything exotic) and
+   * PREF so collection reproduces the entry's exact type set. The full set drives
+   * hybrid raw preservation: an untouched entry collects back to the same content
+   * key and is re-emitted byte-for-byte.
+   */
+  _renderTypeControls(kind, entry) {
+    const wrap = document.createElement('div');
+    wrap.className = 'detail-type-controls';
+
+    const taxonomy = this._typeTaxonomy(kind);
+    const known = new Set(taxonomy.map((t) => t.value));
+    const entryTypes = (entry?.types || []).map((t) => String(t || '').toUpperCase());
+    const checked = new Set(entryTypes.filter((t) => known.has(t)));
+    // Structural = present types that aren't a checkbox and aren't PREF (kept verbatim).
+    const structural = entryTypes.filter((t) => !known.has(t) && t !== 'PREF');
+
+    const checks = document.createElement('div');
+    checks.className = 'detail-type-checks';
+    for (const { value, label } of taxonomy) {
+      const box = document.createElement('label');
+      box.className = 'detail-type-check';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.dataset.role = 'type-check';
+      input.value = value;
+      input.checked = checked.has(value);
+      const span = document.createElement('span');
+      span.textContent = label;
+      box.appendChild(input);
+      box.appendChild(span);
+      checks.appendChild(box);
+    }
+    wrap.appendChild(checks);
+
+    const labelInput = document.createElement('input');
+    labelInput.className = 'form-control detail-type-input';
+    labelInput.dataset.role = 'type-label';
+    labelInput.placeholder = 'Custom label (optional)';
+    labelInput.value = entry?.label || '';
+    wrap.appendChild(labelInput);
+
+    const stash = document.createElement('input');
+    stash.type = 'hidden';
+    stash.dataset.role = 'type-structural';
+    stash.value = JSON.stringify(structural);
+    wrap.appendChild(stash);
+
+    return wrap;
+  }
+
+  /** Read the type set + custom label back out of one collection item's DOM. */
+  _collectTypesFromItem(item) {
+    const checked = [...item.querySelectorAll('input[data-role="type-check"]:checked')].map(
+      (c) => c.value,
+    );
+    let structural = [];
+    try {
+      structural = JSON.parse(
+        item.querySelector('input[data-role="type-structural"]')?.value || '[]',
+      );
+    } catch {
+      structural = [];
+    }
+    const preferred = !!item.querySelector('input[data-role="preferred"]')?.checked;
+    const label = (item.querySelector('input[data-role="type-label"]')?.value || '').trim();
+    const types = [...structural, ...checked, ...(preferred ? ['PREF'] : [])]
+      .map((t) => String(t || '').toUpperCase())
+      .filter((t, i, arr) => t && arr.indexOf(t) === i);
+    return { types, label };
   }
 
   _preferredRadio(kind, checked) {
@@ -1392,35 +1594,6 @@ class EditingMixin {
     return label;
   }
 
-  _typeSelect(kind, selectedValue, role = 'types-select') {
-    const select = document.createElement('select');
-    select.className = 'form-control detail-type-select';
-    select.dataset.role = role;
-    if (role === 'addr-type-select') {
-      select.dataset.addr = 'type-select';
-    }
-
-    for (const option of this._typeOptions(kind)) {
-      const el = document.createElement('option');
-      el.value = option;
-      el.textContent = this._typeOptionLabel(option);
-      select.appendChild(el);
-    }
-    select.value = selectedValue || this._defaultTypeOption(kind);
-
-    return select;
-  }
-
-  _typeOptions(kind) {
-    const options = {
-      email: ['home', 'work', 'school', 'icloud', 'other', 'custom'],
-      phone: ['mobile', 'iphone', 'home', 'work', 'main', 'fax', 'other', 'custom'],
-      address: ['home', 'work', 'mailing', 'billing', 'other', 'custom'],
-      url: ['home', 'work', 'profile', 'blog', 'portfolio', 'other', 'custom'],
-    };
-    return options[kind] || ['home', 'work', 'other', 'custom'];
-  }
-
   _addressInput(placeholder, key, value) {
     const input = document.createElement('input');
     input.className = 'form-control';
@@ -1430,74 +1603,9 @@ class EditingMixin {
     return input;
   }
 
-  _customTypeInput(kind, roleOrAddr, value, isVisible) {
-    const input = document.createElement('input');
-    input.className = 'form-control detail-type-input';
-    input.placeholder = this._typePlaceholder(kind);
-    input.value = value || '';
-    if (!isVisible) input.classList.add('hidden');
-    if (roleOrAddr === 'types-custom') {
-      input.dataset.role = roleOrAddr;
-    } else {
-      input.dataset.addr = roleOrAddr;
-    }
-    return input;
-  }
-
   _visibleTypes(kind, types = []) {
     const hidden = new Set(this._hiddenTypes(kind));
     return (types || []).filter((type) => !hidden.has(String(type || '').toUpperCase()));
-  }
-
-  _typeSelectionState(kind, types = [], label = '') {
-    // An Apple custom label (X-ABLabel) takes precedence over TYPE params and
-    // is edited through the "Custom" option.
-    if (label) return { selected: 'custom', customValue: label };
-    const visible = this._visibleTypes(kind, types);
-    if (visible.length === 0) {
-      return { selected: this._defaultTypeOption(kind), customValue: '' };
-    }
-    if (visible.length === 1) {
-      const normalized = String(visible[0]).trim().toLowerCase();
-      if (this._typeOptions(kind).includes(normalized) && normalized !== 'custom') {
-        return { selected: normalized, customValue: '' };
-      }
-    }
-    return { selected: 'custom', customValue: visible.join(', ') };
-  }
-
-  _defaultTypeOption(kind) {
-    return this._typeOptions(kind).includes('other') ? 'other' : this._typeOptions(kind)[0];
-  }
-
-  _selectedTypesFromEditor(kind, selectedValue, customValue) {
-    if (selectedValue === 'custom') {
-      return String(customValue || '')
-        .split(',')
-        .map((type) => type.trim())
-        .filter(Boolean)
-        .filter(
-          (type, index, arr) =>
-            arr.findIndex((other) => other.toLowerCase() === type.toLowerCase()) === index,
-        );
-    }
-    return selectedValue ? [selectedValue] : [this._defaultTypeOption(kind)];
-  }
-
-  _typeOptionLabel(value) {
-    if (value === 'icloud') return 'iCloud';
-    if (value === 'custom') return 'Custom';
-    return value.charAt(0).toUpperCase() + value.slice(1);
-  }
-
-  _bindTypeEditor(select, customInput) {
-    const sync = () => {
-      const isCustom = select.value === 'custom';
-      customInput.classList.toggle('hidden', !isCustom);
-      if (!isCustom) customInput.value = '';
-    };
-    select.addEventListener('change', sync);
-    sync();
   }
 
   _hiddenTypes(kind) {
@@ -1510,66 +1618,26 @@ class EditingMixin {
     return hidden[kind] || ['PREF'];
   }
 
-  _defaultHiddenTypes(kind) {
-    const defaults = {
-      email: ['INTERNET'],
-      phone: ['VOICE'],
-      address: [],
-      url: [],
-    };
-    return defaults[kind] || [];
-  }
-
   _isPreferred(types = []) {
     return (types || []).some((type) => String(type || '').toUpperCase() === 'PREF');
   }
 
-  _normalizeStoredTypes(kind, visibleTypes = [], preferred = false) {
-    const allTypes = [
-      ...this._defaultHiddenTypes(kind),
-      ...visibleTypes,
-      ...(preferred ? ['PREF'] : []),
-    ];
-
-    return allTypes
-      .map((type) => String(type || '').trim())
-      .filter(Boolean)
-      .filter((type, index, arr) => {
-        const upper = type.toUpperCase();
-        return (
-          arr.findIndex(
-            (other) =>
-              String(other || '')
-                .trim()
-                .toUpperCase() === upper,
-          ) === index
-        );
-      });
-  }
-
-  _ensureSinglePreferred(entries, kind) {
-    if (!entries.length) return entries;
-
+  /**
+   * Keep at most one preferred (PREF) entry: if several are marked, the first
+   * wins and the rest are de-preferred. Unlike the old behavior, this does NOT
+   * invent a preferred when none is set — leaving "no preferred" intact so an
+   * untouched contact round-trips exactly.
+   */
+  _ensureSinglePreferred(entries) {
     let preferredFound = false;
     for (const entry of entries) {
-      const isPreferred = this._isPreferred(entry.types);
-      if (isPreferred && !preferredFound) {
+      if (!this._isPreferred(entry.types)) continue;
+      if (!preferredFound) {
         preferredFound = true;
-        continue;
-      }
-      if (isPreferred && preferredFound) {
+      } else {
         entry.types = entry.types.filter((type) => String(type || '').toUpperCase() !== 'PREF');
       }
     }
-
-    if (!preferredFound) {
-      entries[0].types = this._normalizeStoredTypes(
-        kind,
-        this._visibleTypes(kind, entries[0].types),
-        true,
-      );
-    }
-
     return entries;
   }
 }

@@ -143,6 +143,42 @@ export class VCardUtils {
     return /[,;:\s]/.test(cleaned) ? `"${cleaned}"` : cleaned;
   }
 
+  /**
+   * Canonical change-detection key for a contact-method instance (email / phone
+   * / address / url / im / social). Used by hybrid per-instance raw preservation:
+   * the parser records each instance's key → original raw line(s); the serializer
+   * re-emits the original bytes for any instance whose current key still matches
+   * (i.e. the user never touched it), regenerating only edited instances. Types
+   * are sorted so the key is order-independent (order-only changes keep the raw).
+   */
+  static contactMethodKey(kind, entry) {
+    if (!entry || typeof entry !== 'object') return JSON.stringify([kind, entry ?? null]);
+    const s = (v) => String(v == null ? '' : v);
+    const types = [...(entry.types || [])].map((t) => s(t).toUpperCase()).sort();
+    const label = s(entry.label);
+    switch (kind) {
+      case 'address':
+        return JSON.stringify([
+          kind,
+          s(entry.pobox),
+          s(entry.ext),
+          s(entry.street),
+          s(entry.city),
+          s(entry.state),
+          s(entry.zip),
+          s(entry.country),
+          types,
+          label,
+        ]);
+      case 'im':
+        return JSON.stringify([kind, s(entry.value), s(entry.service), types, label]);
+      case 'social':
+        return JSON.stringify([kind, s(entry.url), s(entry.service), s(entry.username), label]);
+      default: // email, phone, url
+        return JSON.stringify([kind, s(entry.value), types, label]);
+    }
+  }
+
   static foldLine(line, limit = 75) {
     const source = String(line || '');
     const encoder = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
