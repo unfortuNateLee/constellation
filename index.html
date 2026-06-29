@@ -16,7 +16,7 @@
         <div class="build-stamp" title="Last edited build marker">
           <span class="build-stamp-label">Updated</span>
           <span class="build-stamp-date">2026-06-29</span>
-          <span class="build-stamp-time">00:18:22 EDT</span>
+          <span class="build-stamp-time">00:29:40 EDT</span>
         </div>
         <div class="app-title">Constellation</div>
         <div class="header-divider"></div>
@@ -262,7 +262,16 @@
 
           <!-- Graph controls -->
           <div class="graph-controls">
-            <!-- zoom is built into D3 -->
+            <button class="btn btn-ghost btn-icon" id="btn-graph-zoom-in" title="Zoom in">+</button>
+            <button class="btn btn-ghost btn-icon" id="btn-graph-zoom-out" title="Zoom out">
+              −
+            </button>
+            <button class="btn btn-ghost btn-icon" id="btn-graph-fit" title="Fit graph to screen">
+              ⊡
+            </button>
+            <button class="btn btn-ghost btn-icon" id="btn-graph-reset" title="Reset zoom">
+              ⟲
+            </button>
           </div>
 
           <!-- Drop zone -->
@@ -271,9 +280,15 @@
               <div class="drop-icon">🗂</div>
               <div class="drop-title">Import to get started</div>
               <div class="drop-sub">
-                Drag &amp; drop a .vcf or .tsv file here, or click below to import your contacts.
+                Drag &amp; drop a .vcf, .md, or .tsv file here, or click below to import your
+                contacts.
               </div>
-              <button class="btn btn-primary" id="btn-import-drop">Choose File…</button>
+              <div class="drop-actions">
+                <button class="btn btn-primary" id="btn-import-drop">Choose File…</button>
+                <button class="btn btn-ghost hidden" id="btn-restore-session-drop">
+                  Restore Last Session
+                </button>
+              </div>
             </div>
           </div>
 

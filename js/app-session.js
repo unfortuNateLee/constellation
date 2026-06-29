@@ -199,6 +199,15 @@ class SessionMixin {
           ? `Saved-session actions (last saved ${new Date(data.savedAt).toLocaleString()})`
           : 'No saved browser session available';
     }
+
+    // Surface restore on the first/empty screen when a session is available.
+    const restoreDrop = document.getElementById('btn-restore-session-drop');
+    if (restoreDrop) {
+      restoreDrop.classList.toggle('hidden', !hasSaved);
+      if (hasSaved && data.savedAt) {
+        restoreDrop.title = `Last saved ${new Date(data.savedAt).toLocaleString()}`;
+      }
+    }
   }
 }
 

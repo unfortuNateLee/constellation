@@ -14,6 +14,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('file-input').click();
   });
 
+  // First-screen onboarding: restore the last session straight from the drop zone
+  // (only shown when a saved session exists; see _updateSessionButtons).
+  document.getElementById('btn-restore-session-drop')?.addEventListener('click', () => {
+    void window.app._restorePersistedSession();
+  });
+
   // Close modal
   document.getElementById('modal-cancel').addEventListener('click', () => {
     document.getElementById('add-rel-modal').classList.add('hidden');

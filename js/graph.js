@@ -222,6 +222,42 @@ export class ConstellationGraph {
     this._svg.transition().duration(600).call(this._zoom.transform, d3.zoomIdentity);
   }
 
+  /** Zoom in/out by a multiplicative factor about the viewport center. */
+  zoomBy(factor) {
+    if (!this._zoom || !this._svg) return;
+    this._svg.transition().duration(200).call(this._zoom.scaleBy, factor);
+  }
+
+  /** Fit all current nodes within the viewport with a margin. */
+  fitView() {
+    const nodes = [...(this._nodeById?.values() || [])].filter((n) => n.x != null && n.y != null);
+    if (!nodes.length) return this.resetView();
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const n of nodes) {
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x);
+      maxY = Math.max(maxY, n.y);
+    }
+    const margin = 60;
+    const w = Math.max(1, maxX - minX);
+    const h = Math.max(1, maxY - minY);
+    const scale = Math.min(
+      4,
+      Math.max(0.05, Math.min((this.width - margin * 2) / w, (this.height - margin * 2) / h)),
+    );
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const t = d3.zoomIdentity
+      .translate(this.width / 2, this.height / 2)
+      .scale(scale)
+      .translate(-cx, -cy);
+    this._svg.transition().duration(600).call(this._zoom.transform, t);
+  }
+
   /** Zoom/center on a contact node without changing the current selection.
    *  Returns true if the node was found and centered, false otherwise. */
   centerOnContact(id) {

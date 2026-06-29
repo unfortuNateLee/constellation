@@ -225,6 +225,18 @@ export class ContactRelationshipApp {
       if (this._selectedNodeId) this.graph.centerOnContact(this._selectedNodeId);
     });
 
+    // Graph zoom/fit controls (overlay buttons; D3 wheel/drag zoom still works).
+    document
+      .getElementById('btn-graph-zoom-in')
+      ?.addEventListener('click', () => this.graph.zoomBy(1.3));
+    document
+      .getElementById('btn-graph-zoom-out')
+      ?.addEventListener('click', () => this.graph.zoomBy(1 / 1.3));
+    document.getElementById('btn-graph-fit')?.addEventListener('click', () => this.graph.fitView());
+    document
+      .getElementById('btn-graph-reset')
+      ?.addEventListener('click', () => this.graph.resetView());
+
     // Close detail panel
     document.getElementById('btn-close-detail').addEventListener('click', () => {
       this._onNodeDeselect();

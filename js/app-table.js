@@ -24,43 +24,155 @@ class TableMixin {
     this._scheduleGraphResize();
   }
 
+  /**
+   * Column registry for the table view — the single place that defines order,
+   * default widths, sortability, and how each cell renders. Adding a field is one
+   * entry here. Widths are user-resizable (persisted) via the colgroup + handles.
+   */
+  _tableColumns() {
+    const input =
+      (key, field, opts = {}) =>
+      (c) =>
+        this._tableInputCell(c, field, c[field] || '', { multiline: false, ...opts });
+    return [
+      { key: 'name', label: 'Name', width: 170, sortable: true, render: input('name', 'fn') },
+      {
+        key: 'nickname',
+        label: 'Nickname',
+        width: 120,
+        sortable: true,
+        render: input('nickname', 'nickname'),
+      },
+      {
+        key: 'org',
+        label: 'Organization',
+        width: 180,
+        sortable: true,
+        render: input('org', 'org'),
+      },
+      {
+        key: 'department',
+        label: 'Department',
+        width: 150,
+        sortable: true,
+        render: input('department', 'department'),
+      },
+      { key: 'title', label: 'Title', width: 160, sortable: true, render: input('title', 'title') },
+      {
+        key: 'emails',
+        label: 'Emails',
+        width: 240,
+        render: (c) => this._tableCollectionCell(c, 'email', c.emails || [], (e) => e.value),
+      },
+      {
+        key: 'phones',
+        label: 'Phones',
+        width: 240,
+        render: (c) => this._tableCollectionCell(c, 'phone', c.phones || [], (e) => e.value),
+      },
+      {
+        key: 'ims',
+        label: 'Instant Messages',
+        width: 220,
+        render: (c) => this._tableImCell(c),
+      },
+      {
+        key: 'socialProfiles',
+        label: 'Social Profiles',
+        width: 220,
+        render: (c) => this._tableSocialCell(c),
+      },
+      {
+        key: 'urls',
+        label: 'Websites',
+        width: 220,
+        render: (c) =>
+          this._tableCollectionCell(c, 'url', c.urls || [], (e) =>
+            typeof e === 'string' ? e : e.value,
+          ),
+      },
+      {
+        key: 'addresses',
+        label: 'Addresses',
+        width: 260,
+        render: (c) => this._tableAddressCell(c),
+      },
+      {
+        key: 'birthday',
+        label: 'Birthday',
+        width: 130,
+        sortable: true,
+        render: input('birthday', 'birthday', { type: 'date' }),
+      },
+      {
+        key: 'anniversary',
+        label: 'Anniversary',
+        width: 130,
+        render: input('anniversary', 'anniversary', { type: 'date' }),
+      },
+      {
+        key: 'related',
+        label: 'Relationships',
+        width: 200,
+        render: (c) => this._tableRelationshipsCell(c),
+      },
+      { key: 'dates', label: 'Other Dates', width: 160, render: (c) => this._tableDatesCell(c) },
+      { key: 'tags', label: 'Tags', width: 150, render: (c) => this._tableTagsCell(c) },
+      {
+        key: 'notes',
+        label: 'Notes',
+        width: 260,
+        render: (c) =>
+          this._tableInputCell(c, 'notes', this._notesText(c.notes), { multiline: true }),
+      },
+      { key: 'actions', label: '', width: 84, render: (c) => this._tableActionsCell(c) },
+    ];
+  }
+
   _renderTableMode() {
     if (this._mainViewMode !== 'table') return;
     const head = document.getElementById('contacts-table-head');
     const body = document.getElementById('contacts-table-body');
+    const table = document.getElementById('contacts-table');
     if (!head || !body) return;
 
-    const columns = [
-      { key: 'name', label: 'Name' },
-      { key: 'org', label: 'Organization' },
-      { key: 'title', label: 'Title' },
-      { key: 'emails', label: 'Emails' },
-      { key: 'phones', label: 'Phones' },
-      { key: 'urls', label: 'Websites' },
-      { key: 'addresses', label: 'Addresses' },
-      { key: 'birthday', label: 'Birthday' },
-      { key: 'anniversary', label: 'Anniversary' },
-      { key: 'tags', label: 'Tags' },
-      { key: 'notes', label: 'Notes' },
-      { key: 'actions', label: 'Actions' },
-    ];
+    const columns = this._tableColumns();
+    const widths = this._tableColumnWidths();
 
     head.innerHTML = '';
     body.innerHTML = '';
 
+    // <colgroup> drives per-column widths (table-layout: fixed honors these).
+    let colgroup = table?.querySelector('colgroup');
+    if (colgroup) colgroup.remove();
+    colgroup = document.createElement('colgroup');
+    for (const col of columns) {
+      const colEl = document.createElement('col');
+      colEl.dataset.key = col.key;
+      colEl.style.width = `${widths[col.key] || col.width}px`;
+      colgroup.appendChild(colEl);
+    }
+    table?.insertBefore(colgroup, head);
+
     const headerRow = document.createElement('tr');
     for (const col of columns) {
       const th = document.createElement('th');
-      if (col.key === 'actions') {
-        th.textContent = col.label;
-      } else {
+      th.dataset.key = col.key;
+      if (col.sortable) {
         const btn = document.createElement('button');
         btn.type = 'button';
         const active = this._tableSort.key === col.key;
         btn.textContent = col.label + (active ? (this._tableSort.dir === 'asc' ? ' ↑' : ' ↓') : '');
         btn.addEventListener('click', () => this._setTableSort(col.key));
         th.appendChild(btn);
+      } else if (col.label) {
+        th.textContent = col.label;
       }
+      // Drag handle to resize this column.
+      const handle = document.createElement('div');
+      handle.className = 'table-col-resizer';
+      handle.addEventListener('mousedown', (e) => this._startTableColumnResize(e, col.key));
+      th.appendChild(handle);
       headerRow.appendChild(th);
     }
     head.appendChild(headerRow);
@@ -84,42 +196,49 @@ class TableMixin {
     for (const contact of contacts) {
       const tr = document.createElement('tr');
       tr.dataset.id = contact.id;
-      tr.appendChild(this._tableInputCell(contact, 'fn', contact.fn || '', { multiline: false }));
-      tr.appendChild(this._tableInputCell(contact, 'org', contact.org || '', { multiline: false }));
-      tr.appendChild(
-        this._tableInputCell(contact, 'title', contact.title || '', { multiline: false }),
-      );
-      tr.appendChild(
-        this._tableCollectionCell(contact, 'email', contact.emails || [], (entry) => entry.value),
-      );
-      tr.appendChild(
-        this._tableCollectionCell(contact, 'phone', contact.phones || [], (entry) => entry.value),
-      );
-      tr.appendChild(
-        this._tableCollectionCell(contact, 'url', contact.urls || [], (entry) =>
-          typeof entry === 'string' ? entry : entry.value,
-        ),
-      );
-      tr.appendChild(this._tableAddressCell(contact));
-      tr.appendChild(
-        this._tableInputCell(contact, 'birthday', contact.birthday || '', {
-          multiline: false,
-          type: 'date',
-        }),
-      );
-      tr.appendChild(
-        this._tableInputCell(contact, 'anniversary', contact.anniversary || '', {
-          multiline: false,
-          type: 'date',
-        }),
-      );
-      tr.appendChild(this._tableTagsCell(contact));
-      tr.appendChild(
-        this._tableInputCell(contact, 'notes', this._notesText(contact.notes), { multiline: true }),
-      );
-      tr.appendChild(this._tableActionsCell(contact));
+      for (const col of columns) tr.appendChild(col.render(contact));
       body.appendChild(tr);
     }
+  }
+
+  // ── Column width persistence + drag-to-resize ──────────────────────
+  _tableColumnWidths() {
+    if (this._tableColWidths) return this._tableColWidths;
+    try {
+      this._tableColWidths = JSON.parse(localStorage.getItem('constellation:table-col-w') || '{}');
+    } catch {
+      this._tableColWidths = {};
+    }
+    return this._tableColWidths;
+  }
+
+  _startTableColumnResize(e, key) {
+    e.preventDefault();
+    e.stopPropagation();
+    const table = document.getElementById('contacts-table');
+    const colEl = table?.querySelector(`col[data-key="${key}"]`);
+    if (!colEl) return;
+    const startX = e.clientX;
+    const startW = parseInt(colEl.style.width, 10) || 120;
+    const onMove = (ev) => {
+      const next = Math.max(60, startW + (ev.clientX - startX));
+      colEl.style.width = `${next}px`;
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.classList.remove('resizing-col');
+      const widths = this._tableColumnWidths();
+      widths[key] = parseInt(colEl.style.width, 10) || startW;
+      try {
+        localStorage.setItem('constellation:table-col-w', JSON.stringify(widths));
+      } catch {
+        /* storage unavailable — width still applied for this session */
+      }
+    };
+    document.body.classList.add('resizing-col');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   }
 
   _setTableSort(key) {
@@ -138,6 +257,10 @@ class TableMixin {
       switch (key) {
         case 'name':
           return contact.fn || '';
+        case 'nickname':
+          return contact.nickname || '';
+        case 'department':
+          return contact.department || '';
         case 'org':
           return contact.org || '';
         case 'title':
@@ -436,6 +559,186 @@ class TableMixin {
     return td;
   }
 
+  /** Editable IM cell: handle + service per row (scheme/types/label preserved). */
+  _tableImCell(contact) {
+    const td = document.createElement('td');
+    const wrap = document.createElement('div');
+    wrap.className = 'table-metadata-list';
+    const save = () => {
+      const entries = [...wrap.querySelectorAll('.table-metadata-item')]
+        .map((item) => {
+          const handle = item.querySelector('[data-role="im-value"]')?.value.trim() || '';
+          if (!handle) return null;
+          const scheme = item.querySelector('[data-role="im-scheme"]')?.value || '';
+          let types = [];
+          try {
+            types = JSON.parse(item.querySelector('[data-role="im-types"]')?.value || '[]');
+          } catch {
+            types = [];
+          }
+          return {
+            value: scheme + handle,
+            service: item.querySelector('[data-role="im-service"]')?.value.trim() || '',
+            label: item.querySelector('[data-role="im-label"]')?.value || '',
+            types,
+          };
+        })
+        .filter(Boolean);
+      this._applyTableEdit(contact.id, 'ims', entries);
+    };
+    const addItem = (entry = null) => {
+      const { scheme, handle } = this._splitUriScheme(entry?.value || '');
+      const item = document.createElement('div');
+      item.className = 'table-metadata-item';
+      const value = this._tableMetaInput('im-value', handle, 'Handle');
+      const service = this._tableMetaInput('im-service', entry?.service || '', 'Service');
+      const schemeStash = this._tableHidden('im-scheme', scheme);
+      const labelStash = this._tableHidden('im-label', entry?.label || '');
+      const typesStash = this._tableHidden('im-types', JSON.stringify(entry?.types || []));
+      const remove = this._tableRemoveBtn(() => {
+        item.remove();
+        save();
+      });
+      value.addEventListener('change', save);
+      service.addEventListener('change', save);
+      item.append(value, service, schemeStash, labelStash, typesStash, remove);
+      wrap.appendChild(item);
+    };
+    (contact.ims || []).forEach(addItem);
+    const add = this._tableAddBtn('+ Add IM', () => addItem());
+    td.append(wrap, add);
+    return td;
+  }
+
+  /** Editable social cell: handle + service per row (scheme/username/label preserved). */
+  _tableSocialCell(contact) {
+    const td = document.createElement('td');
+    const wrap = document.createElement('div');
+    wrap.className = 'table-metadata-list';
+    const save = () => {
+      const entries = [...wrap.querySelectorAll('.table-metadata-item')]
+        .map((item) => {
+          const handle = item.querySelector('[data-role="social-url"]')?.value.trim() || '';
+          if (!handle) return null;
+          const scheme = item.querySelector('[data-role="social-scheme"]')?.value || '';
+          return {
+            url: scheme + handle,
+            service: item.querySelector('[data-role="social-service"]')?.value.trim() || '',
+            username: item.querySelector('[data-role="social-username"]')?.value || '',
+            label: item.querySelector('[data-role="social-label"]')?.value || '',
+          };
+        })
+        .filter(Boolean);
+      this._applyTableEdit(contact.id, 'socialProfiles', entries);
+    };
+    const addItem = (entry = null) => {
+      const { scheme, handle } = this._splitUriScheme(entry?.url || '');
+      const item = document.createElement('div');
+      item.className = 'table-metadata-item';
+      const url = this._tableMetaInput('social-url', handle, 'URL or handle');
+      const service = this._tableMetaInput('social-service', entry?.service || '', 'Service');
+      const schemeStash = this._tableHidden('social-scheme', scheme);
+      const userStash = this._tableHidden('social-username', entry?.username || '');
+      const labelStash = this._tableHidden('social-label', entry?.label || '');
+      const remove = this._tableRemoveBtn(() => {
+        item.remove();
+        save();
+      });
+      url.addEventListener('change', save);
+      service.addEventListener('change', save);
+      item.append(url, service, schemeStash, userStash, labelStash, remove);
+      wrap.appendChild(item);
+    };
+    (contact.socialProfiles || []).forEach(addItem);
+    const add = this._tableAddBtn('+ Add Social', () => addItem());
+    td.append(wrap, add);
+    return td;
+  }
+
+  /** Read-only relationships summary (edit in the contact card). */
+  _tableRelationshipsCell(contact) {
+    const td = document.createElement('td');
+    const rels = contact.related || [];
+    if (!rels.length) {
+      td.innerHTML = '<span class="table-readonly-empty">—</span>';
+      return td;
+    }
+    const list = document.createElement('div');
+    list.className = 'table-readonly-list';
+    for (const rel of rels) {
+      const line = document.createElement('div');
+      line.className = 'table-readonly-line';
+      line.textContent = `${this._friendlyRelType(rel)}: ${rel.name}`;
+      list.appendChild(line);
+    }
+    td.appendChild(list);
+    return td;
+  }
+
+  _friendlyRelType(rel) {
+    try {
+      return this.builder ? this.builder._friendlyType(rel.type) : rel.type || 'related';
+    } catch {
+      return rel.type || 'related';
+    }
+  }
+
+  /** Read-only custom-dates summary (edit in the contact card). */
+  _tableDatesCell(contact) {
+    const td = document.createElement('td');
+    const dates = contact.dates || [];
+    if (!dates.length) {
+      td.innerHTML = '<span class="table-readonly-empty">—</span>';
+      return td;
+    }
+    const list = document.createElement('div');
+    list.className = 'table-readonly-list';
+    for (const d of dates) {
+      const line = document.createElement('div');
+      line.className = 'table-readonly-line';
+      line.textContent = `${d.label || 'Date'}: ${d.value}`;
+      list.appendChild(line);
+    }
+    td.appendChild(list);
+    return td;
+  }
+
+  // Small shared builders for the compact metadata cells above.
+  _tableMetaInput(role, value, placeholder) {
+    const input = document.createElement('input');
+    input.className = 'table-cell-input';
+    input.dataset.role = role;
+    input.value = value || '';
+    input.placeholder = placeholder || '';
+    return input;
+  }
+
+  _tableHidden(role, value) {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.dataset.role = role;
+    input.value = value || '';
+    return input;
+  }
+
+  _tableRemoveBtn(onClick) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-ghost btn-xs';
+    btn.type = 'button';
+    btn.textContent = 'Remove';
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
+
+  _tableAddBtn(label, onClick) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-ghost btn-xs table-add-metadata';
+    btn.type = 'button';
+    btn.textContent = label;
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
+
   _applyTableEdit(contactId, field, rawValue) {
     const contact = this._contact(contactId);
     if (!contact) return;
@@ -445,8 +748,16 @@ class TableMixin {
       contact.name = this._namePartsFromDisplayName(contact.fn || '');
     } else if (field === 'org') {
       contact.org = value.trim();
+    } else if (field === 'nickname') {
+      contact.nickname = value.trim();
+    } else if (field === 'department') {
+      contact.department = value.trim();
     } else if (field === 'title') {
       contact.title = value.trim();
+    } else if (field === 'ims') {
+      contact.ims = Array.isArray(rawValue) ? rawValue : [];
+    } else if (field === 'socialProfiles') {
+      contact.socialProfiles = Array.isArray(rawValue) ? rawValue : [];
     } else if (field === 'birthday') {
       contact.birthday = value || null;
     } else if (field === 'anniversary') {

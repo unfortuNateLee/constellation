@@ -827,9 +827,12 @@ body.resizing-sidebar .sidebar {
 }
 
 .contacts-table {
-  width: 100%;
   border-collapse: collapse;
-  min-width: 1680px;
+  /* Column widths come from the <colgroup>; fixed layout honors them and keeps
+     the header/body aligned while horizontally scrolling. */
+  table-layout: fixed;
+  width: max-content;
+  min-width: 100%;
 }
 
 .contacts-table th,
@@ -837,6 +840,7 @@ body.resizing-sidebar .sidebar {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   border-right: 1px solid rgba(255, 255, 255, 0.05);
   vertical-align: top;
+  overflow: hidden;
 }
 
 .contacts-table th {
@@ -850,6 +854,49 @@ body.resizing-sidebar .sidebar {
   letter-spacing: 0.06em;
   text-align: left;
   padding: 10px 12px;
+}
+
+/* Drag handle on each header cell's right edge to resize the column. */
+.table-col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+}
+.table-col-resizer:hover {
+  background: var(--accent);
+}
+body.resizing-col {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* Stack the row Open/Delete actions vertically so the column stays narrow. */
+.table-row-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+}
+
+/* Read-only summary cells (relationships, other dates). */
+.table-readonly-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--text2);
+}
+.table-readonly-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.table-readonly-empty {
+  color: var(--text3);
 }
 
 .contacts-table th button {
@@ -990,6 +1037,24 @@ body.resizing-sidebar .sidebar {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.graph-controls .btn {
+  background: var(--surface-float);
+  border: 1px solid var(--border);
+  width: 32px;
+  height: 32px;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.drop-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 /* Legend */
