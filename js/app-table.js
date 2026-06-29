@@ -21,9 +21,28 @@ class TableMixin {
     legend?.classList.toggle('hidden', isTable);
     graphBtn?.classList.toggle('active', !isTable);
     tableBtn?.classList.toggle('active', isTable);
-    if (isTable) this._renderTableMode();
-    else this._renderGraphIfStale();
+    if (isTable) {
+      this._renderTableMode();
+    } else {
+      // The editable table builds a very heavy DOM (~hundreds of elements per row:
+      // inputs, type checkboxes, add/remove controls). Leaving it in the document
+      // while the graph is shown — even display:none — measurably slows the graph
+      // (style recalc / simulation ticks scale with total DOM). Drop it on exit; it
+      // fully re-renders on the next entry to the table view.
+      this._clearTableMode();
+      this._renderGraphIfStale();
+    }
     this._scheduleGraphResize();
+  }
+
+  /** Tear down the table DOM (heavy) so it doesn't burden other views. */
+  _clearTableMode() {
+    const head = document.getElementById('contacts-table-head');
+    const body = document.getElementById('contacts-table-body');
+    const colgroup = document.getElementById('contacts-table')?.querySelector('colgroup');
+    if (head) head.innerHTML = '';
+    if (body) body.innerHTML = '';
+    if (colgroup) colgroup.remove();
   }
 
   /**
