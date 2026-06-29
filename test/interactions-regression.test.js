@@ -287,20 +287,31 @@ test('multi-file import combines Markdown files into one working set', async () 
   assert.equal(labels.toast.msg, 'Loaded 4 contacts');
 });
 
-test('detail rewrites preserve non-anniversary Apple date item groups', () => {
-  const { app } = setup();
-  const jane = byUid(app, 'jane-doe-smith');
-  jane.rawVCard = app._insertBeforeEndVCard(
-    jane.rawVCard,
-    app._joinVCardLines(['item99.X-ABDATE:2020-01-02', 'item99.X-ABLabel:_$!<First met>!$_']),
-  );
+test('custom (non-anniversary) Apple dates are modeled and survive an edit', () => {
+  const { context, app } = setup();
+  // A custom-labeled X-ABDATE is now parsed into the dates[] model (the
+  // anniversary keeps its own scalar).
+  const vcard = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    'UID:date-test',
+    'N:Test;Date;;;',
+    'FN:Date Test',
+    'item1.X-ABDATE:2020-01-02',
+    'item1.X-ABLabel:_$!<First met>!$_',
+    'END:VCARD',
+  ].join('\r\n');
+  const [c] = new context.VCFParser().parse(vcard);
+  assert.deepEqual(plain(c.dates), [{ label: 'First met', value: '2020-01-02' }]);
 
-  jane.title = 'Updated Title';
-  app._rewriteEditableFields(jane);
-
-  assert.match(jane.rawVCard, /item99\.X-ABDATE:2020-01-02/);
-  assert.match(jane.rawVCard, /item99\.X-ABLabel:_\$!<First met>!\$_/);
-  assert.equal(app.parser.parse(jane.rawVCard)[0].title, 'Updated Title');
+  // Editing regenerates the card from the model; the custom date must survive.
+  c.title = 'Updated Title';
+  app._rewriteEditableFields(c);
+  assert.match(c.rawVCard, /X-ABDATE:2020-01-02/);
+  assert.match(c.rawVCard, /X-ABLabel:_\$!<First met>!\$_/);
+  const reparsed = app.parser.parse(c.rawVCard)[0];
+  assert.equal(reparsed.title, 'Updated Title');
+  assert.deepEqual(plain(reparsed.dates), [{ label: 'First met', value: '2020-01-02' }]);
 });
 
 test('format-neutral contact record stays synchronized with legacy contact edits', () => {

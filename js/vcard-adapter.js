@@ -128,6 +128,12 @@ export class VCardAdapter {
       lines.push(`item${itemIndex}.X-ABLabel:_$!<Anniversary>!$_`);
       itemIndex += 1;
     }
+    for (const dateEntry of contact.dates || []) {
+      if (!dateEntry?.value) continue;
+      lines.push(`item${itemIndex}.X-ABDATE:${this._escape(dateEntry.value)}`);
+      lines.push(`item${itemIndex}.X-ABLabel:${this._wrapLabel(dateEntry.label || 'Date')}`);
+      itemIndex += 1;
+    }
     for (const rel of contact.related || []) {
       if (!rel?.name) continue;
       lines.push(`item${itemIndex}.X-ABRELATEDNAMES:${this._escape(rel.name)}`);

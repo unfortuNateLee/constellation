@@ -36,7 +36,7 @@ Use this checklist for changes that affect vCard import, editing, serialization,
 - Relationships imported by Apple Contacts are preserved when Apple re-exports them.
 - Virtual relationship targets remain represented as unresolved/virtual graph nodes if no real vCard exists for them.
 - Birthday and anniversary values remain attached to the correct contacts.
-- Non-anniversary Apple custom date fields, when present, are not removed by unrelated edits in the app.
+- Non-anniversary Apple custom date fields (`X-ABDATE` with a custom `X-ABLabel`) are imported into the contact's "Other Dates", remain editable, and survive in-app edits and export (anniversary keeps its own dedicated field). Multiple custom dates on one contact are all preserved.
 - Geographic addresses preserve street, city, state/province, postal code, country, and preferred address type.
 
 ## Failure Capture

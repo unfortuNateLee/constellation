@@ -266,10 +266,13 @@ export class VCFParser {
         if (name) {
           contact.related.push({ name, type: relType, rawType });
         }
-      } else if (data['X-ABDATE'] && data['X-ABLABEL']) {
-        const label = data['X-ABLABEL'].toLowerCase();
-        if (label.includes('anniversary')) {
+      } else if (data['X-ABDATE']) {
+        const label = this._unwrapLabel(data['X-ABLABEL'] || '');
+        if (label.toLowerCase().includes('anniversary')) {
           contact.anniversary = data['X-ABDATE'];
+        } else {
+          // Any other Apple custom-labeled date is modeled in dates[].
+          contact.dates.push({ label: label || 'Date', value: data['X-ABDATE'] });
         }
       } else if (data['X-ABLABEL'] && itemInstances[key]) {
         // Apple custom label on an email/phone/address/url item group.

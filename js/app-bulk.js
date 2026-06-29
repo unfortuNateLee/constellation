@@ -339,6 +339,28 @@ class BulkMixin {
         valueType: 'text',
         get: (_c, r) => r?.name || '',
       },
+      {
+        key: 'date-label',
+        label: 'Label',
+        group: 'Date',
+        entity: 'date',
+        valueType: 'text',
+        get: (_c, d) => d?.label || '',
+        setInst: (_c, d, v) => {
+          d.label = v;
+        },
+      },
+      {
+        key: 'date-value',
+        label: 'Value',
+        group: 'Date',
+        entity: 'date',
+        valueType: 'date',
+        get: (_c, d) => d?.value || '',
+        setInst: (_c, d, v) => {
+          d.value = v;
+        },
+      },
     ];
   }
 
@@ -383,6 +405,14 @@ class BulkMixin {
         getList: (c) => c.related || [],
         setList: (c, a) => {
           c.related = a;
+        },
+      },
+      date: {
+        singular: 'date',
+        plural: 'dates',
+        getList: (c) => c.dates || [],
+        setList: (c, a) => {
+          c.dates = a;
         },
       },
     };

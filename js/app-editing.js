@@ -248,6 +248,16 @@ class EditingMixin {
       contactInfo.appendChild(
         this._detailRow('💍', this._formatDateWithYears(node.anniversary), 'Anniversary'),
       );
+    for (const dateEntry of node.dates || []) {
+      if (!dateEntry?.value) continue;
+      contactInfo.appendChild(
+        this._detailRow(
+          '📅',
+          this._formatDateWithYears(dateEntry.value),
+          dateEntry.label || 'Date',
+        ),
+      );
+    }
     this._renderReadOnlyCustomFields(contactInfo, node);
   }
 
@@ -299,6 +309,7 @@ class EditingMixin {
     grid.appendChild(
       this._editField('Anniversary', 'edit-anniversary', contact.anniversary || '', 'date'),
     );
+    grid.appendChild(this._editDatesField(contact.dates || []));
     grid.appendChild(
       this._editCollectionField('Emails', 'email', contact.emails || [], (entry) => entry.value),
     );
@@ -522,6 +533,68 @@ class EditingMixin {
     return wrap;
   }
 
+  /** Editor for additional custom-labeled dates (label + date pairs). */
+  _editDatesField(dates) {
+    const wrap = document.createElement('div');
+    wrap.className = 'detail-edit-row';
+    wrap.innerHTML = `<div class="detail-edit-label">Other Dates</div>`;
+
+    const multi = document.createElement('div');
+    multi.className = 'detail-edit-multi';
+    wrap.appendChild(multi);
+
+    const addItem = (entry = null) => {
+      const item = document.createElement('div');
+      item.className = 'detail-edit-item';
+      item.dataset.kind = 'date';
+
+      const labelInput = document.createElement('input');
+      labelInput.className = 'form-control';
+      labelInput.dataset.role = 'date-label';
+      labelInput.placeholder = 'Label (e.g. First met)';
+      labelInput.value = entry?.label || '';
+
+      const valueInput = document.createElement('input');
+      valueInput.className = 'form-control';
+      valueInput.type = 'date';
+      valueInput.dataset.role = 'date-value';
+      valueInput.value = entry?.value || '';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'btn btn-ghost btn-xs';
+      removeBtn.type = 'button';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => item.remove());
+
+      const row = document.createElement('div');
+      row.className = 'detail-edit-inline';
+      row.append(labelInput, valueInput, removeBtn);
+      item.appendChild(row);
+      multi.appendChild(item);
+    };
+
+    if (dates.length > 0) dates.forEach(addItem);
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-ghost btn-xs';
+    addBtn.type = 'button';
+    addBtn.textContent = '+ Add Date';
+    addBtn.addEventListener('click', () => addItem());
+    wrap.appendChild(addBtn);
+
+    return wrap;
+  }
+
+  _collectEditedDates() {
+    return [...document.querySelectorAll('.detail-edit-item[data-kind="date"]')]
+      .map((item) => ({
+        label: item.querySelector('input[data-role="date-label"]')?.value.trim() || '',
+        value: item.querySelector('input[data-role="date-value"]')?.value || '',
+      }))
+      .filter((entry) => entry.value)
+      .map((entry) => ({ label: entry.label || 'Date', value: entry.value }));
+  }
+
   _editCustomFields(fields) {
     const wrap = document.createElement('div');
     wrap.className = 'detail-edit-row detail-edit-custom-fields';
@@ -736,6 +809,7 @@ class EditingMixin {
     contact.title = document.getElementById('edit-title')?.value.trim() || '';
     contact.birthday = document.getElementById('edit-bday')?.value || null;
     contact.anniversary = document.getElementById('edit-anniversary')?.value || null;
+    contact.dates = this._collectEditedDates();
     if (document.getElementById('edit-photo-remove')?.value === '1') {
       contact.photo = null;
     } else {
@@ -948,12 +1022,12 @@ class EditingMixin {
       );
       const editableContactGroup =
         props.has('EMAIL') || props.has('TEL') || props.has('ADR') || props.has('URL');
-      const anniversaryGroup = props.has('X-ABDATE') && this._isAnniversaryItemGroup(groupLines);
+      const dateGroup = props.has('X-ABDATE');
       const relatedGroup = props.has('X-ABRELATEDNAMES');
       // Drop the groups we regenerate from the model below (editable contact
-      // fields, anniversary, relationships); keep everything else (obscure
-      // Apple item groups) verbatim.
-      if (!editableContactGroup && !anniversaryGroup && !relatedGroup) {
+      // fields, dates, relationships); keep everything else (obscure Apple item
+      // groups) verbatim.
+      if (!editableContactGroup && !dateGroup && !relatedGroup) {
         keptItemLines.push(...groupLines);
       }
     }
@@ -1021,6 +1095,12 @@ class EditingMixin {
       generated.push(`item${nextItem}.X-ABLabel:_$!<Anniversary>!$_`);
       nextItem += 1;
     }
+    for (const dateEntry of contact.dates || []) {
+      if (!dateEntry || !dateEntry.value) continue;
+      generated.push(`item${nextItem}.X-ABDATE:${dateEntry.value}`);
+      generated.push(`item${nextItem}.X-ABLabel:${this._wrapLabel(dateEntry.label || 'Date')}`);
+      nextItem += 1;
+    }
     // Relationships regenerated from the model — contact.related is the single
     // source of truth; the raw X-ABRELATEDNAMES groups are derived, not patched.
     for (const rel of contact.related || []) {
@@ -1055,15 +1135,6 @@ class EditingMixin {
       .join(' ')
       .replace(/\s+/g, ' ')
       .trim();
-  }
-
-  _isAnniversaryItemGroup(groupLines) {
-    for (const line of groupLines || []) {
-      const parsed = VCardUtils.parseContentLine(line);
-      if (!parsed || parsed.name !== 'X-ABLABEL') continue;
-      if (this._decodeVCardValue(parsed.value).toLowerCase().includes('anniversary')) return true;
-    }
-    return false;
   }
 
   _customFieldEntries(contact) {
