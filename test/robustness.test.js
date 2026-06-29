@@ -86,12 +86,12 @@ test('a malformed Markdown document is skipped without aborting the bundle', () 
   const context = loadBrowserClasses();
   const adapter = new context.MarkdownAdapter();
   const text =
-    `${adapter.bundleDelimiter}\n\n---\nuid: one\nfn: Contact One\n---\nOne body\n\n` +
-    `${adapter.bundleDelimiter}\n\n---\nuid: two\nfn: Contact Two\n---\nTwo body\n`;
+    `## Contact One\n\n- **UID:** one\n\n### Notes\nOne body\n\n` +
+    `## Contact Two\n\n- **UID:** two\n\n### Notes\nTwo body\n`;
 
-  const original = adapter._contactFromDocument.bind(adapter);
+  const original = adapter._parseContactBlock.bind(adapter);
   let seen = 0;
-  adapter._contactFromDocument = (...args) => {
+  adapter._parseContactBlock = (...args) => {
     seen += 1;
     if (seen === 1) throw new Error('simulated document failure');
     return original(...args);

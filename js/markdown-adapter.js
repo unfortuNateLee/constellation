@@ -1,13 +1,59 @@
 /**
- * Markdown contact adapter.
+ * Markdown contact adapter — human-readable, hand-editable Markdown.
  *
- * Uses YAML-style frontmatter for structured contact data and preserves the
- * Markdown body as a typed custom field. This parser intentionally supports the
- * practical YAML subset the app writes: maps, nested maps, arrays, arrays of
- * maps, quoted strings, numbers, booleans, and null.
+ * Each contact is an `##` heading: simple identity fields as a bullet list under
+ * the name, each multi-value field group as its own `###` section, with a uniform
+ * `- **<label>:** <value>` line for every entry. A bundle is just several `##`
+ * contacts in one file (an optional `# Title` H1 is ignored). Designed to read and
+ * edit cleanly while round-tripping; the vCard adapter remains the byte-exact path.
  */
 import { ContactRecord } from './contact-record.js';
 import { VCFParser } from './vcf-parser.js';
+import { RelationshipTaxonomy } from './relationship-taxonomy.js';
+import { typesToLabel, labelToTypes } from './contact-types.js';
+
+// Identity bullets shown under the name, in order: [display label, contact key].
+// `name.*` keys are projected to/from the structured name object.
+const IDENTITY_FIELDS = [
+  ['UID', 'uid'],
+  ['First Name', 'name.given'],
+  ['Middle Name', 'name.additional'],
+  ['Last Name', 'name.family'],
+  ['Prefix', 'name.prefix'],
+  ['Suffix', 'name.suffix'],
+  ['Nickname', 'nickname'],
+  ['Maiden Name', 'maidenName'],
+  ['Phonetic First', 'phoneticFirst'],
+  ['Phonetic Last', 'phoneticLast'],
+  ['Organization', 'org'],
+  ['Department', 'department'],
+  ['Phonetic Org', 'phoneticOrg'],
+  ['Title', 'title'],
+];
+const IDENTITY_BY_LABEL = new Map(
+  IDENTITY_FIELDS.map(([label, key]) => [label.toLowerCase(), key]),
+);
+
+// IM service → URI scheme, to reconstruct the stored value from a readable handle.
+const IM_SCHEMES = {
+  skype: 'skype:',
+  jabber: 'xmpp:',
+  googletalk: 'xmpp:',
+  'google talk': 'xmpp:',
+  facebook: 'xmpp:',
+  aim: 'aim:',
+  icq: 'aim:',
+  yahoo: 'ymsgr:',
+  msn: 'msnim:',
+  qq: 'x-apple:',
+  gadugadu: 'x-apple:',
+};
+
+const RESERVED_DATE_LABELS = {
+  birthday: 'birthday',
+  anniversary: 'anniversary',
+  'alternate birthday': 'altBirthday',
+};
 
 export class MarkdownAdapter {
   constructor() {
@@ -15,7 +61,6 @@ export class MarkdownAdapter {
     this.label = 'Markdown';
     this.extensions = ['md', 'markdown'];
     this.mimeType = 'text/markdown;charset=utf-8';
-    this.bundleDelimiter = '<!-- CONSTELLATION:CONTACT -->';
   }
 
   canImportFile(file) {
@@ -23,31 +68,23 @@ export class MarkdownAdapter {
     return this.extensions.some((ext) => name.endsWith(`.${ext}`));
   }
 
+  // ── Parse ──────────────────────────────────────────────────────
+
   parse(text, options = {}) {
-    const docs = this._splitDocuments(text);
+    const blocks = this._splitContacts(text);
     const contacts = [];
-    // Per-parse accumulators for deterministic, collision-free ids.
     const idContext = { usedIds: new Set(), basisCounts: new Map() };
-    for (let i = 0; i < docs.length; i++) {
-      // Isolate malformed documents: a single bad contact is skipped with a
-      // warning instead of aborting the whole import.
+    for (let i = 0; i < blocks.length; i++) {
       try {
-        const parsed = this._parseDocument(docs[i]);
-        if (!parsed) continue;
-        contacts.push(
-          this._contactFromDocument(
-            parsed.data,
-            parsed.body,
-            {
-              raw: docs[i],
-              index: options.startIndex != null ? options.startIndex + i : i,
-              // filename → dataURL map for externalized photos (sibling image
-              // files selected alongside the .md). See _resolveImportedPhoto.
-              photoMap: options.photoMap || null,
-            },
-            idContext,
-          ),
+        const contact = this._parseContactBlock(
+          blocks[i],
+          {
+            index: options.startIndex != null ? options.startIndex + i : i,
+            photoMap: options.photoMap || null,
+          },
+          idContext,
         );
+        if (contact) contacts.push(contact);
       } catch (err) {
         console.warn(`[MarkdownAdapter] Skipping malformed contact at index ${i}: ${err.message}`);
       }
@@ -55,15 +92,360 @@ export class MarkdownAdapter {
     return contacts;
   }
 
+  /** Split a document into per-contact blocks at each `## ` heading. */
+  _splitContacts(text) {
+    const source = String(text || '').replace(/^\uFEFF/, '');
+    const lines = source.split(/\r?\n/);
+    const blocks = [];
+    let cur = null;
+    for (const line of lines) {
+      if (/^##\s+/.test(line)) {
+        if (cur) blocks.push(cur.join('\n'));
+        cur = [line];
+      } else if (cur) {
+        cur.push(line);
+      }
+      // lines before the first `## ` (e.g. a `# Title`) are ignored
+    }
+    if (cur) blocks.push(cur.join('\n'));
+    return blocks;
+  }
+
+  _parseContactBlock(block, source, idContext) {
+    const lines = block.split(/\r?\n/);
+    const fn = (lines[0].match(/^##\s+(.*)$/)?.[1] || '').trim();
+    if (!fn) return null;
+
+    // Group the body into the intro (identity bullets) + named `###` sections.
+    const intro = [];
+    const sections = [];
+    let current = null;
+    for (let i = 1; i < lines.length; i++) {
+      const h3 = lines[i].match(/^###\s+(.*)$/);
+      if (h3) {
+        current = { name: h3[1].trim().toLowerCase(), lines: [] };
+        sections.push(current);
+      } else if (current) {
+        current.lines.push(lines[i]);
+      } else {
+        intro.push(lines[i]);
+      }
+    }
+
+    const contact = ContactRecord.createEmptyContact();
+    contact.fn = fn;
+    const customFields = {};
+
+    // Identity bullets.
+    let uid = null;
+    let sawNameBullet = false;
+    for (const line of intro) {
+      const m = line.match(/^-\s+\*\*(.+?):\*\*\s?(.*)$/);
+      if (!m) continue;
+      const label = m[1].trim();
+      const value = m[2].trim();
+      const key = IDENTITY_BY_LABEL.get(label.toLowerCase());
+      if (label.toLowerCase() === 'company') {
+        contact.isCompany = /^(yes|true)$/i.test(value);
+      } else if (label.toLowerCase() === 'photo') {
+        contact.photo = this._resolveImportedPhoto(value, source.photoMap);
+        contact._photoRef = value;
+      } else if (key === 'uid') {
+        uid = value || null;
+      } else if (key && key.startsWith('name.')) {
+        contact.name[key.slice(5)] = value;
+        sawNameBullet = true;
+      } else if (key) {
+        contact[key] = value;
+      } else if (value) {
+        // Unknown identity bullet → preserve as a custom field.
+        customFields[label] = { type: 'string', value };
+      }
+    }
+    contact.uid = uid;
+    if (!sawNameBullet) contact.name = this._namePartsFromDisplayName(fn);
+
+    // Sections.
+    for (const section of sections) {
+      switch (section.name) {
+        case 'email':
+          contact.emails = this._parseMethodSection('email', section.lines);
+          break;
+        case 'phone':
+        case 'phones':
+          contact.phones = this._parseMethodSection('phone', section.lines);
+          break;
+        case 'website':
+        case 'websites':
+        case 'url':
+        case 'urls':
+          contact.urls = this._parseMethodSection('url', section.lines);
+          break;
+        case 'address':
+        case 'addresses':
+          contact.addresses = this._parseAddressSection(section.lines);
+          break;
+        case 'instant messages':
+        case 'ims':
+        case 'im':
+          contact.ims = this._parseImSection(section.lines);
+          break;
+        case 'social profiles':
+        case 'social':
+          contact.socialProfiles = this._parseSocialSection(section.lines);
+          break;
+        case 'dates':
+        case 'other dates':
+          this._parseDatesSection(section.lines, contact);
+          break;
+        case 'relationships':
+          contact.related = this._parseRelationshipsSection(section.lines);
+          break;
+        case 'tags':
+          contact.tags = this._parseTagsSection(section.lines);
+          break;
+        case 'notes':
+          contact.notes = this._parseNotesSection(section.lines);
+          break;
+        case 'other fields':
+        case 'custom fields':
+          Object.assign(customFields, this._parseOtherFieldsSection(section.lines));
+          break;
+        default:
+          break;
+      }
+    }
+
+    contact.id = this._resolveId(null, { uid, fn }, idContext);
+    contact.customFields = customFields;
+    contact.rawVCard = '';
+    contact._photoUnresolved =
+      !contact.photo && typeof contact._photoRef === 'string' && contact._photoRef.length > 0;
+    delete contact._photoRef;
+
+    contact.noteTags = this._extractHashtags(contact.notes || []);
+    if (!contact.tags.length && contact.isCompany) contact.tags = ['company'];
+    ContactRecord.refreshLegacyContact(contact, {
+      format: this.id,
+      raw: '',
+      index: source.index,
+    });
+    return contact;
+  }
+
+  _bulletLines(lines) {
+    const out = [];
+    for (const line of lines) {
+      const m = line.match(/^-\s+\*\*(.+?):\*\*\s?(.*)$/);
+      if (m) out.push({ label: m[1].trim(), value: m[2].trim(), raw: line });
+    }
+    return out;
+  }
+
+  _parseMethodSection(kind, lines) {
+    const out = [];
+    for (const { label, value } of this._bulletLines(lines)) {
+      if (!value) continue;
+      const { types, label: custom } = labelToTypes(kind, label);
+      out.push({ value, types, label: custom });
+    }
+    return out;
+  }
+
+  _parseAddressSection(lines) {
+    const out = [];
+    let cur = null;
+    const flush = () => {
+      if (cur) out.push(this._finishAddress(cur));
+      cur = null;
+    };
+    for (const line of lines) {
+      const head = line.match(/^-\s+\*\*(.+?):\*\*\s*$/);
+      if (head) {
+        flush();
+        cur = { ...labelToTypes('address', head[1].trim()), lines: [] };
+      } else if (cur && /^\s{2,}\S/.test(line)) {
+        cur.lines.push(line.trim());
+      }
+    }
+    flush();
+    return out;
+  }
+
+  _finishAddress(cur) {
+    const addr = {
+      pobox: '',
+      ext: '',
+      street: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: '',
+      types: cur.types,
+      label: cur.label,
+    };
+    // Block lines are, in order: street(s); a "City, State Zip" line; country.
+    // Country = a trailing comma-free line; the city line = the last line with a
+    // comma (so a comma in the street stays street); the remainder is street.
+    const ls = cur.lines.slice();
+    if (ls.length >= 2 && !ls[ls.length - 1].includes(',')) addr.country = ls.pop();
+    let cityIdx = -1;
+    for (let i = ls.length - 1; i >= 0; i--) {
+      if (ls[i].includes(',')) {
+        cityIdx = i;
+        break;
+      }
+    }
+    if (cityIdx === -1) {
+      addr.street = ls.join(', ');
+    } else {
+      addr.street = ls.slice(0, cityIdx).join(', ');
+      const line = ls[cityIdx];
+      const comma = line.lastIndexOf(',');
+      addr.city = line.slice(0, comma).trim();
+      const rest = line.slice(comma + 1).trim();
+      const sp = rest.lastIndexOf(' ');
+      if (sp !== -1) {
+        addr.state = rest.slice(0, sp).trim();
+        addr.zip = rest.slice(sp + 1).trim();
+      } else {
+        addr.state = rest;
+      }
+    }
+    return addr;
+  }
+
+  _parseImSection(lines) {
+    const out = [];
+    for (const { label, value } of this._bulletLines(lines)) {
+      if (!value) continue;
+      const scheme = IM_SCHEMES[label.toLowerCase()] || '';
+      out.push({ value: scheme + value, service: label, types: [], label: '' });
+    }
+    return out;
+  }
+
+  _parseSocialSection(lines) {
+    const out = [];
+    for (const { label, value } of this._bulletLines(lines)) {
+      if (!value) continue;
+      out.push({ url: value, service: label, username: '', label: '' });
+    }
+    return out;
+  }
+
+  _parseDatesSection(lines, contact) {
+    for (const { label, value } of this._bulletLines(lines)) {
+      if (!value) continue;
+      const reserved = RESERVED_DATE_LABELS[label.toLowerCase()];
+      if (reserved) contact[reserved] = value;
+      else contact.dates.push({ label, value });
+    }
+  }
+
+  _parseRelationshipsSection(lines) {
+    const out = [];
+    for (const { label, value } of this._bulletLines(lines)) {
+      if (!value) continue;
+      out.push({ name: value, type: RelationshipTaxonomy.normalize(label) });
+    }
+    return out;
+  }
+
+  _parseTagsSection(lines) {
+    const text = lines.join(' ');
+    const tags = [];
+    for (const m of text.matchAll(/#([\w-]+)/g)) tags.push(m[1]);
+    // Also accept a bare comma list without '#'.
+    if (!tags.length) {
+      for (const part of text
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean)) {
+        tags.push(part.replace(/^#/, ''));
+      }
+    }
+    return [...new Set(tags)];
+  }
+
+  _parseNotesSection(lines) {
+    const text = lines.join('\n').trim();
+    if (!text) return [];
+    return text
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+  }
+
+  _parseOtherFieldsSection(lines) {
+    const fields = {};
+    let i = 0;
+    while (i < lines.length) {
+      const m = lines[i].match(/^-\s+\*\*(.+?):\*\*\s?(.*)$/);
+      if (!m) {
+        i += 1;
+        continue;
+      }
+      const key = m[1].trim();
+      const inline = m[2].trim();
+      i += 1;
+
+      if (!inline && /^\s*```/.test(lines[i] || '')) {
+        // Fenced ```json block → the verbatim {type, value} envelope.
+        i += 1; // opening fence
+        const json = [];
+        while (i < lines.length && !/^\s*```/.test(lines[i])) json.push(lines[i++]);
+        if (i < lines.length) i += 1; // closing fence
+        try {
+          fields[key] = this._normalizeField(JSON.parse(json.join('\n')));
+        } catch {
+          fields[key] = { type: 'string', value: json.join('\n') };
+        }
+        continue;
+      }
+
+      if (!inline && /^\s{2,}-\s+/.test(lines[i] || '')) {
+        // Sub-bullet list.
+        const items = [];
+        while (i < lines.length && /^\s{2,}-\s+/.test(lines[i])) {
+          items.push(lines[i].replace(/^\s{2,}-\s+/, '').trim());
+          i += 1;
+        }
+        fields[key] = { type: 'list', value: items.map((v) => this._coerceScalar(v)) };
+        continue;
+      }
+
+      fields[key] = { type: this._inferScalarType(inline), value: this._coerceScalar(inline) };
+    }
+    return fields;
+  }
+
+  _normalizeField(parsed) {
+    if (parsed && typeof parsed === 'object' && 'type' in parsed && 'value' in parsed)
+      return parsed;
+    return { type: Array.isArray(parsed) ? 'list' : typeof parsed, value: parsed };
+  }
+
+  _inferScalarType(raw) {
+    if (/^(true|false)$/i.test(raw)) return 'boolean';
+    if (/^-?\d+(?:\.\d+)?$/.test(raw)) return 'number';
+    return 'string';
+  }
+
+  _coerceScalar(raw) {
+    if (/^true$/i.test(raw)) return true;
+    if (/^false$/i.test(raw)) return false;
+    if (/^-?\d+(?:\.\d+)?$/.test(raw)) return Number(raw);
+    return raw;
+  }
+
+  // ── Serialize ──────────────────────────────────────────────────
+
   serialize(contacts, ids = null) {
     const selectedIds = ids ? new Set(ids) : null;
-    const selected = (contacts || []).filter(
-      (contact) => !selectedIds || selectedIds.has(contact.id),
-    );
+    const selected = (contacts || []).filter((c) => !selectedIds || selectedIds.has(c.id));
     if (selected.length === 0) return '';
-    const docs = selected.map((contact) => this._serializeContact(contact));
-    if (docs.length === 1) return `${docs[0]}\n`;
-    return `${docs.map((doc) => `${this.bundleDelimiter}\n\n${doc}`).join('\n\n')}\n`;
+    return `${selected.map((c) => this._serializeContact(c)).join('\n\n')}\n`;
   }
 
   exportBlob(contacts, ids = null) {
@@ -72,122 +454,14 @@ export class MarkdownAdapter {
     return new Blob([content], { type: this.mimeType });
   }
 
-  _splitDocuments(text) {
-    const source = String(text || '').replace(/^\uFEFF/, '');
-    if (!source.includes(this.bundleDelimiter)) return [source];
-    return source
-      .split(this.bundleDelimiter)
-      .map((part) => part.trim())
-      .filter(Boolean);
-  }
-
-  _parseDocument(text) {
-    const source = String(text || '').trim();
-    const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n)?([\s\S]*)$/);
-    if (!match) return null;
-    return {
-      data: this._parseYaml(match[1]),
-      body: match[2] || '',
-    };
-  }
-
-  _contactFromDocument(data, body, source, idContext = null) {
-    // Document-level keys handled explicitly; the rest of the standard contact
-    // shape comes from the single ContactRecord field registry.
-    const known = new Set([
-      'constellation',
-      'id',
-      'uid',
-      'fields',
-      ...ContactRecord.STANDARD_FIELDS.map((field) => field.key),
-    ]);
-    const customFields = this._normalizeFields(data.fields || {});
-    for (const [key, value] of Object.entries(data)) {
-      if (!known.has(key)) customFields[key] = this._typedField(value);
-    }
-    const bodyText = String(body || '').trimEnd();
-    if (bodyText) {
-      customFields.markdown_body = { type: 'markdown', value: bodyText };
-    }
-
-    const fn = String(data.fn || data.name?.given || data.uid || 'Markdown Contact');
-    const uid = data.uid || null;
-
-    // Registry-driven so a new STANDARD_FIELD is picked up automatically (no
-    // hand-maintained literal that silently drops fields). Arrays go through
-    // _array, the name object is shape-merged, scalars copy through with defaults.
-    const contact = ContactRecord.createEmptyContact();
-    for (const { key, default: makeDefault } of ContactRecord.STANDARD_FIELDS) {
-      const def = makeDefault();
-      if (Array.isArray(def)) contact[key] = this._array(data[key]);
-      else if (def && typeof def === 'object') contact[key] = { ...def, ...(data[key] || {}) };
-      else if (data[key] !== undefined && data[key] !== null) contact[key] = data[key];
-    }
-    contact.id = this._resolveId(data.id, { uid, fn }, idContext);
-    contact.uid = uid;
-    contact.fn = fn;
-    // Notes come from the frontmatter `notes:` list (set by the loop above); the
-    // body is the free-form markdown_body custom field, kept separate so notes
-    // aren't duplicated across both.
-    contact.photo = this._resolveImportedPhoto(data.photo, source.photoMap);
-    // Transient marker: a photo filename was referenced but no matching sibling
-    // image was provided. The controller counts these to warn the user, then
-    // strips the flag (so it never reaches the model/persistence).
-    contact._photoUnresolved =
-      !contact.photo &&
-      typeof data.photo === 'string' &&
-      data.photo.length > 0 &&
-      !data.photo.startsWith('data:');
-    contact.customFields = customFields;
-    contact.rawVCard = '';
-
-    // Hashtags can appear in the notes list or the free-form markdown body.
-    contact.noteTags = this._extractHashtags([...(contact.notes || []), bodyText].filter(Boolean));
-    if (!contact.tags.length && contact.isCompany) contact.tags = ['company'];
-    ContactRecord.refreshLegacyContact(contact, {
-      format: this.id,
-      raw: source.raw || '',
-      index: source.index,
-    });
-    return contact;
-  }
-
-  _serializeContact(contact, options = {}) {
-    const fields = { ...(contact.customFields || contact.record?.fields || {}) };
-    // Notes live in the frontmatter `notes:` list (preserving multiple notes);
-    // the document body is reserved for the free-form markdown_body custom field
-    // only — so notes aren't duplicated into both the body and frontmatter.
-    const body = fields.markdown_body?.value || '';
-    delete fields.markdown_body;
-
-    // Registry-driven: every STANDARD_FIELD is emitted, so new fields aren't
-    // silently dropped on export.
-    const data = { constellation: 1, id: contact.id || '', uid: contact.uid || null };
-    for (const { key, default: makeDefault } of ContactRecord.STANDARD_FIELDS) {
-      data[key] = contact[key] ?? makeDefault();
-    }
-    // photoOverride (a filename) is used when exporting a bundle that writes the
-    // image to a sibling file; otherwise the photo is embedded inline.
-    data.photo = options.photoOverride || contact.photo || null;
-    data.fields = fields;
-
-    const frontmatter = this._stringifyYaml(this._dropEmpty(data));
-    return `---\n${frontmatter}---\n${String(body || '').trimEnd()}`;
-  }
-
   /**
-   * Serialize the selected contacts to one Markdown document, but externalize
-   * embedded photos: each photo becomes a human-readable, unique image filename
-   * referenced from the frontmatter, returned alongside the markdown for the
-   * caller to bundle (e.g. into a .zip). Contacts without a photo are unaffected.
-   *
-   * @returns {{ markdown: string, images: Array<{name: string, dataUrl: string}> }}
+   * Serialize the selected contacts to one Markdown document, externalizing each
+   * embedded photo to a sibling image filename referenced from the contact (so the
+   * markdown stays clean). Returns { markdown, images } for the caller to bundle.
    */
   serializeBundle(contacts, ids = null) {
     const selectedIds = ids ? new Set(ids) : null;
-    const selected = (contacts || []).filter(
-      (contact) => !selectedIds || selectedIds.has(contact.id),
-    );
+    const selected = (contacts || []).filter((c) => !selectedIds || selectedIds.has(c.id));
     if (selected.length === 0) return { markdown: '', images: [] };
 
     const usedNames = new Set();
@@ -207,14 +481,162 @@ export class MarkdownAdapter {
       return this._serializeContact(contact, { photoOverride });
     });
 
-    const markdown =
-      docs.length === 1
-        ? `${docs[0]}\n`
-        : `${docs.map((doc) => `${this.bundleDelimiter}\n\n${doc}`).join('\n\n')}\n`;
-    return { markdown, images };
+    return { markdown: `${docs.join('\n\n')}\n`, images };
   }
 
-  // A base-64 data-URL photo → { ext, dataUrl }, or null if there's no embedded image.
+  _serializeContact(contact, options = {}) {
+    const lines = [`## ${contact.fn || 'Contact'}`, ''];
+
+    const name = contact.name || {};
+    const idBullets = [];
+    if (contact.uid) idBullets.push(['UID', contact.uid]);
+    for (const [label, key] of IDENTITY_FIELDS) {
+      if (key === 'uid') continue;
+      const value = key.startsWith('name.') ? name[key.slice(5)] : contact[key];
+      if (value) idBullets.push([label, value]);
+    }
+    if (contact.isCompany) idBullets.push(['Company', 'Yes']);
+    const photoVal =
+      options.photoOverride || (typeof contact.photo === 'string' ? contact.photo : '');
+    if (photoVal) idBullets.push(['Photo', photoVal]);
+    for (const [label, value] of idBullets) lines.push(`- **${label}:** ${value}`);
+
+    this._emitMethodSection(lines, 'Email', 'email', contact.emails, (e) => e.value);
+    this._emitMethodSection(lines, 'Phone', 'phone', contact.phones, (e) => e.value);
+    this._emitMethodSection(lines, 'Website', 'url', contact.urls, (e) =>
+      typeof e === 'string' ? e : e.value,
+    );
+    this._emitAddressSection(lines, contact.addresses);
+    this._emitImSection(lines, contact.ims);
+    this._emitSocialSection(lines, contact.socialProfiles);
+    this._emitDatesSection(lines, contact);
+    this._emitRelationshipsSection(lines, contact.related);
+    this._emitTagsSection(lines, contact.tags);
+    this._emitNotesSection(lines, contact.notes);
+    this._emitOtherFieldsSection(lines, contact.customFields);
+
+    return lines.join('\n').replace(/\n+$/, '');
+  }
+
+  _emitMethodSection(lines, heading, kind, entries, getValue) {
+    const items = [];
+    for (const e of entries || []) {
+      const value = getValue(e);
+      if (!value) continue;
+      const entry = typeof e === 'string' ? { value: e, types: [], label: '' } : e;
+      const label = typesToLabel(kind, entry.types || [], entry.label || '') || 'Other';
+      items.push(`- **${label}:** ${value}`);
+    }
+    if (items.length) lines.push('', `### ${heading}`, ...items);
+  }
+
+  _emitAddressSection(lines, addresses) {
+    const addrs = (addresses || []).filter(
+      (a) => a && (a.street || a.city || a.state || a.zip || a.country),
+    );
+    if (!addrs.length) return;
+    lines.push('', '### Address');
+    for (const a of addrs) {
+      const label = typesToLabel('address', a.types || [], a.label || '') || 'Other';
+      lines.push(`- **${label}:**`);
+      if (a.street) lines.push(`  ${a.street}`);
+      const cityLine = [a.city, [a.state, a.zip].filter(Boolean).join(' ')]
+        .filter(Boolean)
+        .join(', ');
+      if (cityLine) lines.push(`  ${cityLine}`);
+      if (a.country) lines.push(`  ${a.country}`);
+    }
+  }
+
+  _emitImSection(lines, ims) {
+    const items = [];
+    for (const im of ims || []) {
+      if (!im || !im.value) continue;
+      const label = im.service || im.label || 'IM';
+      items.push(`- **${label}:** ${this._stripScheme(im.value)}`);
+    }
+    if (items.length) lines.push('', '### Instant Messages', ...items);
+  }
+
+  _emitSocialSection(lines, profiles) {
+    const items = [];
+    for (const sp of profiles || []) {
+      if (!sp || !sp.url) continue;
+      const label = sp.service || sp.label || 'Profile';
+      const value = /^https?:/i.test(sp.url) ? sp.url : this._stripScheme(sp.url) || sp.url;
+      items.push(`- **${label}:** ${value}`);
+    }
+    if (items.length) lines.push('', '### Social Profiles', ...items);
+  }
+
+  _emitDatesSection(lines, contact) {
+    const items = [];
+    if (contact.birthday) items.push(`- **Birthday:** ${contact.birthday}`);
+    if (contact.anniversary) items.push(`- **Anniversary:** ${contact.anniversary}`);
+    if (contact.altBirthday) items.push(`- **Alternate Birthday:** ${contact.altBirthday}`);
+    for (const d of contact.dates || []) {
+      if (d && d.value) items.push(`- **${d.label || 'Date'}:** ${d.value}`);
+    }
+    if (items.length) lines.push('', '### Dates', ...items);
+  }
+
+  _emitRelationshipsSection(lines, related) {
+    const items = [];
+    for (const rel of related || []) {
+      if (!rel || !rel.name) continue;
+      items.push(`- **${RelationshipTaxonomy.label(rel.type)}:** ${rel.name}`);
+    }
+    if (items.length) lines.push('', '### Relationships', ...items);
+  }
+
+  _emitTagsSection(lines, tags) {
+    const derived = new Set(['company', 'virtual', 'other']);
+    const user = (tags || []).filter((t) => t && !derived.has(t));
+    if (user.length) lines.push('', '### Tags', user.map((t) => `#${t}`).join(', '));
+  }
+
+  _emitNotesSection(lines, notes) {
+    const text = (notes || []).filter(Boolean).join('\n\n').trim();
+    if (text) lines.push('', '### Notes', text);
+  }
+
+  _emitOtherFieldsSection(lines, customFields) {
+    const entries = Object.entries(customFields || {}).filter(([key]) => key !== 'markdown_body');
+    if (!entries.length) return;
+    const body = [];
+    for (const [key, raw] of entries) {
+      const field = this._normalizeField(raw);
+      const value = field.value;
+      if (Array.isArray(value) && value.every((v) => v == null || typeof v !== 'object')) {
+        body.push(`- **${key}:**`);
+        for (const item of value) body.push(`  - ${item}`);
+      } else if (value != null && typeof value === 'object') {
+        // Nested/complex → a visible, verbatim JSON block.
+        body.push(`- **${key}:**`);
+        body.push('  ```json');
+        for (const l of JSON.stringify(field, null, 2).split('\n')) body.push(`  ${l}`);
+        body.push('  ```');
+      } else {
+        body.push(`- **${key}:** ${this._formatScalarValue(value)}`);
+      }
+    }
+    if (body.length) lines.push('', '### Other Fields', ...body);
+  }
+
+  _formatScalarValue(value) {
+    if (value == null) return '';
+    return String(value);
+  }
+
+  _stripScheme(value) {
+    const str = String(value || '');
+    const m = str.match(/^([a-z][a-z0-9.+-]*:)(.*)$/i);
+    if (!m || /^https?:/i.test(m[1])) return str;
+    return m[2];
+  }
+
+  // ── Shared helpers (unchanged behavior) ────────────────────────
+
   _photoImage(contact) {
     const photo = contact?.photo;
     if (typeof photo !== 'string' || !photo.startsWith('data:image/')) return null;
@@ -224,7 +646,6 @@ export class MarkdownAdapter {
     return { ext, dataUrl: photo };
   }
 
-  // Human-readable, filesystem-safe slug from the display name (or uid).
   _slugFor(contact) {
     const base = String(contact?.fn || contact?.uid || 'contact')
       .normalize('NFKD')
@@ -235,14 +656,6 @@ export class MarkdownAdapter {
     return base || 'contact';
   }
 
-  // Embedded data URLs are used as-is; an externalized filename reference (from a
-  // bundle export, with no inline data) is dropped rather than rendered broken.
-  /**
-   * Resolve a frontmatter `photo` value to a data URL. An inline data: URL is used
-   * as-is; a bare filename (how Markdown export externalizes photos) is looked up
-   * in the photoMap built from sibling image files the user selected alongside the
-   * .md (case-insensitive). Unresolved → null (no photo, not an error).
-   */
   _resolveImportedPhoto(photo, photoMap = null) {
     if (typeof photo !== 'string' || !photo) return null;
     if (photo.startsWith('data:')) return photo;
@@ -253,228 +666,6 @@ export class MarkdownAdapter {
     return null;
   }
 
-  _parseYaml(text) {
-    const lines = String(text || '').split(/\r?\n/);
-    const parsed = this._parseBlock(lines, 0, 0);
-    return parsed.value && !Array.isArray(parsed.value) ? parsed.value : {};
-  }
-
-  _parseBlock(lines, start, indent) {
-    let i = this._skipEmpty(lines, start);
-    if (i >= lines.length) return { value: {}, next: i };
-    const currentIndent = this._indent(lines[i]);
-    if (currentIndent < indent) return { value: {}, next: i };
-    return lines[i].slice(currentIndent).startsWith('- ')
-      ? this._parseSeq(lines, i, currentIndent)
-      : this._parseMap(lines, i, currentIndent);
-  }
-
-  _parseMap(lines, start, indent) {
-    const obj = {};
-    let i = start;
-    while (i < lines.length) {
-      i = this._skipEmpty(lines, i);
-      if (i >= lines.length || this._indent(lines[i]) < indent) break;
-      if (this._indent(lines[i]) > indent) break;
-      const trimmed = lines[i].slice(indent);
-      if (trimmed.startsWith('- ')) break;
-      const match = trimmed.match(/^([^:]+):(.*)$/);
-      if (!match) {
-        i += 1;
-        continue;
-      }
-      const key = match[1].trim();
-      const rest = match[2].trim();
-      if (rest) {
-        obj[key] = this._parseScalar(rest);
-        i += 1;
-      } else {
-        const nested = this._parseBlock(lines, i + 1, indent + 2);
-        obj[key] = nested.value;
-        i = nested.next;
-      }
-    }
-    return { value: obj, next: i };
-  }
-
-  _parseSeq(lines, start, indent) {
-    const arr = [];
-    let i = start;
-    while (i < lines.length) {
-      i = this._skipEmpty(lines, i);
-      if (i >= lines.length || this._indent(lines[i]) < indent) break;
-      if (this._indent(lines[i]) !== indent) break;
-      const trimmed = lines[i].slice(indent);
-      if (!trimmed.startsWith('- ')) break;
-      const rest = trimmed.slice(2).trim();
-      if (!rest) {
-        const nested = this._parseBlock(lines, i + 1, indent + 2);
-        arr.push(nested.value);
-        i = nested.next;
-        continue;
-      }
-      const mapEntry = rest.match(/^([^:]+):(.*)$/);
-      if (mapEntry) {
-        const obj = {};
-        const key = mapEntry[1].trim();
-        const value = mapEntry[2].trim();
-        if (value) {
-          obj[key] = this._parseScalar(value);
-          const nested = this._parseMap(lines, i + 1, indent + 2);
-          arr.push({ ...obj, ...nested.value });
-          i = nested.next;
-        } else {
-          const nestedValue = this._parseBlock(lines, i + 1, indent + 4);
-          obj[key] = nestedValue.value;
-          const nestedMap = this._parseMap(lines, nestedValue.next, indent + 2);
-          arr.push({ ...obj, ...nestedMap.value });
-          i = nestedMap.next;
-        }
-      } else {
-        arr.push(this._parseScalar(rest));
-        i += 1;
-      }
-    }
-    return { value: arr, next: i };
-  }
-
-  _stringifyYaml(value, indent = 0) {
-    const pad = ' '.repeat(indent);
-    if (Array.isArray(value)) {
-      if (value.length === 0) return `${pad}[]\n`;
-      return value
-        .map((item) => {
-          if (item && typeof item === 'object' && !Array.isArray(item)) {
-            const keys = Object.keys(item);
-            if (keys.length === 0) return `${pad}- {}\n`;
-            const [first, ...rest] = keys;
-            let out = `${pad}- ${first}: ${this._inlineOrNested(item[first], indent + 4)}`;
-            for (const key of rest)
-              out += `${pad}  ${key}: ${this._inlineOrNested(item[key], indent + 4)}`;
-            return out;
-          }
-          return `${pad}- ${this._formatScalar(item)}\n`;
-        })
-        .join('');
-    }
-    let out = '';
-    for (const [key, item] of Object.entries(value || {})) {
-      out += `${pad}${key}: ${this._inlineOrNested(item, indent + 2)}`;
-    }
-    return out;
-  }
-
-  _inlineOrNested(value, indent) {
-    if (Array.isArray(value)) {
-      if (value.length === 0) return '[]\n';
-      return `\n${this._stringifyYaml(value, indent)}`;
-    }
-    if (value && typeof value === 'object') {
-      if (Object.keys(value).length === 0) return '{}\n';
-      return `\n${this._stringifyYaml(value, indent)}`;
-    }
-    return `${this._formatScalar(value)}\n`;
-  }
-
-  _formatScalar(value) {
-    if (value == null) return 'null';
-    if (typeof value === 'boolean' || typeof value === 'number') return String(value);
-    const str = String(value);
-    if (/^-?\d+(?:\.\d+)?$/.test(str)) return JSON.stringify(str);
-    if (
-      /^[A-Za-z0-9_@./:+-]+(?: [A-Za-z0-9_@./:+-]+)*$/.test(str) &&
-      !/^(true|false|null)$/i.test(str)
-    ) {
-      return str;
-    }
-    return JSON.stringify(str);
-  }
-
-  _parseScalar(value) {
-    const raw = String(value || '').trim();
-    if (raw === '[]') return [];
-    if (raw === '{}') return {};
-    if (raw === 'null' || raw === '~') return null;
-    if (raw === 'true') return true;
-    if (raw === 'false') return false;
-    if (/^-?\d+(?:\.\d+)?$/.test(raw)) return Number(raw);
-    if (raw.startsWith('[') && raw.endsWith(']')) {
-      const inner = raw.slice(1, -1).trim();
-      if (!inner) return [];
-      return this._splitInline(inner).map((part) => this._parseScalar(part));
-    }
-    if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
-      try {
-        return JSON.parse(raw);
-      } catch {
-        return raw.slice(1, -1);
-      }
-    }
-    return raw;
-  }
-
-  _splitInline(value) {
-    const parts = [];
-    let current = '';
-    let quote = null;
-    for (let i = 0; i < value.length; i++) {
-      const ch = value[i];
-      if ((ch === '"' || ch === "'") && value[i - 1] !== '\\')
-        quote = quote === ch ? null : quote || ch;
-      if (ch === ',' && !quote) {
-        parts.push(current.trim());
-        current = '';
-      } else {
-        current += ch;
-      }
-    }
-    if (current.trim()) parts.push(current.trim());
-    return parts;
-  }
-
-  _dropEmpty(value, preserve = false) {
-    if (Array.isArray(value)) return value.map((item) => this._dropEmpty(item, preserve));
-    if (!value || typeof value !== 'object') return value;
-    const out = {};
-    for (const [key, item] of Object.entries(value)) {
-      const next = this._dropEmpty(item, preserve || key === 'fields');
-      if (!preserve) {
-        if (next == null || next === '') continue;
-        if (Array.isArray(next) && next.length === 0) continue;
-        if (typeof next === 'object' && !Array.isArray(next) && Object.keys(next).length === 0)
-          continue;
-      }
-      out[key] = next;
-    }
-    return out;
-  }
-
-  _normalizeFields(fields) {
-    const out = {};
-    for (const [key, value] of Object.entries(fields || {})) out[key] = this._typedField(value);
-    return out;
-  }
-
-  _typedField(value) {
-    if (
-      value &&
-      typeof value === 'object' &&
-      !Array.isArray(value) &&
-      'type' in value &&
-      'value' in value
-    ) {
-      return value;
-    }
-    return { type: this._typeOf(value), value };
-  }
-
-  _typeOf(value) {
-    if (Array.isArray(value)) return 'list';
-    if (value == null) return 'unknown';
-    if (typeof value === 'object') return 'object';
-    return typeof value;
-  }
-
   _array(value) {
     return Array.isArray(value) ? value : value ? [value] : [];
   }
@@ -483,24 +674,31 @@ export class MarkdownAdapter {
     return new VCFParser()._extractHashtags(notes);
   }
 
-  _skipEmpty(lines, index) {
-    let i = index;
-    while (i < lines.length && !String(lines[i]).trim()) i += 1;
-    return i;
+  _namePartsFromDisplayName(displayName) {
+    const parts = String(displayName || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (parts.length === 0)
+      return { family: '', given: '', additional: '', prefix: '', suffix: '' };
+    if (parts.length === 1) {
+      return { family: '', given: parts[0], additional: '', prefix: '', suffix: '' };
+    }
+    return {
+      family: parts[parts.length - 1],
+      given: parts[0],
+      additional: parts.slice(1, -1).join(' '),
+      prefix: '',
+      suffix: '',
+    };
   }
 
-  _indent(line) {
-    return String(line || '').match(/^ */)[0].length;
-  }
-
-  // Prefer an id stored in frontmatter (preserves Markdown round-trips); otherwise
-  // derive a deterministic id from UID/FN so reparses stay stable.
   _resolveId(providedId, basisContact, idContext) {
     if (providedId) {
       if (idContext) idContext.usedIds.add(providedId);
       return providedId;
     }
-    if (idContext && typeof ContactRecord !== 'undefined' && ContactRecord.assignStableId) {
+    if (idContext && ContactRecord.assignStableId) {
       return ContactRecord.assignStableId(basisContact, idContext.usedIds, idContext.basisCounts);
     }
     return this._generateId();

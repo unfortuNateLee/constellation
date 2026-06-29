@@ -4,6 +4,94 @@ import { loadBrowserClasses } from './helpers/load-app.js';
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
 
+test('Markdown round-trips a fully-populated contact across every field group', () => {
+  const { MarkdownAdapter } = loadBrowserClasses();
+  const md = new MarkdownAdapter();
+  const contact = {
+    id: 'c1',
+    uid: 'jane-doe',
+    fn: 'Jane Doe',
+    name: { given: 'Jane', family: 'Doe', additional: 'Q', prefix: 'Dr.', suffix: 'PhD' },
+    nickname: 'Janey',
+    org: 'Example Labs',
+    department: 'R&D',
+    title: 'Engineer',
+    emails: [
+      { value: 'jane@x.com', types: ['HOME'], label: '' },
+      { value: 'j@w.com', types: ['WORK', 'PREF'], label: '' },
+      { value: 'bat@x.com', types: [], label: 'Bat Phone' },
+    ],
+    phones: [
+      { value: '(555) 123-4567', types: ['IPHONE', 'CELL'], label: '' },
+      { value: '(555) 9', types: ['HOME', 'FAX'], label: '' },
+    ],
+    addresses: [
+      {
+        street: '123 Main Street',
+        city: 'Anytown',
+        state: 'AL',
+        zip: '12345',
+        country: 'USA',
+        types: ['HOME'],
+        label: '',
+      },
+    ],
+    urls: [{ value: 'https://jane.example.com', types: ['HOME'], label: '' }],
+    ims: [{ value: 'skype:jane.doe', service: 'Skype', types: [], label: '' }],
+    socialProfiles: [
+      { url: 'https://twitter.com/janedoe', service: 'Twitter', username: '', label: '' },
+    ],
+    birthday: '1990-01-01',
+    anniversary: '2015-06-20',
+    altBirthday: '0071-0815',
+    dates: [{ label: 'First met', value: '2018-03-12' }],
+    related: [
+      { name: 'John Smith', type: 'spouse' },
+      { name: 'Mary Doe', type: 'mother' },
+    ],
+    notes: ['Met at the conference. #vip', 'Loves hiking.'],
+    tags: ['vip', 'college'],
+    customFields: {
+      favorite_color: { type: 'string', value: '#3366cc' },
+      lucky: { type: 'list', value: ['7', '13'] },
+      profile: { type: 'object', value: { tier: 'gold', points: 14200 } },
+    },
+  };
+
+  const re = md.parse(md.serialize([contact]))[0];
+  assert.equal(re.fn, 'Jane Doe');
+  assert.equal(re.uid, 'jane-doe');
+  assert.deepEqual(plain(re.name), contact.name);
+  assert.equal(re.nickname, 'Janey');
+  assert.equal(re.department, 'R&D');
+  assert.deepEqual(plain(re.emails[2]), { value: 'bat@x.com', types: [], label: 'Bat Phone' });
+  assert.deepEqual(plain(re.emails[1].types), ['WORK', 'PREF']);
+  assert.deepEqual(plain(re.phones[1].types), ['HOME', 'FAX']); // "Home Fax"
+  assert.deepEqual(plain(re.addresses[0]), {
+    pobox: '',
+    ext: '',
+    street: '123 Main Street',
+    city: 'Anytown',
+    state: 'AL',
+    zip: '12345',
+    country: 'USA',
+    types: ['HOME'],
+    label: '',
+  });
+  assert.equal(re.ims[0].value, 'skype:jane.doe'); // scheme reconstructed from service
+  assert.equal(re.socialProfiles[0].url, 'https://twitter.com/janedoe');
+  assert.equal(re.birthday, '1990-01-01');
+  assert.equal(re.altBirthday, '0071-0815');
+  assert.deepEqual(plain(re.dates), [{ label: 'First met', value: '2018-03-12' }]);
+  assert.deepEqual(plain(re.related), [
+    { name: 'John Smith', type: 'spouse' },
+    { name: 'Mary Doe', type: 'mother' },
+  ]);
+  assert.deepEqual(plain(re.notes), ['Met at the conference. #vip', 'Loves hiking.']);
+  assert.deepEqual(plain(re.tags), ['vip', 'college']);
+  assert.deepEqual(plain(re.customFields.profile.value), { tier: 'gold', points: 14200 });
+});
+
 test('Markdown round-trips the newer standard fields (nickname, department, …)', () => {
   const { MarkdownAdapter } = loadBrowserClasses();
   const md = new MarkdownAdapter();
@@ -33,7 +121,7 @@ test('Markdown round-trips the newer standard fields (nickname, department, …)
   assert.equal(re.altBirthday, '0071-0815');
 });
 
-test('Markdown keeps notes in frontmatter (multiple notes preserved, not duplicated in body)', () => {
+test('Markdown preserves multiple notes (as blank-line-separated paragraphs)', () => {
   const { MarkdownAdapter } = loadBrowserClasses();
   const md = new MarkdownAdapter();
   const contact = { id: 'c1', fn: 'Multi Note', notes: ['First note', 'Second note'] };
@@ -45,7 +133,7 @@ test('Markdown keeps notes in frontmatter (multiple notes preserved, not duplica
 test('Markdown import resolves externalized photos from a sibling-image map', () => {
   const { MarkdownAdapter } = loadBrowserClasses();
   const md = new MarkdownAdapter();
-  const doc = ['---', 'fn: Photo Person', 'photo: photo-person.jpg', '---', ''].join('\n');
+  const doc = ['## Photo Person', '', '- **Photo:** photo-person.jpg', ''].join('\n');
   const dataUrl = 'data:image/jpeg;base64,/9j/AAAA';
 
   // Without the image map → photo unresolved (null), flagged for the warning.
@@ -59,7 +147,7 @@ test('Markdown import resolves externalized photos from a sibling-image map', ()
   assert.equal(withPhoto._photoUnresolved, false);
 
   // An inline data: URL still works and isn't treated as unresolved.
-  const inlineDoc = ['---', 'fn: Inline', `photo: ${dataUrl}`, '---', ''].join('\n');
+  const inlineDoc = ['## Inline', '', `- **Photo:** ${dataUrl}`, ''].join('\n');
   const [inline] = md.parse(inlineDoc);
   assert.equal(inline.photo, dataUrl);
   assert.equal(inline._photoUnresolved, false);

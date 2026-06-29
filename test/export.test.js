@@ -17,8 +17,8 @@ test('serializeBundle externalizes a photo to a filename + image entry', () => {
   assert.equal(images.length, 1);
   assert.equal(images[0].name, 'jane-doe.jpg'); // human-readable slug, jpeg → .jpg
   assert.equal(images[0].dataUrl, JPG);
-  // frontmatter references the file, not the inline data URL
-  assert.match(markdown, /photo: jane-doe\.jpg/);
+  // the document references the file, not the inline data URL
+  assert.match(markdown, /- \*\*Photo:\*\* jane-doe\.jpg/);
   assert.doesNotMatch(markdown, /data:image/);
 });
 
@@ -27,7 +27,7 @@ test('serializeBundle leaves photo-free contacts as a plain document', () => {
   const md = new MarkdownAdapter();
   const { markdown, images } = md.serializeBundle([contact({ fn: 'No Photo' })]);
   assert.equal(images.length, 0);
-  assert.match(markdown, /fn: No Photo/);
+  assert.match(markdown, /## No Photo/);
 });
 
 test('bundle image filenames are unique for duplicate names', () => {
@@ -64,9 +64,9 @@ test('import keeps embedded data-URL photos but drops externalized filename refs
   const { MarkdownAdapter } = loadBrowserClasses();
   const md = new MarkdownAdapter();
 
-  const embedded = md.parse(`---\nuid: a\nfn: Embedded\nphoto: ${JPG}\n---\nbody`)[0];
+  const embedded = md.parse(`## Embedded\n\n- **UID:** a\n- **Photo:** ${JPG}\n`)[0];
   assert.equal(embedded.photo, JPG);
 
-  const referenced = md.parse('---\nuid: b\nfn: Referenced\nphoto: embedded.jpg\n---\nbody')[0];
+  const referenced = md.parse('## Referenced\n\n- **UID:** b\n- **Photo:** embedded.jpg\n')[0];
   assert.equal(referenced.photo, null); // filename ref with no inline data → dropped (no broken image)
 });

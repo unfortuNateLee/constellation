@@ -2,6 +2,7 @@ import { ContactRelationshipApp } from './app.js';
 import { applyMixin } from './apply-mixin.js';
 import { RelationshipBuilder } from './relationship-builder.js';
 import { VCardUtils } from './vcard-utils.js';
+import { typeTaxonomy } from './contact-types.js';
 
 /**
  * Detail-panel editing: read-only/editable field rendering, per-field editors
@@ -1426,44 +1427,14 @@ class EditingMixin {
   }
 
   /**
-   * The user-facing standard TYPE set per kind, as ordered
-   * { value: <vCard TYPE>, label: <display> } pairs. Apple's `CELL` shows as
-   * "Mobile". Multi-type lines (e.g. an iPhone = IPHONE+CELL) are expressed by
-   * checking more than one box. Structural types (VOICE/INTERNET) and PREF are
-   * NOT listed here — they're preserved separately so a round-trip is exact.
+   * The user-facing standard TYPE set per kind ({ value, label } pairs) — from the
+   * shared taxonomy in contact-types.js so the type editor and the Markdown adapter
+   * stay in sync. Multi-type lines (e.g. iPhone = IPHONE+CELL) are expressed by
+   * checking more than one box; structural types (VOICE/INTERNET) and PREF are not
+   * listed here.
    */
   _typeTaxonomy(kind) {
-    const sets = {
-      phone: [
-        ['CELL', 'Mobile'],
-        ['IPHONE', 'iPhone'],
-        ['APPLEWATCH', 'Apple Watch'],
-        ['HOME', 'Home'],
-        ['WORK', 'Work'],
-        ['MAIN', 'Main'],
-        ['FAX', 'Fax'],
-        ['PAGER', 'Pager'],
-        ['OTHER', 'Other'],
-      ],
-      email: [
-        ['HOME', 'Home'],
-        ['WORK', 'Work'],
-        ['SCHOOL', 'School'],
-        ['ICLOUD', 'iCloud'],
-        ['OTHER', 'Other'],
-      ],
-      url: [
-        ['HOME', 'Home'],
-        ['WORK', 'Work'],
-        ['OTHER', 'Other'],
-      ],
-      address: [
-        ['HOME', 'Home'],
-        ['WORK', 'Work'],
-        ['OTHER', 'Other'],
-      ],
-    };
-    return (sets[kind] || sets.address).map(([value, label]) => ({ value, label }));
+    return typeTaxonomy(kind);
   }
 
   /**

@@ -1,95 +1,83 @@
-<!-- CONSTELLATION:CONTACT -->
+## Katherine Johnson
 
----
-constellation: 1
-uid: md-katherine-johnson
-fn: Katherine Johnson
-name:
-  given: Katherine
-  family: Johnson
-title: Mathematician
-org: NASA
-emails:
-  - value: katherine@example.test
-    types: [WORK, INTERNET, PREF]
-phones:
-  - value: "+1-555-0180"
-    types: [WORK, VOICE]
-addresses:
-  - street: Langley Research Center
-    city: Hampton
-    state: VA
-    zip: "23666"
-    country: USA
-    types: [WORK]
-related:
-  - uid: md-dorothy-vaughan
-    name: Dorothy Vaughan
-    type: colleague
-fields:
-  mission_count:
-    type: number
-    value: 3
-  mission_roles:
-    type: list
-    value:
-      - Mercury
-      - Apollo
-      - Space Shuttle
-  nested_calculation_record:
-    type: object
-    value:
-      method: orbital mechanics
-      verified_by:
-        - hand calculation
-        - machine comparison
-      confidence: 1
----
-# Notes
+- **UID:** md-katherine-johnson
+- **First Name:** Katherine
+- **Last Name:** Johnson
+- **Organization:** NASA
+- **Title:** Mathematician
 
+### Email
+- **Work, Preferred:** katherine@example.test
+
+### Phone
+- **Work:** +1-555-0180
+
+### Address
+- **Work:**
+  Langley Research Center
+  Hampton, VA 23666
+  USA
+
+### Relationships
+- **Colleague:** Dorothy Vaughan
+
+### Notes
 Trajectory calculations and careful verification. #space
 
 The body contains mission context that should not disappear.
 
-<!-- CONSTELLATION:CONTACT -->
+### Other Fields
+- **mission_count:** 3
+- **mission_roles:**
+  - Mercury
+  - Apollo
+  - Space Shuttle
+- **nested_calculation_record:**
+  ```json
+  {
+    "type": "object",
+    "value": {
+      "method": "orbital mechanics",
+      "verified_by": ["hand calculation", "machine comparison"],
+      "confidence": 1
+    }
+  }
+  ```
 
----
-constellation: 1
-uid: md-dorothy-vaughan
-fn: Dorothy Vaughan
-name:
-  given: Dorothy
-  family: Vaughan
-title: Supervisor
-org: NASA
-emails:
-  - value: dorothy@example.test
-    types: [WORK, INTERNET]
-related:
-  - uid: md-katherine-johnson
-    name: Katherine Johnson
-    type: colleague
-fields:
-  programming_language:
-    type: string
-    value: FORTRAN
-  training_groups:
-    type: list
-    value:
-      - West Area Computing
-      - Programming transition
-  nested_leadership_record:
-    type: object
-    value:
-      teams:
-        - name: West Area Computing
-          role: supervisor
-        - name: Analysis and Computation Division
-          role: specialist
-      preserves_nested_arrays: true
----
-# Notes
+## Dorothy Vaughan
 
+- **UID:** md-dorothy-vaughan
+- **First Name:** Dorothy
+- **Last Name:** Vaughan
+- **Organization:** NASA
+- **Title:** Supervisor
+
+### Email
+- **Work:** dorothy@example.test
+
+### Relationships
+- **Colleague:** Katherine Johnson
+
+### Notes
 Leader, teacher, and systems thinker. #space
 
 Includes a second bundled Markdown body for bundle round-trip tests.
+
+### Other Fields
+- **programming_language:** FORTRAN
+- **training_groups:**
+  - West Area Computing
+  - Programming transition
+- **nested_leadership_record:**
+  ```json
+  {
+    "type": "object",
+    "value": {
+      "teams": [
+        { "name": "West Area Computing", "role": "supervisor" },
+        { "name": "Analysis and Computation Division", "role": "specialist" }
+      ],
+      "preserves_nested_arrays": true
+    }
+  }
+  ```

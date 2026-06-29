@@ -97,38 +97,31 @@ test('vCard adapter imports and serializes through the format boundary', () => {
   assert.match(serialized, /\r\n$/);
 });
 
-test('Markdown adapter preserves standard fields, arbitrary fields, and body content', () => {
+test('Markdown adapter preserves standard fields, custom fields, and notes', () => {
   const { MarkdownAdapter } = loadBrowserClasses();
   const adapter = new MarkdownAdapter();
-  const markdown = `---
-constellation: 1
-uid: jane-md
-fn: Jane Markdown
-name:
-  given: Jane
-  family: Markdown
-org: Example Labs
-emails:
-  - value: jane@example.com
-    types: [HOME, INTERNET]
-related:
-  - uid: john-md
-    name: John Markdown
-    type: spouse
-fields:
-  favorite_color:
-    type: color
-    value: "#3366cc"
-  custom_history:
-    type: list
-    value:
-      - met at conference
-      - invited to dinner
-emergency_priority: 2
----
-# Notes
+  const markdown = `## Jane Markdown
 
+- **UID:** jane-md
+- **First Name:** Jane
+- **Last Name:** Markdown
+- **Organization:** Example Labs
+
+### Email
+- **Home:** jane@example.com
+
+### Relationships
+- **Spouse:** John Markdown
+
+### Notes
 Markdown body #neighbor
+
+### Other Fields
+- **favorite_color:** #3366cc
+- **emergency_priority:** 2
+- **custom_history:**
+  - met at conference
+  - invited to dinner
 `;
 
   const contacts = adapter.parse(markdown);
@@ -138,44 +131,47 @@ Markdown body #neighbor
   assert.equal(adapter.canImportFile({ name: 'contact.vcf' }), false);
   assert.equal(jane.uid, 'jane-md');
   assert.equal(jane.name.family, 'Markdown');
-  assert.deepEqual(plain(jane.emails[0].types), ['HOME', 'INTERNET']);
-  assert.deepEqual(plain(jane.customFields.favorite_color), { type: 'color', value: '#3366cc' });
+  assert.deepEqual(plain(jane.emails[0].types), ['HOME']);
+  assert.equal(jane.related[0].type, 'spouse');
+  // A cosmetic type hint (color) simplifies to string; the value is preserved.
+  assert.deepEqual(plain(jane.customFields.favorite_color), { type: 'string', value: '#3366cc' });
   assert.deepEqual(plain(jane.customFields.emergency_priority), { type: 'number', value: 2 });
-  assert.equal(jane.customFields.markdown_body.type, 'markdown');
-  assert.match(jane.customFields.markdown_body.value, /Markdown body #neighbor/);
+  assert.deepEqual(plain(jane.customFields.custom_history), {
+    type: 'list',
+    value: ['met at conference', 'invited to dinner'],
+  });
+  assert.deepEqual(plain(jane.notes), ['Markdown body #neighbor']);
   assert.deepEqual(plain(jane.noteTags), ['neighbor']);
 
-  const exported = adapter.serialize(contacts);
-  const reparsed = adapter.parse(exported)[0];
+  const reparsed = adapter.parse(adapter.serialize(contacts))[0];
   assert.equal(reparsed.uid, 'jane-md');
   assert.equal(reparsed.customFields.favorite_color.value, '#3366cc');
   assert.equal(reparsed.customFields.emergency_priority.value, 2);
-  assert.match(reparsed.customFields.markdown_body.value, /Markdown body #neighbor/);
+  assert.deepEqual(plain(reparsed.notes), ['Markdown body #neighbor']);
 });
 
 test('Markdown adapter supports bundle files with multiple contacts', () => {
   const { MarkdownAdapter } = loadBrowserClasses();
   const adapter = new MarkdownAdapter();
-  const contacts = adapter.parse(`${adapter.bundleDelimiter}
+  const contacts = adapter.parse(`## Contact One
 
----
-uid: one
-fn: Contact One
----
+- **UID:** one
+
+### Notes
 One body
 
-${adapter.bundleDelimiter}
+## Contact Two
 
----
-uid: two
-fn: Contact Two
----
+- **UID:** two
+
+### Notes
 Two body
 `);
 
   assert.deepEqual(plain(contacts.map((contact) => contact.uid)), ['one', 'two']);
   const bundle = adapter.serialize(contacts);
-  assert.match(bundle, /CONSTELLATION:CONTACT/);
+  assert.match(bundle, /^## Contact One/m);
+  assert.match(bundle, /^## Contact Two/m);
   assert.equal(adapter.parse(bundle).length, 2);
 });
 
@@ -195,7 +191,7 @@ test('Markdown sample files import as separate and bundled contacts', () => {
     'md-dorothy-vaughan',
   ]);
   assert.equal(contacts[0].customFields.favorite_color.value, '#6a5acd');
-  assert.equal(contacts[0].customFields.source_metadata.value.empty_marker, '');
+  assert.equal(contacts[0].customFields.nested_profile.value.empty_string, '');
   assert.equal(contacts[0].customFields.nested_profile.value.optional_note, null);
   assert.equal(contacts[1].customFields.custom_clearance_level.value, 'historical');
   assert.equal(contacts[1].customFields.nested_service_record.value.awards.compiler.verified, true);
@@ -204,7 +200,7 @@ test('Markdown sample files import as separate and bundled contacts', () => {
   assert.equal(contacts[3].customFields.nested_leadership_record.value.teams[0].role, 'supervisor');
 });
 
-test('Markdown import, export, and reimport preserves unknown fields, nested objects, and body', () => {
+test('Markdown import, export, and reimport preserves custom fields, nested objects, and notes', () => {
   const { MarkdownAdapter } = loadBrowserClasses();
   const adapter = new MarkdownAdapter();
   const contacts = [
@@ -220,13 +216,6 @@ test('Markdown import, export, and reimport preserves unknown fields, nested obj
   const dorothy = byUid(reparsed, 'md-dorothy-vaughan');
 
   assert.equal(reparsed.length, 4);
-  assert.equal(ada.customFields.confidence_score.value, 0.98);
-  assert.deepEqual(plain(ada.customFields.source_metadata.value), {
-    collection: 'sample-fixtures',
-    imported_by: 'phase-5-tests',
-    reviewed: true,
-    empty_marker: '',
-  });
   assert.deepEqual(plain(ada.customFields.nested_profile.value), {
     source: 'markdown-fixture',
     confidence: 0.92,
@@ -249,10 +238,10 @@ test('Markdown import, export, and reimport preserves unknown fields, nested obj
     'Analysis and Computation Division',
   );
   assert.match(
-    ada.customFields.markdown_body.value,
+    ada.notes.join('\n'),
     /Wrote notes intended to survive Markdown export and reimport/,
   );
-  assert.match(grace.customFields.markdown_body.value, /not just as plain notes/);
+  assert.match(grace.notes.join('\n'), /not just as plain notes/);
 });
 
 test('vCard to Markdown conversion preserves standard contact data', () => {
@@ -270,7 +259,8 @@ test('vCard to Markdown conversion preserves standard contact data', () => {
   assert.equal(roundTripped.org, jane.org);
   assert.equal(roundTripped.title, jane.title);
   assert.equal(roundTripped.emails[0].value, jane.emails[0].value);
-  assert.deepEqual(plain(roundTripped.emails[0].types), plain(jane.emails[0].types));
+  // Markdown shows human type labels (Apple-internal INTERNET/VOICE are not kept).
+  assert.deepEqual(plain(roundTripped.emails[0].types), ['HOME', 'PREF']);
   assert.equal(roundTripped.phones[0].value, jane.phones[0].value);
   assert.equal(roundTripped.addresses[0].street, jane.addresses[0].street);
   assert.equal(roundTripped.addresses[0].city, jane.addresses[0].city);
@@ -300,7 +290,7 @@ test('Markdown to vCard conversion preserves standard contact data', () => {
   assert.equal(roundTripped.org, ada.org);
   assert.equal(roundTripped.title, ada.title);
   assert.equal(roundTripped.emails[0].value, ada.emails[0].value);
-  assert.deepEqual(plain(roundTripped.emails[0].types), plain(ada.emails[0].types));
+  assert.ok(roundTripped.emails[0].types.includes('HOME'));
   assert.equal(roundTripped.phones[0].value, ada.phones[0].value);
   assert.equal(roundTripped.addresses[0].street, ada.addresses[0].street);
   assert.equal(roundTripped.addresses[0].city, ada.addresses[0].city);
