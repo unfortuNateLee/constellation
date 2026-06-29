@@ -572,7 +572,7 @@ export class ContactRelationshipApp {
     }
   }
 
-  _rebuildGraph() {
+  _rebuildGraph(opts = {}) {
     if (!this.builder) return;
     this._reindexContacts();
 
@@ -602,19 +602,37 @@ export class ContactRelationshipApp {
     this._syncGraphModeControls();
     this._syncFocusMeButton();
 
-    // Render graph
-    this.graph.render(data.nodes, data.edges, { mode: this._graphMode, hulls: data.hulls || [] });
-    this.graph.setFilterCategories(Array.from(this._activeFilters));
+    // Only paint the (D3) graph when it's the visible view — rendering a hidden
+    // SVG is wasted work. Defer until the user switches to it (see
+    // _applyMainViewMode), tracked by _graphStale.
+    if (this._mainViewMode === 'graph') {
+      this.graph.render(data.nodes, data.edges, { mode: this._graphMode, hulls: data.hulls || [] });
+      this.graph.setFilterCategories(Array.from(this._activeFilters));
+      this._graphStale = false;
+    } else {
+      this._graphStale = true;
+    }
 
-    // Render contact list
+    // Render contact list (table re-render is skippable for surgical updates).
     this._renderContactList();
-    this._renderTableMode();
+    if (!opts.skipTableRender) this._renderTableMode();
 
     if (priorSelectionId) {
       const selected = this._nodeById.get(priorSelectionId);
       if (selected) this._onNodeSelect(selected);
       else this._onNodeDeselect();
     }
+  }
+
+  /** Paint the graph from the current graphData if it was deferred while hidden. */
+  _renderGraphIfStale() {
+    if (!this._graphStale || !this.graphData) return;
+    this.graph.render(this.graphData.nodes, this.graphData.edges, {
+      mode: this._graphMode,
+      hulls: this.graphData.hulls || [],
+    });
+    this.graph.setFilterCategories(Array.from(this._activeFilters));
+    this._graphStale = false;
   }
 
   /** Enable "Focus on Me" only when a "me" contact is chosen and in the graph. */

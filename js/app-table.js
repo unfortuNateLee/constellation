@@ -22,6 +22,7 @@ class TableMixin {
     graphBtn?.classList.toggle('active', !isTable);
     tableBtn?.classList.toggle('active', isTable);
     if (isTable) this._renderTableMode();
+    else this._renderGraphIfStale();
     this._scheduleGraphResize();
   }
 
@@ -817,7 +818,8 @@ class TableMixin {
     // cluster), org (org cluster + list sub-line), and relationships (edges) do;
     // notes do only when their #hashtags change (those feed clusters + filters).
     // Everything else is "graph-neutral": regenerate the card + sync the node.
-    let needsFullRebuild = field === 'fn' || field === 'org' || field === 'related';
+    const needsFullRebuild = field === 'fn' || field === 'org' || field === 'related';
+    let hashtagsChanged = false;
 
     if (field === 'fn') {
       contact.fn = value.trim();
@@ -855,12 +857,19 @@ class TableMixin {
       contact.notes = this._splitNotes(value);
       contact.noteTags = this.parser._extractHashtags(contact.notes);
       contact.tags = this.parser._inferTags(contact);
-      if ((contact.noteTags || []).join('') !== prevTags) needsFullRebuild = true;
+      if ((contact.noteTags || []).join('') !== prevTags) hashtagsChanged = true;
     }
 
     this._rewriteEditableFields(contact);
 
-    if (needsFullRebuild) {
+    if (hashtagsChanged) {
+      // Hashtags feed clusters + the tag filters/legend/list colors, but not the
+      // relationship index, sort order, or other rows. Reuse the builder (names
+      // unchanged), refresh the tag-dependent UI, and re-render ONLY this row
+      // instead of the whole table (the dominant cost on large sets).
+      this._rebuildGraph({ skipTableRender: true });
+      this._refreshTableRow(contactId);
+    } else if (needsFullRebuild) {
       this.builder = new RelationshipBuilder(this.contacts);
       this._rebuildGraph();
     } else {
@@ -870,6 +879,17 @@ class TableMixin {
       this._syncNodeFromContact(contact);
     }
     void this._persistSession();
+  }
+
+  /** Re-render a single contact's table row in place (cheap; used for surgical
+   *  updates like a hashtag change that only affects that row's Tags cell). */
+  _refreshTableRow(contactId) {
+    if (this._mainViewMode !== 'table') return;
+    const row = document.querySelector(`#contacts-table-body tr[data-id="${contactId}"]`);
+    const contact = this._contact(contactId);
+    if (!row || !contact) return;
+    row.innerHTML = '';
+    for (const col of this._tableColumns()) row.appendChild(col.render(contact));
   }
 
   _addContactFromTable() {
