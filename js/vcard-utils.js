@@ -3,6 +3,54 @@
  * Keeps parser and writer behavior aligned for escaped values, parameters, and folding.
  */
 export class VCardUtils {
+  /**
+   * Apple's predefined X-ABLabel tokens — the only labels Apple wraps in the
+   * `_$!<…>!$_` marker (it localizes them for display). Every other label is a
+   * user-custom label, which Apple writes (and expects) PLAIN. Comparison is
+   * case-insensitive; see formatXABLabel.
+   */
+  static APPLE_LABELS = new Set([
+    'home',
+    'work',
+    'other',
+    'school',
+    'mobile',
+    'main',
+    'pager',
+    'iphone',
+    'homepage',
+    'home page',
+    'anniversary',
+    // Relationship labels Apple localizes (used by the relationship taxonomy).
+    'mother',
+    'father',
+    'parent',
+    'brother',
+    'sister',
+    'child',
+    'son',
+    'daughter',
+    'friend',
+    'spouse',
+    'partner',
+    'assistant',
+    'manager',
+    'husband',
+    'wife',
+  ]);
+
+  /**
+   * Format an X-ABLabel value the way Apple does: wrap a known predefined label
+   * in `_$!<…>!$_` (so Apple localizes it), but write a custom label PLAIN —
+   * otherwise Apple Contacts shows the literal `_$!<…>!$_` markers around it.
+   */
+  static formatXABLabel(label) {
+    const text = String(label || '');
+    return this.APPLE_LABELS.has(text.toLowerCase())
+      ? `_$!<${this.encodeValue(text)}>!$_`
+      : this.encodeValue(text);
+  }
+
   static unfold(text) {
     return String(text || '')
       .replace(/\r\n[ \t]/g, '')

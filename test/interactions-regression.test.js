@@ -305,10 +305,13 @@ test('custom (non-anniversary) Apple dates are modeled and survive an edit', () 
   assert.deepEqual(plain(c.dates), [{ label: 'First met', value: '2020-01-02' }]);
 
   // Editing regenerates the card from the model; the custom date must survive.
+  // A custom label is written PLAIN (Apple only wraps its own predefined labels;
+  // a wrapped custom label shows the literal _$!<…>!$_ markers in Apple Contacts).
   c.title = 'Updated Title';
   app._rewriteEditableFields(c);
   assert.match(c.rawVCard, /X-ABDATE:2020-01-02/);
-  assert.match(c.rawVCard, /X-ABLabel:_\$!<First met>!\$_/);
+  assert.match(c.rawVCard, /X-ABLabel:First met/);
+  assert.doesNotMatch(c.rawVCard, /_\$!<First met>!\$_/);
   const reparsed = app.parser.parse(c.rawVCard)[0];
   assert.equal(reparsed.title, 'Updated Title');
   assert.deepEqual(plain(reparsed.dates), [{ label: 'First met', value: '2020-01-02' }]);

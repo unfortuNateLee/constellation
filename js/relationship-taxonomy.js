@@ -249,11 +249,16 @@ export class RelationshipTaxonomy {
     return type ? this._cap(type) : 'Related';
   }
 
-  /** Apple X-ABLabel text wrapped in the `_$!<…>!$_` marker. */
+  /**
+   * Apple X-ABLabel text for a relationship type. Known taxonomy types are
+   * wrapped in the `_$!<…>!$_` marker (Apple localizes them); a custom/unknown
+   * type is written PLAIN and verbatim — otherwise Apple Contacts shows the
+   * literal markers around the custom label.
+   */
   static vcardLabel(type) {
     const entry = this.TYPES[type];
-    const text = entry ? entry.vcardLabel || entry.label : this._cap(type);
-    return `_$!<${text}>!$_`;
+    if (entry) return `_$!<${entry.vcardLabel || entry.label}>!$_`;
+    return String(type || 'Related');
   }
 
   /** Edge category: family | friend | work | neighbor | other. */

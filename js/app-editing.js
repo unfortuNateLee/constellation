@@ -482,7 +482,8 @@ class EditingMixin {
 
       const help = document.createElement('div');
       help.className = 'detail-edit-help';
-      help.textContent = 'Check all that apply, or add a custom label.';
+      help.textContent =
+        'Check all that apply, or add a custom label. Note that Apple Contacts will pick one label to display.';
 
       metaRow.appendChild(typeControls);
       footerRow.appendChild(preferred);
@@ -921,7 +922,8 @@ class EditingMixin {
 
       const help = document.createElement('div');
       help.className = 'detail-edit-help';
-      help.textContent = 'Check all that apply, or add a custom label.';
+      help.textContent =
+        'Check all that apply, or add a custom label. Note that Apple Contacts will pick one label to display.';
       item.appendChild(help);
       item.appendChild(footerRow);
       multi.appendChild(item);
@@ -1325,9 +1327,12 @@ class EditingMixin {
     this._syncContactRecord(contact);
   }
 
-  /** Wrap a custom field label in Apple's _$!<…>!$_ X-ABLabel form. */
+  /**
+   * Format an X-ABLabel: Apple's predefined labels are wrapped in `_$!<…>!$_`,
+   * custom labels are written plain (so Apple doesn't show the literal markers).
+   */
   _wrapLabel(label) {
-    return `_$!<${this._vCardEscape(label)}>!$_`;
+    return VCardUtils.formatXABLabel(label);
   }
 
   _composeDisplayName(name) {

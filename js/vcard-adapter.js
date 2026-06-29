@@ -189,7 +189,7 @@ export class VCardAdapter {
   }
 
   _wrapLabel(label) {
-    return `_$!<${this._escape(label)}>!$_`;
+    return VCardUtils.formatXABLabel(label);
   }
 
   _relationshipLabel(type) {

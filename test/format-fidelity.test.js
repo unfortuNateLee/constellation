@@ -51,6 +51,34 @@ test('TSV preserves multiple notes through a round-trip', () => {
   assert.deepEqual(plain(re.notes), ['First note', 'Second note', 'Third']);
 });
 
+test('X-ABLabel: Apple predefined labels are wrapped, custom labels stay plain', () => {
+  const { VCardUtils } = loadBrowserClasses();
+  // Predefined → wrapped so Apple localizes them.
+  assert.equal(VCardUtils.formatXABLabel('Other'), '_$!<Other>!$_');
+  assert.equal(VCardUtils.formatXABLabel('School'), '_$!<School>!$_');
+  assert.equal(VCardUtils.formatXABLabel('HomePage'), '_$!<HomePage>!$_');
+  // Custom → plain (otherwise Apple Contacts shows the literal _$!<…>!$_ markers).
+  assert.equal(VCardUtils.formatXABLabel('a_custom_value'), 'a_custom_value');
+  assert.equal(VCardUtils.formatXABLabel('Soccer Team'), 'Soccer Team');
+});
+
+test('a custom X-ABLabel on an edited phone serializes plain (no _$!<…>!$_)', () => {
+  const { VCardAdapter, VCFParser } = loadBrowserClasses();
+  const adapter = new VCardAdapter();
+  // Force the fallback serializer (no rawVCard) with a custom-labeled phone.
+  const contact = {
+    id: 'c1',
+    fn: 'Label Test',
+    phones: [{ value: '5551234', types: [], label: 'Bat Phone' }],
+  };
+  const out = adapter.serialize([contact]);
+  assert.match(out, /X-ABLabel:Bat Phone/);
+  assert.doesNotMatch(out, /_\$!<Bat Phone>!\$_/);
+  // And it re-parses back to the same custom label.
+  const [re] = new VCFParser().parse(out);
+  assert.equal(re.phones[0].label, 'Bat Phone');
+});
+
 test('TSV still keeps a single note with internal newlines intact', () => {
   const { TsvAdapter } = loadBrowserClasses();
   const tsv = new TsvAdapter();
