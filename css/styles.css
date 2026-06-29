@@ -428,11 +428,14 @@ body.resizing-sidebar .sidebar {
 .graph-legend.collapsed .legend-title.collapsible::after {
   transform: rotate(-90deg);
 }
+/* !important so a collapsed section reliably hides its content even when that
+   content has a higher-specificity rule of its own — e.g. `#category-filters`
+   (an ID selector) sets `display: flex`, which would otherwise win over this. */
 .sidebar-section.collapsed > :not(.sidebar-title) {
-  display: none;
+  display: none !important;
 }
 .graph-legend.collapsed .legend-items {
-  display: none;
+  display: none !important;
 }
 
 /* Search */
