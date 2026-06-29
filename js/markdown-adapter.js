@@ -41,6 +41,9 @@ export class MarkdownAdapter {
             {
               raw: docs[i],
               index: options.startIndex != null ? options.startIndex + i : i,
+              // filename → dataURL map for externalized photos (sibling image
+              // files selected alongside the .md). See _resolveImportedPhoto.
+              photoMap: options.photoMap || null,
             },
             idContext,
           ),
@@ -126,7 +129,15 @@ export class MarkdownAdapter {
     // Notes come from the frontmatter `notes:` list (set by the loop above); the
     // body is the free-form markdown_body custom field, kept separate so notes
     // aren't duplicated across both.
-    contact.photo = this._resolveImportedPhoto(data.photo);
+    contact.photo = this._resolveImportedPhoto(data.photo, source.photoMap);
+    // Transient marker: a photo filename was referenced but no matching sibling
+    // image was provided. The controller counts these to warn the user, then
+    // strips the flag (so it never reaches the model/persistence).
+    contact._photoUnresolved =
+      !contact.photo &&
+      typeof data.photo === 'string' &&
+      data.photo.length > 0 &&
+      !data.photo.startsWith('data:');
     contact.customFields = customFields;
     contact.rawVCard = '';
 
@@ -226,8 +237,20 @@ export class MarkdownAdapter {
 
   // Embedded data URLs are used as-is; an externalized filename reference (from a
   // bundle export, with no inline data) is dropped rather than rendered broken.
-  _resolveImportedPhoto(photo) {
-    return typeof photo === 'string' && photo.startsWith('data:') ? photo : null;
+  /**
+   * Resolve a frontmatter `photo` value to a data URL. An inline data: URL is used
+   * as-is; a bare filename (how Markdown export externalizes photos) is looked up
+   * in the photoMap built from sibling image files the user selected alongside the
+   * .md (case-insensitive). Unresolved → null (no photo, not an error).
+   */
+  _resolveImportedPhoto(photo, photoMap = null) {
+    if (typeof photo !== 'string' || !photo) return null;
+    if (photo.startsWith('data:')) return photo;
+    if (photoMap) {
+      const key = photo.toLowerCase();
+      if (photoMap[key]) return photoMap[key];
+    }
+    return null;
   }
 
   _parseYaml(text) {

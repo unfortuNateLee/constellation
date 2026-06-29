@@ -42,6 +42,29 @@ test('Markdown keeps notes in frontmatter (multiple notes preserved, not duplica
   assert.deepEqual(plain(re.notes), ['First note', 'Second note']);
 });
 
+test('Markdown import resolves externalized photos from a sibling-image map', () => {
+  const { MarkdownAdapter } = loadBrowserClasses();
+  const md = new MarkdownAdapter();
+  const doc = ['---', 'fn: Photo Person', 'photo: photo-person.jpg', '---', ''].join('\n');
+  const dataUrl = 'data:image/jpeg;base64,/9j/AAAA';
+
+  // Without the image map → photo unresolved (null), flagged for the warning.
+  const [bare] = md.parse(doc);
+  assert.equal(bare.photo, null);
+  assert.equal(bare._photoUnresolved, true);
+
+  // With a matching sibling image (case-insensitive) → resolved to the data URL.
+  const [withPhoto] = md.parse(doc, { photoMap: { 'photo-person.jpg': dataUrl } });
+  assert.equal(withPhoto.photo, dataUrl);
+  assert.equal(withPhoto._photoUnresolved, false);
+
+  // An inline data: URL still works and isn't treated as unresolved.
+  const inlineDoc = ['---', 'fn: Inline', `photo: ${dataUrl}`, '---', ''].join('\n');
+  const [inline] = md.parse(inlineDoc);
+  assert.equal(inline.photo, dataUrl);
+  assert.equal(inline._photoUnresolved, false);
+});
+
 test('TSV preserves multiple notes through a round-trip', () => {
   const { TsvAdapter } = loadBrowserClasses();
   const tsv = new TsvAdapter();

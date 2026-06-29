@@ -105,10 +105,15 @@ export class ContactRelationshipApp {
       e.preventDefault();
       dropZone.classList.remove('drag-over');
       const files = Array.from(e.dataTransfer.files || []);
-      if (files.length && files.every((file) => this._adapterForFile(file))) {
-        this._loadFiles(files);
+      // Accept contact files plus any sibling image files (Markdown photos).
+      const usable = files.filter((file) => this._adapterForFile(file) || this._isImageFile(file));
+      if (usable.length && usable.some((file) => this._adapterForFile(file))) {
+        this._loadFiles(usable);
       } else {
-        this._showToast('Please drop a .vcf, .md, or .tsv file', 'error');
+        this._showToast(
+          'Please drop a .vcf, .md, or .tsv file (you can include photos too)',
+          'error',
+        );
       }
     });
 
@@ -254,7 +259,8 @@ export class ContactRelationshipApp {
     };
     attachMenu(document.getElementById('btn-import-menu'), [
       { label: 'Import vCard', onSelect: () => pickFiles('.vcf,.vcard') },
-      { label: 'Import Markdown', onSelect: () => pickFiles('.md,.markdown') },
+      // Allow images alongside the .md so externalized photos import too.
+      { label: 'Import Markdown', onSelect: () => pickFiles('.md,.markdown,image/*') },
       { label: 'Import TSV', onSelect: () => pickFiles('.tsv') },
       { separator: true },
       { label: 'Download TSV Template', onSelect: () => this._downloadTsvTemplate() },
@@ -520,35 +526,77 @@ export class ContactRelationshipApp {
 
   // ── File Loading ───────────────────────────────────────────────
 
-  async _loadFiles(filesInput) {
-    const files = Array.from(filesInput || []).filter(Boolean);
-    if (files.length === 0) return;
+  /** True for image files (sibling photos accompanying a Markdown bundle). */
+  _isImageFile(file) {
+    return (
+      (file.type && file.type.startsWith('image/')) ||
+      /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)$/i.test(file.name || '')
+    );
+  }
 
-    const badFile = files.find((file) => !this._adapterForFile(file));
-    if (badFile) {
-      this._showToast(`Unsupported file type: ${badFile.name}`, 'error');
+  /** Read a File into a data: URL (resolves null on error). */
+  _fileToDataUrl(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async _loadFiles(filesInput) {
+    const all = Array.from(filesInput || []).filter(Boolean);
+    if (all.length === 0) return;
+
+    // Partition: contact files we can parse, image files (sibling photos for a
+    // Markdown bundle), and anything else (an error).
+    const dataFiles = all.filter((file) => this._adapterForFile(file));
+    const imageFiles = all.filter((file) => !this._adapterForFile(file) && this._isImageFile(file));
+    const unknown = all.filter((file) => !this._adapterForFile(file) && !this._isImageFile(file));
+    if (unknown.length) {
+      this._showToast(`Unsupported file type: ${unknown[0].name}`, 'error');
+      return;
+    }
+    if (dataFiles.length === 0) {
+      this._showToast('Add a .vcf, .md, or .tsv file (you can include photo images too)', 'error');
       return;
     }
 
-    const label = files.length === 1 ? files[0].name : `${files.length} files`;
+    const label = dataFiles.length === 1 ? dataFiles[0].name : `${dataFiles.length} files`;
     this._showLoading(true, `Reading ${label}…`);
 
     try {
+      // Read sibling images into a filename → dataURL map so Markdown's
+      // externalized `photo: <filename>` references resolve to actual images.
+      const photoMap = {};
+      for (const img of imageFiles) {
+        const dataUrl = await this._fileToDataUrl(img);
+        if (dataUrl) photoMap[img.name.toLowerCase()] = dataUrl;
+      }
+
       const contacts = [];
       let activeFormatId = null;
 
-      for (const file of files) {
+      for (const file of dataFiles) {
         const text = await file.text();
         const adapter = this._adapterForFile(file) || this.vcardAdapter;
         this._showLoading(true, `Parsing ${file.name}…`);
 
         // Parse in next tick to let UI update
         await this._nextTick();
-        const parsed = adapter.parse(text, { startIndex: contacts.length });
+        const parsed = adapter.parse(text, { startIndex: contacts.length, photoMap });
         contacts.push(...parsed);
         activeFormatId = activeFormatId && activeFormatId !== adapter.id ? 'mixed' : adapter.id;
       }
       this._activeFormatId = activeFormatId === 'markdown' ? 'markdown' : 'vcard';
+
+      // Count contacts whose Markdown referenced a photo file we didn't receive,
+      // then strip the transient marker so it never reaches the model.
+      let missingPhotos = 0;
+      for (const c of contacts) {
+        if (c._photoUnresolved) missingPhotos += 1;
+        delete c._photoUnresolved;
+      }
 
       this._showLoading(true, `Building relationship graph…`);
       await this._nextTick();
@@ -563,6 +611,12 @@ export class ContactRelationshipApp {
       this._updateExportBar();
       void this._persistSession({ fileLabel: label });
       this._showToast(`Loaded ${contacts.length} contacts`, 'success');
+      if (missingPhotos > 0) {
+        this._showToast(
+          `${missingPhotos} contact${missingPhotos !== 1 ? 's' : ''} reference a photo file that wasn't included — select the image files alongside the .md to import them.`,
+          'info',
+        );
+      }
       document.getElementById('drop-zone').classList.add('hidden');
     } catch (err) {
       console.error(err);
