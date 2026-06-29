@@ -244,6 +244,7 @@ export class ConstellationGraph {
 
   /** Fit all current nodes within the viewport with a margin. */
   fitView() {
+    this._measure();
     const nodes = [...(this._nodeById?.values() || [])].filter((n) => n.x != null && n.y != null);
     if (!nodes.length) return this.resetView();
     let minX = Infinity,
@@ -812,9 +813,25 @@ export class ConstellationGraph {
     this.emit('nodeDeselect', null);
   }
 
+  /**
+   * Sync width/height to the live container size (the SVG is width:100%, so it
+   * already reflects the sidebar and the right-hand detail panel). Centering reads
+   * this.width, so re-measuring here keeps "center"/"fit" accurate even when those
+   * panels opened/closed without firing a window resize. No simulation restart.
+   */
+  _measure() {
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+    if (w && h) {
+      this.width = w;
+      this.height = h;
+    }
+  }
+
   _zoomToNode(id) {
     const node = this._nodeById.get(id);
     if (!node || !node.x) return;
+    this._measure();
     const t = d3.zoomIdentity
       .translate(this.width / 2, this.height / 2)
       .scale(1.5)

@@ -218,8 +218,11 @@ export class ContactRelationshipApp {
       if (!this._selfContactId) return;
       const node = this._node(this._selfContactId);
       if (!node) return;
-      this.graph.highlightContact(this._selfContactId);
+      // Open the detail panel first — it occupies the right side and shrinks the
+      // graph — so the centering below measures the true visible width and lands
+      // the contact in the middle of what's actually visible.
       this._onNodeSelect(node);
+      this.graph.highlightContact(this._selfContactId);
     });
 
     // Session menu — restore last / clear saved.
