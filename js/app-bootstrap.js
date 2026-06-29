@@ -1,5 +1,4 @@
 import { ContactRelationshipApp } from './app-controller.js';
-import { RelationshipBuilder } from './relationship-builder.js';
 import { RelationshipTaxonomy } from './relationship-taxonomy.js';
 
 /**
@@ -93,83 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('modal-save').addEventListener('click', () => {
-    const fromId = window.app._selectedNodeId;
-    const targetMode = document.getElementById('modal-target-mode').value;
-    const toId = document.getElementById('modal-target-select').value;
-    const manualName = document.getElementById('modal-target-name').value.trim();
-    const createMode = document.getElementById('modal-create-mode').value;
-    const relType = document.getElementById('modal-rel-type').value;
-    const custom = document.getElementById('modal-rel-custom').value.trim();
-
-    if (!fromId || !relType || (targetMode === 'existing' ? !toId : !manualName)) {
-      window.app._showToast('Please fill in all fields', 'error');
-      return;
-    }
-
-    const finalType = relType === RelationshipTaxonomy.CUSTOM_OPTION_VALUE ? custom : relType;
-    if (!finalType) {
-      window.app._showToast('Please enter a relationship type', 'error');
-      return;
-    }
-
-    const fromContact = window.app._contact(fromId);
-    if (!fromContact) return;
-
-    let relName = '';
-    let targetUid = null; // stored on the relation so it resolves by UID (rename-proof)
-    let createdRealContact = false;
-    if (targetMode === 'existing') {
-      const toNode = window.app._node(toId);
-      if (!toNode) return;
-      relName = toNode.name;
-      targetUid = window.app._contact(toId)?.uid || null;
-    } else {
-      relName = manualName;
-      if (createMode === 'real') {
-        const existing = window.app._contactsByFn.get(manualName.toLowerCase().trim());
-        if (existing) {
-          relName = existing.fn;
-          targetUid = existing.uid || null;
-        } else {
-          const contact = window.app._makeMinimalContact(manualName);
-          window.app.contacts.push(contact);
-          relName = contact.fn;
-          targetUid = contact.uid || null;
-          createdRealContact = true;
-        }
-      }
-    }
-
-    if (fromContact) {
-      const vcardLabel = window.app._typeToVCardLabel(finalType);
-      fromContact.related.push({
-        name: relName,
-        type: finalType,
-        rawType: vcardLabel,
-        ...(targetUid ? { uid: targetUid } : {}),
-      });
-      // Regenerate the raw vCard from the model (single source of truth) instead
-      // of hand-inserting the X-ABRELATEDNAMES item group.
-      window.app._rewriteEditableFields(fromContact);
-      window.app.builder = new RelationshipBuilder(window.app.contacts);
-      window.app._rebuildGraph();
-      void window.app._persistSession();
-      const toastMsg = createdRealContact
-        ? `Added ${window.app.builder._friendlyType(finalType)} to ${relName} and created a real contact`
-        : `Added ${window.app.builder._friendlyType(finalType)} to ${relName}`;
-      window.app._showToast(toastMsg, 'success');
-
-      // Re-select the node
-      const updatedNode = window.app._node(fromId);
-      if (updatedNode) {
-        setTimeout(() => {
-          window.app.graph.highlightContact(fromId);
-          window.app._onNodeSelect(updatedNode);
-        }, 100);
-      }
-    }
-
-    document.getElementById('add-rel-modal').classList.add('hidden');
+    window.app._saveAddRelationshipModal();
   });
 
   // Toggle custom rel type field

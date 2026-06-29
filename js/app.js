@@ -647,28 +647,19 @@ export class ContactRelationshipApp {
     return this._edgesByNodeId.get(id) || [];
   }
 
+  /**
+   * The single factory for a new, empty contact seeded from a display name.
+   * Built on ContactRecord.createEmptyContact() so it always carries every
+   * STANDARD_FIELD. Used by the detail "Create Contact", table "Add Contact",
+   * and create-from-virtual flows.
+   */
   _makeMinimalContact(displayName) {
-    const structuredName = this._namePartsFromDisplayName(displayName || 'New Contact');
-    const contact = {
-      id: this.parser._generateId(),
-      uid: null,
-      fn: displayName || 'New Contact',
-      name: structuredName,
-      org: '',
-      title: '',
-      isCompany: false,
-      emails: [],
-      phones: [],
-      addresses: [],
-      birthday: null,
-      anniversary: null,
-      notes: [],
-      related: [],
-      urls: [],
-      photo: null,
-      tags: ['other'],
-      rawVCard: '',
-    };
+    const contact = ContactRecord.createEmptyContact();
+    contact.id = this.parser._generateId();
+    contact.uid = null;
+    contact.fn = displayName || 'New Contact';
+    contact.name = this._namePartsFromDisplayName(contact.fn);
+    contact.tags = ['other'];
 
     contact.rawVCard = this._joinVCardLines([
       'BEGIN:VCARD',

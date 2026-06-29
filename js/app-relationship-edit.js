@@ -268,6 +268,88 @@ class RelationshipEditMixin {
     document.getElementById('modal-target-name').value = '';
     document.getElementById('modal-create-mode').value = 'virtual';
   }
+
+  /**
+   * Commit the Add-Relationship modal: read its fields, resolve the target
+   * (existing contact, manual virtual name, or a newly-created real contact),
+   * append the relationship, regenerate the card, and re-render. Lives on the
+   * controller (not bootstrap) so all relationship CRUD is in one place.
+   */
+  _saveAddRelationshipModal() {
+    const fromId = this._selectedNodeId;
+    const targetMode = document.getElementById('modal-target-mode').value;
+    const toId = document.getElementById('modal-target-select').value;
+    const manualName = document.getElementById('modal-target-name').value.trim();
+    const createMode = document.getElementById('modal-create-mode').value;
+    const relType = document.getElementById('modal-rel-type').value;
+    const custom = document.getElementById('modal-rel-custom').value.trim();
+
+    if (!fromId || !relType || (targetMode === 'existing' ? !toId : !manualName)) {
+      this._showToast('Please fill in all fields', 'error');
+      return;
+    }
+
+    const finalType = relType === RelationshipTaxonomy.CUSTOM_OPTION_VALUE ? custom : relType;
+    if (!finalType) {
+      this._showToast('Please enter a relationship type', 'error');
+      return;
+    }
+
+    const fromContact = this._contact(fromId);
+    if (!fromContact) return;
+
+    let relName = '';
+    let targetUid = null; // stored on the relation so it resolves by UID (rename-proof)
+    let createdRealContact = false;
+    if (targetMode === 'existing') {
+      const toNode = this._node(toId);
+      if (!toNode) return;
+      relName = toNode.name;
+      targetUid = this._contact(toId)?.uid || null;
+    } else {
+      relName = manualName;
+      if (createMode === 'real') {
+        const existing = this._contactsByFn.get(manualName.toLowerCase().trim());
+        if (existing) {
+          relName = existing.fn;
+          targetUid = existing.uid || null;
+        } else {
+          const contact = this._makeMinimalContact(manualName);
+          this.contacts.push(contact);
+          relName = contact.fn;
+          targetUid = contact.uid || null;
+          createdRealContact = true;
+        }
+      }
+    }
+
+    const vcardLabel = this._typeToVCardLabel(finalType);
+    fromContact.related.push({
+      name: relName,
+      type: finalType,
+      rawType: vcardLabel,
+      ...(targetUid ? { uid: targetUid } : {}),
+    });
+    // Regenerate the raw vCard from the model (single source of truth) instead
+    // of hand-inserting the X-ABRELATEDNAMES item group.
+    this._rewriteEditableFields(fromContact);
+    this.builder = new RelationshipBuilder(this.contacts);
+    this._rebuildGraph();
+    void this._persistSession();
+    const toastMsg = createdRealContact
+      ? `Added ${this.builder._friendlyType(finalType)} to ${relName} and created a real contact`
+      : `Added ${this.builder._friendlyType(finalType)} to ${relName}`;
+    this._showToast(toastMsg, 'success');
+
+    document.getElementById('add-rel-modal').classList.add('hidden');
+
+    // Re-select the now-updated node so the detail panel refreshes.
+    const updatedNode = this._node(fromId);
+    if (updatedNode) {
+      this.graph.highlightContact(fromId);
+      this._onNodeSelect(updatedNode);
+    }
+  }
 }
 
 applyMixin(ContactRelationshipApp.prototype, RelationshipEditMixin);

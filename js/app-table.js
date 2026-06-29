@@ -480,34 +480,7 @@ class TableMixin {
   }
 
   _addContactFromTable() {
-    const contact = {
-      id: this.parser._generateId(),
-      uid: null,
-      fn: 'New Contact',
-      name: this._namePartsFromDisplayName('New Contact'),
-      org: '',
-      title: '',
-      isCompany: false,
-      emails: [],
-      phones: [],
-      addresses: [],
-      birthday: null,
-      anniversary: null,
-      notes: [],
-      related: [],
-      urls: [],
-      photo: null,
-      tags: ['other'],
-      noteTags: [],
-      rawVCard: '',
-    };
-    contact.rawVCard = this._joinVCardLines([
-      'BEGIN:VCARD',
-      'VERSION:3.0',
-      `FN:${this._vCardEscape(contact.fn)}`,
-      `N:${this._vCardEscape(contact.name.family)};${this._vCardEscape(contact.name.given)};${this._vCardEscape(contact.name.additional)};${this._vCardEscape(contact.name.prefix)};${this._vCardEscape(contact.name.suffix)}`,
-      'END:VCARD',
-    ]);
+    const contact = this._makeMinimalContact('New Contact');
     this.contacts.push(contact);
     this.builder = new RelationshipBuilder(this.contacts);
     this._rebuildGraph();

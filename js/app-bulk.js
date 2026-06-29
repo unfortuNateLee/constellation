@@ -75,8 +75,12 @@ class BulkMixin {
    * reciprocals consistent), so they have no `setInst`.
    */
   _bulkRuleFieldDefs() {
+    // The registry is static behavior (closures over `this`, not per-call state),
+    // and is read per-node/per-contact during evaluation and on every preview
+    // keystroke — so build it once and memoize.
+    if (this._bulkRuleFieldDefsCache) return this._bulkRuleFieldDefsCache;
     const splitNotes = (v) => this._splitNotes(v || '');
-    return [
+    this._bulkRuleFieldDefsCache = [
       // ── Scalar (single-value) contact fields ──────────────────────────
       {
         key: 'fn',
@@ -439,11 +443,13 @@ class BulkMixin {
         },
       },
     ];
+    return this._bulkRuleFieldDefsCache;
   }
 
   /** Multi-instance entities: how to read/replace their per-contact list. */
   _bulkEntityDefs() {
-    return {
+    if (this._bulkEntityDefsCache) return this._bulkEntityDefsCache;
+    this._bulkEntityDefsCache = {
       email: {
         singular: 'email',
         plural: 'emails',
@@ -509,6 +515,7 @@ class BulkMixin {
         },
       },
     };
+    return this._bulkEntityDefsCache;
   }
 
   /**
