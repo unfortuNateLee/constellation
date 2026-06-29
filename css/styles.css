@@ -647,6 +647,17 @@ body.resizing-sidebar .sidebar {
   flex: 1;
 }
 
+/* When the list is virtualized, the spacer holds full scroll height and rows are
+   absolutely positioned at a fixed height (must match SidebarMixin.CONTACT_ROW_H). */
+.contact-list-spacer {
+  position: relative;
+  width: 100%;
+}
+.contact-list-virtual .contact-item {
+  height: 52px;
+  overflow: hidden;
+}
+
 .contact-item {
   --contact-accent: var(--cat-other);
   --contact-accent-soft: rgba(131, 149, 167, 0.16);

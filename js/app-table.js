@@ -193,10 +193,24 @@ class TableMixin {
       return;
     }
 
-    for (const contact of contacts) {
+    // Each table row carries ~17 cells with live inputs/checkboxes, so rendering
+    // thousands at once is heavy. Cap the rendered rows and show a clear notice —
+    // refine the search/filters to narrow (no silent truncation).
+    const CAP = 250;
+    const shown = contacts.slice(0, CAP);
+    for (const contact of shown) {
       const tr = document.createElement('tr');
       tr.dataset.id = contact.id;
       for (const col of columns) tr.appendChild(col.render(contact));
+      body.appendChild(tr);
+    }
+    if (contacts.length > CAP) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = columns.length;
+      td.className = 'table-empty';
+      td.textContent = `Showing the first ${CAP} of ${contacts.length} contacts — refine the search or filters to narrow the list.`;
+      tr.appendChild(td);
       body.appendChild(tr);
     }
   }

@@ -8,68 +8,105 @@ import { Palette } from './palette.js';
  * Extracted from app.js verbatim.
  */
 class SidebarMixin {
+  // Fixed row height (px) used when the contact list is virtualized; matches the
+  // CSS `.contact-item` height so absolute positioning lines up.
+  static CONTACT_ROW_H = 52;
+  // Below this many contacts, render the whole list (simpler; windowing only pays
+  // off for large sets).
+  static CONTACT_VIRTUALIZE_OVER = 150;
+
+  _buildContactListItem(c) {
+    const item = document.createElement('div');
+    item.className = `contact-item category-${c.category}`;
+    item.dataset.id = c.id;
+    const tagColors = this._contactListColors(c);
+    const accent = tagColors[0] || '#8395a7';
+    item.style.setProperty('--contact-accent', accent);
+    item.style.setProperty('--contact-accent-soft', this._withAlpha(accent, 0.18));
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'contact-export-cb';
+    cb.checked = this._selectedForExport.has(c.id);
+    cb.addEventListener('change', (e) => {
+      e.stopPropagation();
+      if (cb.checked) this._selectedForExport.add(c.id);
+      else this._selectedForExport.delete(c.id);
+      this._updateExportBar();
+    });
+    cb.addEventListener('click', (e) => e.stopPropagation());
+
+    const dot = document.createElement('span');
+    dot.className = 'contact-dot';
+    dot.style.background = this._contactListDotFill(tagColors);
+
+    const info = document.createElement('div');
+    info.className = 'contact-info';
+    const name = document.createElement('div');
+    name.className = 'contact-name';
+    name.textContent = this._formatContactListName(c);
+    const sub = document.createElement('div');
+    sub.className = 'contact-sub';
+    sub.textContent = c.org || c.category;
+    info.appendChild(name);
+    info.appendChild(sub);
+
+    item.appendChild(cb);
+    item.appendChild(dot);
+    item.appendChild(info);
+    item.addEventListener('click', () => {
+      this.graph.highlightContact(c.id);
+      this._onNodeSelect(c);
+    });
+    return item;
+  }
+
   _renderContactList() {
     const list = document.getElementById('contact-list');
-    list.innerHTML = '';
     const contacts = this._filteredContactsForSidebar();
-
-    const frag = document.createDocumentFragment();
-    for (const c of contacts) {
-      const item = document.createElement('div');
-      item.className = `contact-item category-${c.category}`;
-      item.dataset.id = c.id;
-      const tagColors = this._contactListColors(c);
-      const accent = tagColors[0] || '#8395a7';
-      const soft = this._withAlpha(accent, 0.18);
-      item.style.setProperty('--contact-accent', accent);
-      item.style.setProperty('--contact-accent-soft', soft);
-
-      // Checkbox for multi-select export
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.className = 'contact-export-cb';
-      cb.checked = this._selectedForExport.has(c.id);
-      cb.addEventListener('change', (e) => {
-        e.stopPropagation();
-        if (cb.checked) this._selectedForExport.add(c.id);
-        else this._selectedForExport.delete(c.id);
-        this._updateExportBar();
-      });
-      cb.addEventListener('click', (e) => e.stopPropagation());
-
-      const dot = document.createElement('span');
-      dot.className = 'contact-dot';
-      dot.style.background = this._contactListDotFill(tagColors);
-
-      const info = document.createElement('div');
-      info.className = 'contact-info';
-
-      const name = document.createElement('div');
-      name.className = 'contact-name';
-      name.textContent = this._formatContactListName(c);
-
-      const sub = document.createElement('div');
-      sub.className = 'contact-sub';
-      sub.textContent = c.org || c.category;
-
-      info.appendChild(name);
-      info.appendChild(sub);
-      item.appendChild(cb);
-      item.appendChild(dot);
-      item.appendChild(info);
-
-      item.addEventListener('click', () => {
-        this.graph.highlightContact(c.id);
-        this._onNodeSelect(c);
-      });
-
-      frag.appendChild(item);
-    }
-
-    list.appendChild(frag);
-
     document.getElementById('list-count').textContent =
       `${contacts.length} contact${contacts.length !== 1 ? 's' : ''}`;
+
+    const ROW_H = SidebarMixin.CONTACT_ROW_H;
+
+    // Small lists: render everything (no windowing overhead).
+    if (contacts.length <= SidebarMixin.CONTACT_VIRTUALIZE_OVER) {
+      list.onscroll = null;
+      list.classList.remove('contact-list-virtual');
+      list.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      for (const c of contacts) frag.appendChild(this._buildContactListItem(c));
+      list.appendChild(frag);
+      return;
+    }
+
+    // Large lists: window the rows. A full-height spacer drives the scrollbar;
+    // only the visible slice (plus a small buffer) is mounted and absolutely
+    // positioned by index, re-rendered on scroll.
+    list.classList.add('contact-list-virtual');
+    list.innerHTML = '';
+    const spacer = document.createElement('div');
+    spacer.className = 'contact-list-spacer';
+    spacer.style.height = `${contacts.length * ROW_H}px`;
+    list.appendChild(spacer);
+
+    const renderWindow = () => {
+      const scrollTop = list.scrollTop;
+      const viewH = list.clientHeight || 600;
+      const start = Math.max(0, Math.floor(scrollTop / ROW_H) - 6);
+      const end = Math.min(contacts.length, Math.ceil((scrollTop + viewH) / ROW_H) + 6);
+      spacer.innerHTML = '';
+      for (let i = start; i < end; i++) {
+        const item = this._buildContactListItem(contacts[i]);
+        item.style.position = 'absolute';
+        item.style.top = `${i * ROW_H}px`;
+        item.style.left = '0';
+        item.style.right = '0';
+        spacer.appendChild(item);
+      }
+    };
+    list.onscroll = renderWindow;
+    renderWindow();
   }
 
   _filteredContactsForSidebar() {
