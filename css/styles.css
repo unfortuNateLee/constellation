@@ -240,11 +240,15 @@ body {
   max-width: 200px;
 }
 
+/* Six stats in a compact 3-column grid: row 1 = contacts, row 2 = connections,
+   so the block stays narrow enough to share the header. */
 .header-stats {
   margin-left: auto;
-  display: flex;
-  gap: 12px;
-  font-size: 11px;
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  grid-auto-flow: row;
+  column-gap: 14px;
+  row-gap: 2px;
   color: var(--text2);
   flex-shrink: 0;
 }
@@ -254,20 +258,28 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: 0;
 }
 .stat-value {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--accent2);
-  line-height: 1;
+  line-height: 1.1;
 }
 .stat-label {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text3);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   white-space: nowrap;
+}
+
+/* Before any contacts are loaded, show only the import drop-zone — keep the side
+   panel and header stats hidden until there's data (body.has-data, set on load
+   and session restore). */
+body:not(.has-data) .sidebar,
+body:not(.has-data) .header-stats {
+  display: none;
 }
 
 /* Main layout */

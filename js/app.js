@@ -41,6 +41,7 @@ export class ContactRelationshipApp {
     this._showLikelyFamily = false;
     this._showLikelyConnections = true;
     this._showIsolated = true;
+    this._showVirtual = true;
     this._searchQuery = '';
     this._contactSortMode = 'first-last';
     this._graphMode = 'connections';
@@ -201,6 +202,12 @@ export class ContactRelationshipApp {
     // Isolated toggle
     document.getElementById('toggle-isolated').addEventListener('change', (e) => {
       this._showIsolated = e.target.checked;
+      this._rebuildGraph();
+      void this._persistSession();
+    });
+
+    document.getElementById('toggle-virtual').addEventListener('change', (e) => {
+      this._showVirtual = e.target.checked;
       this._rebuildGraph();
       void this._persistSession();
     });
@@ -607,6 +614,8 @@ export class ContactRelationshipApp {
 
       document.getElementById('file-label').textContent = label;
       document.getElementById('btn-export-all-menu').classList.remove('hidden');
+      // Reveal the side panels / header stats now that there's data to show.
+      document.body?.classList.add('has-data');
       this._selectedForExport.clear();
       this._updateExportBar();
       void this._persistSession({ fileLabel: label });
@@ -637,6 +646,7 @@ export class ContactRelationshipApp {
       includeLikelyFamily: this._showLikelyFamily,
       includeLikelyConnections: this._showLikelyConnections,
       includeIsolated: this._showIsolated,
+      includeVirtual: this._showVirtual,
       rootContactId: this._selfContactId,
     });
 

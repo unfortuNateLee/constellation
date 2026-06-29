@@ -88,6 +88,7 @@ class SessionMixin {
         showLikelyFamily: this._showLikelyFamily,
         showLikelyConnections: this._showLikelyConnections,
         showIsolated: this._showIsolated,
+        showVirtual: this._showVirtual,
         sidebarControlsCollapsed: this._sidebarControlsCollapsed,
         contactSortMode: this._contactSortMode,
         graphMode: this._graphMode,
@@ -130,6 +131,7 @@ class SessionMixin {
       this._showLikelyConnections =
         saved.showLikelyConnections !== false && saved.showLikely !== false;
       this._showIsolated = saved.showIsolated !== false;
+      this._showVirtual = saved.showVirtual !== false;
       this._sidebarControlsCollapsed = saved.sidebarControlsCollapsed === true;
       this._contactSortMode = saved.contactSortMode === 'last-first' ? 'last-first' : 'first-last';
       this._mainViewMode = saved.mainViewMode === 'table' ? 'table' : 'graph';
@@ -148,6 +150,7 @@ class SessionMixin {
       document.getElementById('toggle-likely-family').checked = this._showLikelyFamily;
       document.getElementById('toggle-likely-connections').checked = this._showLikelyConnections;
       document.getElementById('toggle-isolated').checked = this._showIsolated;
+      document.getElementById('toggle-virtual').checked = this._showVirtual;
       document.getElementById('contact-sort-mode').value = this._contactSortMode;
       document.getElementById('graph-mode-select').value = this._graphMode;
       this._applySidebarCollapseState();
@@ -156,6 +159,7 @@ class SessionMixin {
         `${saved.fileLabel || 'restored-session.vcf'} (restored)`;
       document.getElementById('btn-export-all-menu').classList.remove('hidden');
       document.getElementById('drop-zone').classList.add('hidden');
+      document.body?.classList.add('has-data');
       this._selectedForExport.clear();
       this._updateExportBar();
       this._rebuildGraph();

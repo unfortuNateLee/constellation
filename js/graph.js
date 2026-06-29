@@ -87,7 +87,7 @@ export class ConstellationGraph {
     this._colorScheme = this._buildColorScheme();
     if (!this._svg) return;
     const scheme = this._colorScheme;
-    this._nodeG.selectAll('circle.node-circle').attr('fill', (d) => this._nodeColor(d));
+    this._styleNodeCircle(this._nodeG.selectAll('circle.node-circle'));
     this._nodeG.selectAll('circle.node-ring').attr('stroke', scheme.node.selected);
     this._linkG.selectAll('g.link line').attr('stroke', (d) => this._edgeColor(d));
     this._svg.selectAll('defs marker').each((_, i, nodesArr) => {
@@ -495,14 +495,13 @@ export class ConstellationGraph {
             .attr('stroke-width', 2)
             .attr('opacity', 0);
 
-          // Main circle
-          g.append('circle')
-            .attr('class', 'node-circle')
-            .attr('r', (d) => nodeRadius(d))
-            .attr('fill', (d) => this._nodeColor(d))
-            .attr('stroke', '#1a1a2e')
-            .attr('stroke-width', (d) => (d.isGroupNode ? 2 : 1.5))
-            .attr('stroke-dasharray', (d) => (d.isGroupNode ? '5 3' : null));
+          // Main circle (solid for real contacts, ghosted for virtual ones)
+          this._styleNodeCircle(
+            g
+              .append('circle')
+              .attr('class', 'node-circle')
+              .attr('r', (d) => nodeRadius(d)),
+          );
 
           // Clip path for circular photo crop
           g.append('clipPath')
@@ -558,10 +557,7 @@ export class ConstellationGraph {
           return g;
         },
         (update) => {
-          update
-            .select('.node-circle')
-            .attr('r', (d) => nodeRadius(d))
-            .attr('fill', (d) => this._nodeColor(d));
+          this._styleNodeCircle(update.select('.node-circle').attr('r', (d) => nodeRadius(d)));
           update.select('.node-ring').attr('r', (d) => nodeRadius(d) + 5);
           update.select('clipPath circle').attr('r', (d) => nodeRadius(d));
 
@@ -875,6 +871,22 @@ export class ConstellationGraph {
     if (d.id === this._selectedNode) return this._colorScheme.node.selected;
     if (d.isGroupNode) return this._colorScheme.node.group;
     return this._colorScheme.node[d.category] || this._colorScheme.node.other;
+  }
+
+  /**
+   * Style the main node circle. Real contacts are solid, fully-filled circles;
+   * virtual contacts render as a "ghost" — a hollow, translucent fill with a
+   * dashed muted outline — so they read as placeholders (people referenced by a
+   * relationship but not in the contacts) while keeping their smaller size.
+   */
+  _styleNodeCircle(sel) {
+    sel
+      .attr('fill', (d) => this._nodeColor(d))
+      .attr('fill-opacity', (d) => (d.isVirtual ? 0.16 : 1))
+      .attr('stroke', (d) => (d.isVirtual ? this._nodeColor(d) : '#1a1a2e'))
+      .attr('stroke-opacity', (d) => (d.isVirtual ? 0.9 : 1))
+      .attr('stroke-width', (d) => (d.isGroupNode ? 2 : 1.5))
+      .attr('stroke-dasharray', (d) => (d.isGroupNode ? '5 3' : d.isVirtual ? '3 2' : null));
   }
 
   _edgeWidth(d) {

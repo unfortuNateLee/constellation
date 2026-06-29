@@ -358,15 +358,12 @@ class SidebarMixin {
   // ── Stats ──────────────────────────────────────────────────────
 
   _renderStats(stats) {
-    document.getElementById('stat-contacts').textContent = stats.totalContacts;
-    document.getElementById('stat-nodes').textContent = stats.visibleNodes;
-    document.getElementById('stat-edges').textContent = stats.edges;
-
-    const explicitEdges = (this.graphData.edges || []).reduce(
-      (count, edge) => count + (edge.inferred ? 0 : 1),
-      0,
-    );
-    document.getElementById('stat-explicit').textContent = explicitEdges;
+    document.getElementById('stat-total-contacts').textContent = stats.totalContacts;
+    document.getElementById('stat-real-contacts').textContent = stats.realContacts;
+    document.getElementById('stat-virtual-contacts').textContent = stats.virtualContacts;
+    document.getElementById('stat-real-connections').textContent = stats.realConnections;
+    document.getElementById('stat-virtual-connections').textContent = stats.virtualConnections;
+    document.getElementById('stat-total-connections').textContent = stats.totalConnections;
   }
 
   _renderLegend() {

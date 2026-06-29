@@ -16,7 +16,7 @@
         <div class="build-stamp" title="Last edited build marker">
           <span class="build-stamp-label">Updated</span>
           <span class="build-stamp-date">2026-06-29</span>
-          <span class="build-stamp-time">16:29:34 EDT</span>
+          <span class="build-stamp-time">17:35:27 EDT</span>
         </div>
         <div class="app-title">Constellation</div>
         <div class="header-divider"></div>
@@ -84,20 +84,28 @@
 
         <div class="header-stats" id="header-stats">
           <div class="stat-item">
-            <span class="stat-label">Contacts</span>
-            <span class="stat-value" id="stat-contacts">—</span>
+            <span class="stat-label">Total Contacts</span>
+            <span class="stat-value" id="stat-total-contacts">—</span>
           </div>
           <div class="stat-item">
-            <span class="stat-label">Visible</span>
-            <span class="stat-value" id="stat-nodes">—</span>
+            <span class="stat-label">Real Contacts</span>
+            <span class="stat-value" id="stat-real-contacts">—</span>
           </div>
           <div class="stat-item">
-            <span class="stat-label">Explicit</span>
-            <span class="stat-value" id="stat-explicit">—</span>
+            <span class="stat-label">Virtual Contacts</span>
+            <span class="stat-value" id="stat-virtual-contacts">—</span>
           </div>
           <div class="stat-item">
-            <span class="stat-label">Connections</span>
-            <span class="stat-value" id="stat-edges">—</span>
+            <span class="stat-label">Total Connections</span>
+            <span class="stat-value" id="stat-total-connections">—</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Real Connections</span>
+            <span class="stat-value" id="stat-real-connections">—</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Virtual Connections</span>
+            <span class="stat-value" id="stat-virtual-connections">—</span>
           </div>
         </div>
       </header>
@@ -170,6 +178,17 @@
                   <input type="checkbox" id="toggle-isolated" checked />
                   <span class="toggle-track"></span>
                 </label>
+              </div>
+              <div class="toggle-row">
+                <span class="toggle-label">Show virtual contacts</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="toggle-virtual" checked />
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+              <div class="sidebar-help">
+                Virtual contacts (shown as dashed, hollow circles) are people named in a
+                relationship who aren't in your contacts yet.
               </div>
             </div>
           </div>

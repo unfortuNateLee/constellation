@@ -105,6 +105,7 @@ export class RelationshipBuilder {
       includeLikelyFamily = true,
       includeLikelyConnections = true,
       includeIsolated = false,
+      includeVirtual = true,
       rootContactId = null,
     } = options;
 
@@ -119,13 +120,19 @@ export class RelationshipBuilder {
         includeLikelyFamily,
         includeLikelyConnections,
         includeIsolated,
+        includeVirtual,
         rootContactId,
       });
     }
     if (mode === 'geographic') {
       return this._buildGeographic({ includeIsolated, rootContactId });
     }
-    return this._buildExplicitRelationships({ includeInferred, includeIsolated, rootContactId });
+    return this._buildExplicitRelationships({
+      includeInferred,
+      includeIsolated,
+      includeVirtual,
+      rootContactId,
+    });
   }
 
   _buildExplicitRelationships({
@@ -133,6 +140,7 @@ export class RelationshipBuilder {
     includeLikelyFamily = true,
     includeLikelyConnections = true,
     includeIsolated = false,
+    includeVirtual = true,
     rootContactId = null,
   }) {
     const nodesMap = new Map(); // id → node
@@ -147,7 +155,7 @@ export class RelationshipBuilder {
 
     // ── 2. Explicit relationships ─────────────────────────────────
     this._appendExplicitRelationshipEdges(nodesMap, edges, pairSet, explicitAdj, {
-      allowVirtualTargets: true,
+      allowVirtualTargets: includeVirtual,
     });
 
     // ── 3. Inferred (ORG-based) relationships ─────────────────────
@@ -851,9 +859,24 @@ export class RelationshipBuilder {
     for (const e of edges) {
       edgeCategoryCounts[e.category] = (edgeCategoryCounts[e.category] || 0) + 1;
     }
+
+    // Contact + connection breakdowns, computed from what's actually in the graph.
+    const contactNodes = nodes.filter((n) => !n.isGroupNode);
+    const realContacts = contactNodes.filter((n) => !n.isVirtual).length;
+    const virtualContacts = contactNodes.filter((n) => n.isVirtual).length;
+    const realConnections = edges.filter((e) => !e.inferred).length;
+    const virtualConnections = edges.length - realConnections;
+
     return {
-      totalContacts: this.contacts.length,
-      visibleNodes: nodes.filter((n) => !n.isGroupNode).length,
+      loadedContacts: this.contacts.length,
+      realContacts,
+      virtualContacts,
+      totalContacts: realContacts + virtualContacts,
+      realConnections,
+      virtualConnections,
+      totalConnections: edges.length,
+      // Back-compat aliases used elsewhere.
+      visibleNodes: contactNodes.length,
       visibleGroups: nodes.filter((n) => n.isGroupNode).length,
       edges: edges.length,
       categories: categoryCounts,
