@@ -2,10 +2,7 @@ import { VCardAdapter } from './vcard-adapter.js';
 import { MarkdownAdapter } from './markdown-adapter.js';
 import { TsvAdapter } from './tsv-adapter.js';
 import { RelationshipBuilder } from './relationship-builder.js';
-import { RelationshipTaxonomy } from './relationship-taxonomy.js';
-import { Palette } from './palette.js';
 import { ConstellationGraph } from './graph.js';
-import { VCardUtils } from './vcard-utils.js';
 import { ContactRecord } from './contact-record.js';
 import { makeSearchable } from './searchable-select.js';
 import { attachMenu } from './menu-button.js';
@@ -463,10 +460,6 @@ export class ContactRelationshipApp {
 
   // ── File Loading ───────────────────────────────────────────────
 
-  async _loadFile(file) {
-    return this._loadFiles([file]);
-  }
-
   async _loadFiles(filesInput) {
     const files = Array.from(filesInput || []).filter(Boolean);
     if (files.length === 0) return;
@@ -891,6 +884,17 @@ export class ContactRelationshipApp {
       .replace(/'/g, '&#39;');
   }
 
+  /**
+   * Safely embed a (data:) URL in a CSS `url(...)` context. Strips characters
+   * that could break out of the quoted url() — quotes, parens, backslashes,
+   * whitespace — so a crafted PHOTO value can't inject CSS. Returns 'none' when
+   * empty. Base64 data URLs contain none of the stripped characters.
+   */
+  _cssUrl(value) {
+    const safe = String(value || '').replace(/["'()\\\s]/g, '');
+    return safe ? `url("${safe}")` : 'none';
+  }
+
   _safeExternalHref(value) {
     const raw = String(value || '')
       .trim()
@@ -900,7 +904,7 @@ export class ContactRelationshipApp {
       const base = window.location?.href || 'https://example.invalid/';
       const url = new URL(raw, base);
       if (url.protocol === 'http:' || url.protocol === 'https:') return url.href;
-    } catch (_) {
+    } catch {
       return '';
     }
     return '';

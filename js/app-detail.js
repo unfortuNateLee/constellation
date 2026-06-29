@@ -19,7 +19,7 @@ class DetailMixin {
     // Photo
     const photoEl = document.getElementById('detail-photo');
     if (node.photo) {
-      photoEl.style.backgroundImage = `url(${node.photo})`;
+      photoEl.style.backgroundImage = this._cssUrl(node.photo);
       photoEl.textContent = '';
     } else {
       photoEl.style.backgroundImage = 'none';
@@ -31,11 +31,14 @@ class DetailMixin {
     document.getElementById('detail-name').textContent = node.name;
     document.getElementById('detail-org').textContent = node.org || '';
     document.getElementById('detail-title-text').textContent = node.title || '';
-    document.getElementById('detail-category-badge').textContent = node.isGroupNode
-      ? 'group'
-      : node.category;
-    document.getElementById('detail-category-badge').className =
-      `category-badge category-${node.isGroupNode ? 'other' : node.category}`;
+    // Show the category badge for groups and meaningful categories (company,
+    // virtual, family, …) but not the catch-all "other" on ordinary personal
+    // contacts, where it reads as noise.
+    const categoryBadge = document.getElementById('detail-category-badge');
+    const showCategoryBadge = node.isGroupNode || (!!node.category && node.category !== 'other');
+    categoryBadge.textContent = node.isGroupNode ? 'group' : node.category;
+    categoryBadge.className = `category-badge category-${node.isGroupNode ? 'other' : node.category}`;
+    categoryBadge.classList.toggle('hidden', !showCategoryBadge);
 
     const contact = this._contact(node.id);
     const isEditing = !!contact && this._editingContactId === contact.id;

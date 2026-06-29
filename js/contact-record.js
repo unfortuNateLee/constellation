@@ -111,7 +111,6 @@ export class ContactRecord {
         : contact.rawVCard != null
           ? contact.rawVCard
           : previous.raw || '';
-    if (!format && !raw) return null;
     return {
       format,
       raw,

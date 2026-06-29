@@ -19,10 +19,6 @@ class EditingMixin {
     return VCardUtils.encodeValue(str);
   }
 
-  _decodeVCardValue(str) {
-    return VCardUtils.decodeValue(str);
-  }
-
   _joinVCardLines(lines) {
     return VCardUtils.foldLines(lines);
   }
@@ -30,46 +26,6 @@ class EditingMixin {
   _insertBeforeEndVCard(rawVCard, foldedLines) {
     const block = String(foldedLines || '').replace(/\r\n$/, '');
     return String(rawVCard || '').replace(/END:VCARD/i, `${block}\r\nEND:VCARD`);
-  }
-
-  _findRelatedItemPrefix(rawVCard, relName) {
-    if (!rawVCard || !relName) return null;
-
-    for (const line of VCardUtils.unfold(rawVCard).split(/\r\n|\n/)) {
-      const m = line.match(/^(item\d+)\.X-ABRELATEDNAMES(?:;[^:]*)?:(.*)$/i);
-      if (!m) continue;
-      const [, prefix, rawValue] = m;
-      if (this._decodeVCardValue(rawValue).trim() === relName.trim()) {
-        return prefix;
-      }
-    }
-
-    return null;
-  }
-
-  _findRelatedItemPrefixByIndex(rawVCard, relIdx) {
-    if (!rawVCard || relIdx == null) return null;
-    let currentIdx = -1;
-    for (const line of VCardUtils.unfold(rawVCard).split(/\r\n|\n/)) {
-      const m = line.match(/^(item\d+)\.X-ABRELATEDNAMES(?:;[^:]*)?:/i);
-      if (!m) continue;
-      currentIdx += 1;
-      if (currentIdx === relIdx) return m[1];
-    }
-    return null;
-  }
-
-  _escapeRegExp(str) {
-    return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  _removeItemGroup(rawVCard, prefix) {
-    if (!rawVCard || !prefix) return rawVCard;
-    const prefixRe = new RegExp(`^${this._escapeRegExp(prefix)}\\..*$`, 'i');
-    return VCardUtils.unfold(rawVCard)
-      .split(/\r\n|\n/)
-      .filter((line) => !prefixRe.test(line))
-      .join('\r\n');
   }
 
   _renderAddRelationshipAction() {
@@ -82,17 +38,6 @@ class EditingMixin {
     button.addEventListener('click', () => this._showAddRelationshipModal());
     actions.appendChild(button);
     return actions;
-  }
-
-  _replaceItemProperty(rawVCard, prefix, propName, newValue) {
-    if (!rawVCard || !prefix || !propName) return rawVCard;
-    const prefixEsc = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const propEsc = propName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = new RegExp(`^${prefixEsc}\\.${propEsc}(?:;[^:]*)?:.*$`, 'im');
-    return VCardUtils.unfold(rawVCard).replace(
-      pattern,
-      this._joinVCardLines([`${prefix}.${propName}:${newValue}`]),
-    );
   }
 
   _syncDetailEditButtons(node, hasContact, isEditing) {
@@ -186,7 +131,7 @@ class EditingMixin {
         '✉️',
         `<a href="mailto:${this._escapeHtml(emailValue)}">${this._escapeHtml(emailValue)}</a>`,
         email.label ||
-          email.types.filter((t) => !['INTERNET', 'PREF'].includes(t)).join(', ') ||
+          (email.types || []).filter((t) => !['INTERNET', 'PREF'].includes(t)).join(', ') ||
           'Email',
       );
       contactInfo.appendChild(row);
@@ -197,7 +142,7 @@ class EditingMixin {
         '📞',
         this._escapeHtml(phone.value),
         phone.label ||
-          phone.types.filter((t) => !['VOICE', 'PREF'].includes(t)).join(', ') ||
+          (phone.types || []).filter((t) => !['VOICE', 'PREF'].includes(t)).join(', ') ||
           'Phone',
       );
       contactInfo.appendChild(row);
@@ -322,12 +267,7 @@ class EditingMixin {
     grid.appendChild(this._editField('Prefix', 'edit-name-prefix', contact.name?.prefix || ''));
     grid.appendChild(this._editField('Suffix', 'edit-name-suffix', contact.name?.suffix || ''));
     grid.appendChild(
-      this._editCheckboxField(
-        'Treat as Company',
-        'edit-is-company',
-        !!contact.isCompany,
-        'Export as X-ABSHOWAS: COMPANY',
-      ),
+      this._editCheckboxField('Treat as Company', 'edit-is-company', !!contact.isCompany),
     );
     grid.appendChild(this._editField('Organization', 'edit-org', contact.org || ''));
     grid.appendChild(this._editField('Title', 'edit-title', contact.title || ''));
@@ -379,8 +319,7 @@ class EditingMixin {
     remove.value = '0';
 
     const applyPreview = (dataUrl) => {
-      if (dataUrl) preview.style.backgroundImage = `url(${dataUrl})`;
-      else preview.style.backgroundImage = 'none';
+      preview.style.backgroundImage = this._cssUrl(dataUrl);
     };
     applyPreview(contact.photo || '');
 
@@ -431,7 +370,7 @@ class EditingMixin {
         chooseBtn.textContent = 'Change Photo';
         const detailPhoto = document.getElementById('detail-photo');
         if (detailPhoto) {
-          detailPhoto.style.backgroundImage = `url(${dataUrl})`;
+          detailPhoto.style.backgroundImage = this._cssUrl(dataUrl);
           detailPhoto.textContent = '';
         }
       };
@@ -1282,15 +1221,15 @@ class EditingMixin {
     }
     for (const im of contact.ims || []) {
       if (!im || !im.value) continue;
-      const svc = im.service ? `;X-SERVICE-TYPE=${im.service}` : '';
+      const svc = im.service ? `;X-SERVICE-TYPE=${VCardUtils.encodeParamValue(im.service)}` : '';
       const params = svc + this._buildTypeParams(im.types || []);
       pushLabeledField('IMPP', params, this._vCardEscape(im.value), im.label);
     }
     for (const sp of contact.socialProfiles || []) {
       if (!sp || !sp.url) continue;
       let params = '';
-      if (sp.service) params += `;TYPE=${sp.service}`;
-      if (sp.username) params += `;X-USER=${sp.username}`;
+      if (sp.service) params += `;TYPE=${VCardUtils.encodeParamValue(sp.service)}`;
+      if (sp.username) params += `;X-USER=${VCardUtils.encodeParamValue(sp.username)}`;
       pushLabeledField('X-SOCIALPROFILE', params, this._vCardEscape(sp.url), sp.label);
     }
     if (contact.birthday) generated.push(`BDAY:${contact.birthday}`);

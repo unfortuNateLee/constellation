@@ -179,8 +179,8 @@ class RelationshipEditMixin {
       if (backRelIdx !== -1) {
         const backRel = otherContact.related[backRelIdx];
 
-        if (this._isReciprocalDowngrade(reciprocalType, backRel.type)) {
-        } else {
+        // Keep the stronger existing label — only upgrade, never downgrade.
+        if (!this._isReciprocalDowngrade(reciprocalType, backRel.type)) {
           backRel.type = reciprocalType;
           backRel.rawType = this._typeToVCardLabel(reciprocalType);
           recipUpdated = true;

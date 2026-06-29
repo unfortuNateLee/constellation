@@ -369,7 +369,6 @@ class SidebarMixin {
   _syncGraphModeControls() {
     const modeSelect = document.getElementById('graph-mode-select');
     const inferredToggle = document.getElementById('toggle-inferred');
-    const inferredLabel = document.querySelector('label[for="toggle-inferred"]');
     if (modeSelect) modeSelect.value = this._graphMode;
     if (!inferredToggle) return;
     const likelyFamilyToggle = document.getElementById('toggle-likely-family');

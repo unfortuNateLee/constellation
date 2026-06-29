@@ -411,7 +411,7 @@ export class MarkdownAdapter {
     if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
       try {
         return JSON.parse(raw);
-      } catch (_) {
+      } catch {
         return raw.slice(1, -1);
       }
     }
@@ -491,14 +491,7 @@ export class MarkdownAdapter {
   }
 
   _extractHashtags(notes = []) {
-    if (typeof VCFParser !== 'undefined') return new VCFParser()._extractHashtags(notes);
-    const tags = new Set();
-    const pattern = /(^|[\s([{,;])#([A-Za-z0-9][A-Za-z0-9_-]*)/g;
-    for (const note of notes || []) {
-      let match;
-      while ((match = pattern.exec(String(note || ''))) !== null) tags.add(match[2].toLowerCase());
-    }
-    return Array.from(tags).sort();
+    return new VCFParser()._extractHashtags(notes);
   }
 
   _skipEmpty(lines, index) {

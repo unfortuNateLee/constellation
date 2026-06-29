@@ -1129,7 +1129,7 @@ class BulkMixin {
     return `(${node.children.map((child) => this._describeBulkRuleNode(child)).join(joiner)})`;
   }
 
-  _describeBulkWhere(entity) {
+  _describeBulkWhere() {
     const action = this._bulkRuleState.action;
     const conds = (action.where?.conditions || []).filter(
       (c) => !this._bulkOperatorNeedsValue(c.operator) || String(c.value || '').trim() !== '',
@@ -1173,7 +1173,7 @@ class BulkMixin {
     const scope =
       action.applyTo === 'all'
         ? ` (all ${eDef.plural})`
-        : ` where ${this._describeBulkWhere(def.entity) || '…'}`;
+        : ` where ${this._describeBulkWhere() || '…'}`;
     return base + scope;
   }
 

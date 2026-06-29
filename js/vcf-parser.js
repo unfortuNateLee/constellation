@@ -78,13 +78,11 @@ export class VCFParser {
           if (photos[i]) contact.photo = photos[i];
         }
         this._assignStableId(contact, usedIds, basisCounts);
-        if (typeof ContactRecord !== 'undefined') {
-          ContactRecord.attachToLegacyContact(contact, {
-            format: 'vcard',
-            raw: contact.rawVCard || '',
-            index: i,
-          });
-        }
+        ContactRecord.attachToLegacyContact(contact, {
+          format: 'vcard',
+          raw: contact.rawVCard || '',
+          index: i,
+        });
         contacts.push(contact);
       } catch (err) {
         console.warn(`[VCFParser] Skipping malformed vCard at index ${i}: ${err.message}`);
@@ -95,12 +93,7 @@ export class VCFParser {
   }
 
   _assignStableId(contact, usedIds, basisCounts) {
-    if (typeof ContactRecord !== 'undefined' && ContactRecord.assignStableId) {
-      ContactRecord.assignStableId(contact, usedIds, basisCounts);
-    } else {
-      contact.id = this._generateId();
-      usedIds.add(contact.id);
-    }
+    ContactRecord.assignStableId(contact, usedIds, basisCounts);
   }
 
   _parseVCard(block) {
@@ -206,7 +199,7 @@ export class VCFParser {
 
         case 'BDAY':
           if (value && !value.startsWith('//')) {
-            contact.birthday = value.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$1-$2-$3');
+            contact.birthday = value;
           }
           break;
 

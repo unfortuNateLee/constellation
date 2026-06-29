@@ -117,7 +117,6 @@ export class ConstellationGraph {
         const k = e.transform.k;
         this._showLabels = k > 0.6;
         this._labelG.attr('opacity', this._showLabels ? 1 : 0);
-        this._updateHullLabelScale();
       });
 
     this._svg = d3
@@ -680,8 +679,6 @@ export class ConstellationGraph {
       });
 
     this._simulation.alpha(incremental ? 0.3 : 1).restart();
-
-    this._updateHullLabelScale();
   }
 
   // ── Selection & Highlighting ────────────────────────────────────
@@ -849,7 +846,7 @@ export class ConstellationGraph {
     return `translate(${anchor.x},${anchor.y}) scale(${this._hullLabelScaleFactor()})`;
   }
 
-  _hullLabelAnchor(hull, nodes) {
+  _hullLabelAnchor(hull, _nodes) {
     const members = (hull.memberIds || [])
       .map((id) => this._nodeById.get(id))
       .filter((n) => n && Number.isFinite(n.x) && Number.isFinite(n.y));
@@ -888,15 +885,10 @@ export class ConstellationGraph {
     return 1 / Math.max(0.45, Math.min(k, 1.2));
   }
 
-  _hullLabelOpacity(hull, nodes) {
+  _hullLabelOpacity(hull, _nodes) {
     const members = (hull.memberIds || []).map((id) => this._nodeById.get(id)).filter(Boolean);
     if (members.length < 2 || !hull.label) return 0;
     return members.length >= 3 ? 0.92 : 0.84;
-  }
-
-  _updateHullLabelScale() {
-    // The labels compensate for graph zoom with an inverse scale transform
-    // applied in _hullLabelTransform(), so the base font size can stay fixed.
   }
 
   _groupGlyph(d) {

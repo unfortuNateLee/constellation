@@ -2349,3 +2349,21 @@ body.resizing-sidebar .sidebar {
   background: var(--accent);
   color: var(--text-on-accent);
 }
+
+/* ── Keyboard focus ────────────────────────────────────────────────
+   Several controls set `outline: none` for the mouse; restore a clearly
+   visible ring for keyboard users via :focus-visible. Element-qualified
+   selectors + end-of-file placement keep these winning over the base rules. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+.btn:focus-visible,
+.view-toggle-btn:focus-visible,
+.toggle-switch input:focus-visible + .toggle-track {
+  outline: 2px solid var(--accent2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

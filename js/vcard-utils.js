@@ -131,6 +131,18 @@ export class VCardUtils {
       .join('');
   }
 
+  /**
+   * Encode a string for use as a vCard *parameter* value (RFC 6350 §3.3).
+   * A param value containing a structural character (',', ';', ':') or
+   * whitespace must be wrapped in double quotes. DQUOTE and CR/LF cannot appear
+   * inside a quoted param value, so they are stripped. Use this for any
+   * interpolated param value (e.g. X-SERVICE-TYPE, X-USER, custom TYPE).
+   */
+  static encodeParamValue(value) {
+    const cleaned = String(value ?? '').replace(/["\r\n]/g, '');
+    return /[,;:\s]/.test(cleaned) ? `"${cleaned}"` : cleaned;
+  }
+
   static foldLine(line, limit = 75) {
     const source = String(line || '');
     const encoder = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;

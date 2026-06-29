@@ -27,13 +27,11 @@ export class VCardAdapter {
     const contacts = this.parser.parse(text);
     for (let i = 0; i < contacts.length; i++) {
       const contact = contacts[i];
-      if (typeof ContactRecord !== 'undefined') {
-        ContactRecord.refreshLegacyContact(contact, {
-          format: this.id,
-          raw: contact.rawVCard || '',
-          index: options.startIndex != null ? options.startIndex + i : i,
-        });
-      }
+      ContactRecord.refreshLegacyContact(contact, {
+        format: this.id,
+        raw: contact.rawVCard || '',
+        index: options.startIndex != null ? options.startIndex + i : i,
+      });
     }
     return contacts;
   }
@@ -120,14 +118,14 @@ export class VCardAdapter {
     }
     for (const im of contact.ims || []) {
       if (!im?.value) continue;
-      const svc = im.service ? `;X-SERVICE-TYPE=${im.service}` : '';
+      const svc = im.service ? `;X-SERVICE-TYPE=${VCardUtils.encodeParamValue(im.service)}` : '';
       pushLabeled('IMPP', svc + this._typeParams(im.types || []), this._escape(im.value), im.label);
     }
     for (const sp of contact.socialProfiles || []) {
       if (!sp?.url) continue;
       let params = '';
-      if (sp.service) params += `;TYPE=${sp.service}`;
-      if (sp.username) params += `;X-USER=${sp.username}`;
+      if (sp.service) params += `;TYPE=${VCardUtils.encodeParamValue(sp.service)}`;
+      if (sp.username) params += `;X-USER=${VCardUtils.encodeParamValue(sp.username)}`;
       pushLabeled('X-SOCIALPROFILE', params, this._escape(sp.url), sp.label);
     }
     if (contact.birthday) lines.push(`BDAY:${this._escape(contact.birthday)}`);
@@ -167,21 +165,15 @@ export class VCardAdapter {
     }
 
     lines.push('END:VCARD');
-    return typeof VCardUtils !== 'undefined' ? VCardUtils.foldLines(lines) : lines.join('\r\n');
+    return VCardUtils.foldLines(lines);
   }
 
   _escape(value) {
-    return typeof VCardUtils !== 'undefined'
-      ? VCardUtils.encodeValue(value)
-      : String(value || '')
-          .replace(/\\/g, '\\\\')
-          .replace(/\n/g, '\\n')
-          .replace(/;/g, '\\;')
-          .replace(/,/g, '\\,');
+    return VCardUtils.encodeValue(value);
   }
 
   _typeParams(types = []) {
-    return typeof VCardUtils !== 'undefined' ? VCardUtils.buildTypeParams(types) : '';
+    return VCardUtils.buildTypeParams(types);
   }
 
   _wrapLabel(label) {
