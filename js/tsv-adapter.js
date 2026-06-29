@@ -112,7 +112,10 @@ export class TsvAdapter {
     if (address) contact.addresses = [address];
     contact.birthday = row.birthday || null;
     contact.anniversary = row.anniversary || null;
-    contact.notes = row.notes ? [row.notes] : [];
+    // Multiple notes are joined with a blank line on export (see serialize); split
+    // them back so N notes round-trip. A single note with internal newlines stays
+    // intact (only a blank-line separator splits).
+    contact.notes = row.notes ? row.notes.split('\n\n') : [];
     contact.tags = (row.tags || '')
       .split('|')
       .map((t) => t.trim())
@@ -217,7 +220,9 @@ export class TsvAdapter {
         .map((r) => (r.type ? `[${r.type}] ${r.name}` : r.name))
         .join(' | '),
       tags: (contact.tags || []).join(' | '),
-      notes: (contact.notes || []).join('\n'),
+      // Blank-line separator so multiple notes survive the round-trip (a single
+      // note keeps its own internal newlines).
+      notes: (contact.notes || []).join('\n\n'),
     };
     return this.COLUMNS.map((col) => this._escape(cell[col] ?? '')).join('\t');
   }

@@ -108,37 +108,28 @@ class EditingMixin {
   _renderReadOnlyContactInfo(contactInfo, node) {
     contactInfo.innerHTML = '';
 
-    contactInfo.appendChild(this._detailRow('👤', this._escapeHtml(node.name), 'Full Name'));
-    if (node.nickname)
-      contactInfo.appendChild(this._detailRow('🙂', this._escapeHtml(node.nickname), 'Nickname'));
+    contactInfo.appendChild(this._detailRow('👤', node.name, 'Full Name'));
+    if (node.nickname) contactInfo.appendChild(this._detailRow('🙂', node.nickname, 'Nickname'));
     if (node.maidenName)
-      contactInfo.appendChild(
-        this._detailRow('👤', this._escapeHtml(node.maidenName), 'Maiden Name'),
-      );
+      contactInfo.appendChild(this._detailRow('👤', node.maidenName, 'Maiden Name'));
     if (node.phoneticFirst || node.phoneticLast)
       contactInfo.appendChild(
         this._detailRow(
           '🔤',
-          this._escapeHtml([node.phoneticFirst, node.phoneticLast].filter(Boolean).join(' ')),
+          [node.phoneticFirst, node.phoneticLast].filter(Boolean).join(' '),
           'Phonetic Name',
         ),
       );
-    if (node.org)
-      contactInfo.appendChild(this._detailRow('🏢', this._escapeHtml(node.org), 'Organization'));
+    if (node.org) contactInfo.appendChild(this._detailRow('🏢', node.org, 'Organization'));
     if (node.department)
-      contactInfo.appendChild(
-        this._detailRow('🏬', this._escapeHtml(node.department), 'Department'),
-      );
+      contactInfo.appendChild(this._detailRow('🏬', node.department, 'Department'));
     if (node.phoneticOrg)
-      contactInfo.appendChild(
-        this._detailRow('🔤', this._escapeHtml(node.phoneticOrg), 'Phonetic Org'),
-      );
-    if (node.title)
-      contactInfo.appendChild(this._detailRow('💼', this._escapeHtml(node.title), 'Title'));
+      contactInfo.appendChild(this._detailRow('🔤', node.phoneticOrg, 'Phonetic Org'));
+    if (node.title) contactInfo.appendChild(this._detailRow('💼', node.title, 'Title'));
 
     for (const email of node.emails || []) {
       const emailValue = String(email.value || '').replace(/[\r\n]/g, '');
-      const row = this._detailRow(
+      const row = this._detailRowHtml(
         '✉️',
         `<a href="mailto:${this._escapeHtml(emailValue)}">${this._escapeHtml(emailValue)}</a>`,
         email.label ||
@@ -151,7 +142,7 @@ class EditingMixin {
     for (const phone of node.phones || []) {
       const row = this._detailRow(
         '📞',
-        this._escapeHtml(phone.value),
+        phone.value,
         phone.label ||
           (phone.types || []).filter((t) => !['VOICE', 'PREF'].includes(t)).join(', ') ||
           'Phone',
@@ -167,7 +158,7 @@ class EditingMixin {
       ].filter(Boolean);
       const html = `<div class="address-lines">${lines.map((line) => `<div>${this._escapeHtml(line)}</div>`).join('')}</div>`;
       contactInfo.appendChild(
-        this._detailRow(
+        this._detailRowHtml(
           '📍',
           html,
           address.label ||
@@ -186,7 +177,7 @@ class EditingMixin {
         typeof urlEntry === 'string' ? [] : this._visibleTypes('url', urlEntry.types || []);
       const urlLabel = typeof urlEntry === 'string' ? '' : urlEntry.label;
       contactInfo.appendChild(
-        this._detailRow(
+        this._detailRowHtml(
           '🔗',
           safeHref
             ? `<a href="${this._escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`
@@ -201,9 +192,7 @@ class EditingMixin {
       // Show the handle (scheme stripped) and surface the service as the label —
       // a custom label, if any, is appended so neither is hidden.
       const imLabel = [im.service, im.label].filter(Boolean).join(' · ') || 'Instant Message';
-      contactInfo.appendChild(
-        this._detailRow('💬', this._escapeHtml(this._imHandle(im.value)), imLabel),
-      );
+      contactInfo.appendChild(this._detailRow('💬', this._imHandle(im.value), imLabel));
     }
 
     for (const sp of node.socialProfiles || []) {
@@ -214,13 +203,13 @@ class EditingMixin {
       const safeHandle = this._escapeHtml(handle);
       const spLabel = [sp.service, sp.label].filter(Boolean).join(' · ') || 'Social Profile';
       contactInfo.appendChild(
-        this._detailRow(
-          '🌐',
-          safeHref
-            ? `<a href="${this._escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${safeHandle}</a>`
-            : safeHandle,
-          spLabel,
-        ),
+        safeHref
+          ? this._detailRowHtml(
+              '🌐',
+              `<a href="${this._escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${safeHandle}</a>`,
+              spLabel,
+            )
+          : this._detailRow('🌐', handle, spLabel),
       );
     }
 
@@ -229,9 +218,7 @@ class EditingMixin {
         this._detailRow('🎂', this._formatBirthday(node.birthday), 'Birthday'),
       );
     if (node.altBirthday)
-      contactInfo.appendChild(
-        this._detailRow('🌙', this._escapeHtml(node.altBirthday), 'Alternate Birthday'),
-      );
+      contactInfo.appendChild(this._detailRow('🌙', node.altBirthday, 'Alternate Birthday'));
     if (node.anniversary)
       contactInfo.appendChild(
         this._detailRow('💍', this._formatDateWithYears(node.anniversary), 'Anniversary'),
@@ -250,7 +237,7 @@ class EditingMixin {
   }
 
   _detailField(label, value) {
-    return this._detailRow('•', this._escapeHtml(value), label);
+    return this._detailRow('•', value, label);
   }
 
   _renderReadOnlyCustomFields(container, contact) {
@@ -262,7 +249,7 @@ class EditingMixin {
       container.appendChild(
         this._detailRow(
           '◆',
-          this._escapeHtml(this._customFieldDisplayValue(field)),
+          this._customFieldDisplayValue(field),
           `Custom: ${this._customFieldLabel(key)}`,
         ),
       );

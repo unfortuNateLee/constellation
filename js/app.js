@@ -250,11 +250,7 @@ export class ContactRelationshipApp {
     };
     attachMenu(document.getElementById('btn-import-menu'), [
       { label: 'Import vCard', onSelect: () => pickFiles('.vcf,.vcard') },
-      {
-        label: 'Import MD (coming soon)',
-        onSelect: () =>
-          this._showToast('Markdown import is coming soon — not available yet', 'info'),
-      },
+      { label: 'Import Markdown', onSelect: () => pickFiles('.md,.markdown') },
       { label: 'Import TSV', onSelect: () => pickFiles('.tsv') },
       { separator: true },
       { label: 'Download TSV Template', onSelect: () => this._downloadTsvTemplate() },
@@ -869,14 +865,23 @@ export class ContactRelationshipApp {
     return age >= 0 ? age : null;
   }
 
-  _detailRow(icon, content, label) {
+  /**
+   * A labeled detail row. `text` is treated as PLAIN TEXT and escaped — the safe
+   * default. Callers that need to inject markup (links, multi-line address) must
+   * use `_detailRowHtml` with content they have escaped themselves.
+   */
+  _detailRow(icon, text, label) {
+    return this._detailRowHtml(icon, this._escapeHtml(text), label);
+  }
+
+  _detailRowHtml(icon, html, label) {
     const row = document.createElement('div');
     row.className = 'detail-row';
     row.innerHTML = `
       <span class="detail-icon">${icon}</span>
       <div class="detail-field">
         ${label ? `<div class="detail-label">${this._escapeHtml(label)}</div>` : ''}
-        <div class="detail-value">${content}</div>
+        <div class="detail-value">${html}</div>
       </div>
     `;
     return row;

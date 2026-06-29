@@ -107,86 +107,58 @@ export class MarkdownAdapter {
       customFields.markdown_body = { type: 'markdown', value: bodyText };
     }
 
-    const fn = String(
-      data.fn || data.name?.display || data.name?.given || data.uid || 'Markdown Contact',
-    );
+    const fn = String(data.fn || data.name?.given || data.uid || 'Markdown Contact');
     const uid = data.uid || null;
-    const contact = {
-      id: this._resolveId(data.id, { uid, fn }, idContext),
-      uid,
-      fn,
-      name: {
-        family: data.name?.family || '',
-        given: data.name?.given || '',
-        additional: data.name?.additional || '',
-        prefix: data.name?.prefix || '',
-        suffix: data.name?.suffix || '',
-      },
-      org: data.org || '',
-      title: data.title || '',
-      isCompany: data.isCompany === true,
-      emails: this._array(data.emails),
-      phones: this._array(data.phones),
-      addresses: this._array(data.addresses),
-      birthday: data.birthday || null,
-      anniversary: data.anniversary || null,
-      dates: this._array(data.dates),
-      ims: this._array(data.ims),
-      socialProfiles: this._array(data.socialProfiles),
-      notes: this._notes(data.notes, bodyText),
-      related: this._array(data.related),
-      urls: this._array(data.urls),
-      photo: this._resolveImportedPhoto(data.photo),
-      tags: this._array(data.tags),
-      noteTags: [],
-      customFields,
-      rawVCard: '',
-    };
 
-    contact.noteTags = this._extractHashtags(contact.notes);
-    if (!contact.tags.length && contact.isCompany) contact.tags = ['company'];
-    if (typeof ContactRecord !== 'undefined') {
-      ContactRecord.refreshLegacyContact(contact, {
-        format: this.id,
-        raw: source.raw || '',
-        index: source.index,
-      });
+    // Registry-driven so a new STANDARD_FIELD is picked up automatically (no
+    // hand-maintained literal that silently drops fields). Arrays go through
+    // _array, the name object is shape-merged, scalars copy through with defaults.
+    const contact = ContactRecord.createEmptyContact();
+    for (const { key, default: makeDefault } of ContactRecord.STANDARD_FIELDS) {
+      const def = makeDefault();
+      if (Array.isArray(def)) contact[key] = this._array(data[key]);
+      else if (def && typeof def === 'object') contact[key] = { ...def, ...(data[key] || {}) };
+      else if (data[key] !== undefined && data[key] !== null) contact[key] = data[key];
     }
+    contact.id = this._resolveId(data.id, { uid, fn }, idContext);
+    contact.uid = uid;
+    contact.fn = fn;
+    // Notes come from the frontmatter `notes:` list (set by the loop above); the
+    // body is the free-form markdown_body custom field, kept separate so notes
+    // aren't duplicated across both.
+    contact.photo = this._resolveImportedPhoto(data.photo);
+    contact.customFields = customFields;
+    contact.rawVCard = '';
+
+    // Hashtags can appear in the notes list or the free-form markdown body.
+    contact.noteTags = this._extractHashtags([...(contact.notes || []), bodyText].filter(Boolean));
+    if (!contact.tags.length && contact.isCompany) contact.tags = ['company'];
+    ContactRecord.refreshLegacyContact(contact, {
+      format: this.id,
+      raw: source.raw || '',
+      index: source.index,
+    });
     return contact;
   }
 
   _serializeContact(contact, options = {}) {
     const fields = { ...(contact.customFields || contact.record?.fields || {}) };
-    const body = fields.markdown_body?.value || (contact.notes || []).join('\n\n');
+    // Notes live in the frontmatter `notes:` list (preserving multiple notes);
+    // the document body is reserved for the free-form markdown_body custom field
+    // only — so notes aren't duplicated into both the body and frontmatter.
+    const body = fields.markdown_body?.value || '';
     delete fields.markdown_body;
 
-    const data = {
-      constellation: 1,
-      id: contact.id || '',
-      uid: contact.uid || null,
-      fn: contact.fn || '',
-      name: contact.name || {},
-      org: contact.org || '',
-      title: contact.title || '',
-      isCompany: !!contact.isCompany,
-      emails: contact.emails || [],
-      phones: contact.phones || [],
-      addresses: contact.addresses || [],
-      birthday: contact.birthday || null,
-      anniversary: contact.anniversary || null,
-      dates: contact.dates || [],
-      ims: contact.ims || [],
-      socialProfiles: contact.socialProfiles || [],
-      notes: contact.notes || [],
-      related: contact.related || [],
-      urls: contact.urls || [],
-      // photoOverride (a filename) is used when exporting a bundle that writes
-      // the image to a sibling file; otherwise the photo is embedded inline.
-      photo: options.photoOverride || contact.photo || null,
-      tags: contact.tags || [],
-      noteTags: contact.noteTags || [],
-      fields,
-    };
+    // Registry-driven: every STANDARD_FIELD is emitted, so new fields aren't
+    // silently dropped on export.
+    const data = { constellation: 1, id: contact.id || '', uid: contact.uid || null };
+    for (const { key, default: makeDefault } of ContactRecord.STANDARD_FIELDS) {
+      data[key] = contact[key] ?? makeDefault();
+    }
+    // photoOverride (a filename) is used when exporting a bundle that writes the
+    // image to a sibling file; otherwise the photo is embedded inline.
+    data.photo = options.photoOverride || contact.photo || null;
+    data.fields = fields;
 
     const frontmatter = this._stringifyYaml(this._dropEmpty(data));
     return `---\n${frontmatter}---\n${String(body || '').trimEnd()}`;
@@ -478,12 +450,6 @@ export class MarkdownAdapter {
     if (value == null) return 'unknown';
     if (typeof value === 'object') return 'object';
     return typeof value;
-  }
-
-  _notes(notes, body) {
-    if (Array.isArray(notes)) return notes.map((note) => String(note));
-    if (notes) return [String(notes)];
-    return body ? [body] : [];
   }
 
   _array(value) {
