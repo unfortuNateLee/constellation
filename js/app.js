@@ -4,7 +4,6 @@ import { TsvAdapter } from './tsv-adapter.js';
 import { RelationshipBuilder } from './relationship-builder.js';
 import { ConstellationGraph } from './graph.js';
 import { ContactRecord } from './contact-record.js';
-import { makeSearchable } from './searchable-select.js';
 import { attachMenu } from './menu-button.js';
 
 /**
@@ -77,7 +76,7 @@ export class ContactRelationshipApp {
     // (single source of truth) rather than a hand-maintained option list.
     const modalRelType = document.getElementById('modal-rel-type');
     modalRelType.insertAdjacentHTML('beforeend', this._relTypeOptionsHtml(''));
-    makeSearchable(modalRelType, { placeholder: 'Search relationship types…' });
+    this._makeRelTypeSearchable(modalRelType);
 
     // Graph container
     const graphContainer = document.getElementById('graph-container');

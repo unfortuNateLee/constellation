@@ -130,6 +130,23 @@ class SearchableSelect {
     const hasItems = this._items.length > 0;
     list.classList.toggle('hidden', !hasItems);
     this.input.setAttribute('aria-expanded', hasItems ? 'true' : 'false');
+    if (hasItems) this._position();
+    else list.classList.remove('searchable-list--above');
+  }
+
+  /**
+   * Open the list above the input when there isn't room below it (e.g. the field
+   * is near the bottom of the viewport). CSS handles the actual offset via the
+   * `searchable-list--above` modifier.
+   */
+  _position() {
+    const inputRect = this.input.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - inputRect.bottom;
+    const spaceAbove = inputRect.top;
+    // Approx list height (its max-height is 240px); a little slack for padding.
+    const listHeight = Math.min(this.list.scrollHeight, 240) + 6;
+    const flipUp = spaceBelow < listHeight && spaceAbove > spaceBelow;
+    this.list.classList.toggle('searchable-list--above', flipUp);
   }
 
   _highlight() {
@@ -195,6 +212,7 @@ class SearchableSelect {
 
   close() {
     this.list.classList.add('hidden');
+    this.list.classList.remove('searchable-list--above');
     this.input.setAttribute('aria-expanded', 'false');
     this.input.removeAttribute('aria-activedescendant');
     this._syncDisplay();

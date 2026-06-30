@@ -1,6 +1,7 @@
 import { ContactRelationshipApp } from './app.js';
 import { applyMixin } from './apply-mixin.js';
 import { Palette } from './palette.js';
+import { makeSearchable } from './searchable-select.js';
 
 /**
  * Sidebar: the contact list, category/tag filters, tag colors, stats, legend,
@@ -346,6 +347,10 @@ class SidebarMixin {
       help.textContent =
         'My Family includes any contact connected to "me" by explicit relationships at any distance.';
     }
+
+    // Searchable combobox (idempotent — re-running after repopulating just
+    // refreshes the display; the list reads the live <option>s on open).
+    makeSearchable(select, { placeholder: 'Search contacts…' });
   }
 
   _pruneActiveFilters() {

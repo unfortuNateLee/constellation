@@ -2598,6 +2598,13 @@ body.resizing-col {
   left: 0;
   right: 0;
   top: calc(100% + 2px);
+}
+/* Flip above the input when there isn't room below (near the viewport bottom). */
+.searchable-list.searchable-list--above {
+  top: auto;
+  bottom: calc(100% + 2px);
+}
+.searchable-list {
   margin: 0;
   padding: 4px;
   list-style: none;

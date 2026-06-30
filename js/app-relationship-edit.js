@@ -15,6 +15,15 @@ class RelationshipEditMixin {
     return RelationshipTaxonomy.optionsHtml(selectedType);
   }
 
+  /**
+   * Enhance a relationship-type <select> into the standard searchable combobox.
+   * Shared by the inline rel editor and the Add Relationship modal so the picker
+   * style and placeholder are defined in one place.
+   */
+  _makeRelTypeSearchable(select) {
+    return makeSearchable(select, { placeholder: 'Search relationship types…' });
+  }
+
   /** Turns a rel-item into an inline editor for relationship name + type. */
   _startInlineRelEdit(item, contact, relIdx, node) {
     if (item.querySelector('.rel-type-select')) return;
@@ -118,6 +127,16 @@ class RelationshipEditMixin {
     cancelBtn.addEventListener('click', () => {
       this._onNodeSelect(node);
     });
+
+    // Enhance the type <select> into the searchable combobox. Done last so the
+    // wrapper ends up around just the select (the custom-type input stays a
+    // sibling). Stop clicks inside it from bubbling to the rel-item handler,
+    // which would cancel the edit.
+    const relTypeCombo = this._makeRelTypeSearchable(select);
+    if (relTypeCombo?.wrap) {
+      relTypeCombo.wrap.addEventListener('click', (e) => e.stopPropagation());
+      relTypeCombo.wrap.addEventListener('mousedown', (e) => e.stopPropagation());
+    }
 
     nameInput.focus();
   }
