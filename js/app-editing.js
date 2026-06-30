@@ -247,14 +247,19 @@ class EditingMixin {
     };
   }
 
-  /** Distinct organization values across all contacts (for the org picker/normalization). */
-  _allOrgsInGraph() {
+  /** Distinct, sorted values of a scalar field across contacts (for type-or-pick normalization). */
+  _distinctFieldValues(key) {
     const set = new Set();
     for (const c of this.contacts || []) {
-      const o = (c.org || '').trim();
-      if (o) set.add(o);
+      const v = (c[key] || '').trim();
+      if (v) set.add(v);
     }
     return [...set].sort((a, b) => a.localeCompare(b));
+  }
+
+  /** Distinct organization values across all contacts (for the org picker/normalization). */
+  _allOrgsInGraph() {
+    return this._distinctFieldValues('org');
   }
 
   _renderReadOnlyContactInfo(contactInfo, node) {
@@ -326,7 +331,10 @@ class EditingMixin {
           '🏬',
           this._escapeHtml(node.department),
           'Department',
-          spec(() => this._scalarFieldSpec(contact, 'department')),
+          spec(() => ({
+            ...this._scalarFieldSpec(contact, 'department'),
+            datalist: this._distinctFieldValues('department'),
+          })),
         ),
       );
     if (node.phoneticOrg)
@@ -344,7 +352,10 @@ class EditingMixin {
           '💼',
           this._escapeHtml(node.title),
           'Title',
-          spec(() => this._scalarFieldSpec(contact, 'title')),
+          spec(() => ({
+            ...this._scalarFieldSpec(contact, 'title'),
+            datalist: this._distinctFieldValues('title'),
+          })),
         ),
       );
     if (node.gender === 'M' || node.gender === 'F')
@@ -559,11 +570,27 @@ class EditingMixin {
         this._allOrgsInGraph(),
       ),
     );
-    grid.appendChild(this._editField('Department', 'edit-department', contact.department || ''));
+    grid.appendChild(
+      this._editField(
+        'Department',
+        'edit-department',
+        contact.department || '',
+        'text',
+        this._distinctFieldValues('department'),
+      ),
+    );
     grid.appendChild(
       this._editField('Phonetic Org', 'edit-phonetic-org', contact.phoneticOrg || ''),
     );
-    grid.appendChild(this._editField('Title', 'edit-title', contact.title || ''));
+    grid.appendChild(
+      this._editField(
+        'Title',
+        'edit-title',
+        contact.title || '',
+        'text',
+        this._distinctFieldValues('title'),
+      ),
+    );
     grid.appendChild(this._editGenderField(contact.gender || ''));
     grid.appendChild(this._editField('Birthday', 'edit-bday', contact.birthday || '', 'date'));
     grid.appendChild(
