@@ -42,7 +42,7 @@ class SuggestionsMixin {
             targetName: targetContact.fn,
             relName: node.name,
             relType: reciprocal,
-            reason: `${node.name} lists ${targetContact.fn} as their ${typeLabel}, but ${targetContact.fn}'s card doesn't list ${node.name} back.`,
+            reason: `${node.name} lists ${targetContact.fn} as ${this._possessivePronoun(node.gender)} ${typeLabel}, but ${this._firstName(targetContact.fn)} doesn't list ${this._firstName(node.name)} back.`,
           });
         }
       }
@@ -276,7 +276,7 @@ class SuggestionsMixin {
               targetName: node.name,
               relName: thirdContact.fn,
               relType: inferredType,
-              reason: `Your ${pivotLabel} ${pivotContact.fn} lists ${thirdContact.fn} as their ${bridgeLabel}, making them your likely ${inferredLabel}.`,
+              reason: `${this._firstName(node.name)}'s ${pivotLabel} ${pivotContact.fn} lists ${thirdContact.fn} as ${this._possessivePronoun(pivotContact.gender)} ${bridgeLabel}, making ${this._firstName(thirdContact.fn)} ${this._firstName(node.name)}'s likely ${inferredLabel}.`,
             });
           }
         }
@@ -346,7 +346,7 @@ class SuggestionsMixin {
             targetName: node.name,
             relName: sibContact.fn,
             relType: sibType,
-            reason: `${otherContact.fn} lists both you and ${sibContact.fn} as their ${childRel.type}.`,
+            reason: `${otherContact.fn} lists both ${this._firstName(node.name)} and ${this._firstName(sibContact.fn)} as ${this._possessivePronoun(otherContact.gender)} ${childRel.type}.`,
           });
         }
       }
@@ -377,7 +377,7 @@ class SuggestionsMixin {
           targetName: node.name,
           relName: otherContact.fn,
           relType: recipType,
-          reason: `${otherContact.fn} lists you as their ${this.builder._friendlyType(rel.type).toLowerCase()}, but your card doesn't list them back.`,
+          reason: `${otherContact.fn} lists ${this._firstName(node.name)} as ${this._possessivePronoun(otherContact.gender)} ${this.builder._friendlyType(rel.type).toLowerCase()}, but ${this._firstName(node.name)} doesn't list ${this._firstName(otherContact.fn)} back.`,
         });
       }
     }
@@ -571,6 +571,18 @@ class SuggestionsMixin {
   // role (pass their 'M'/'F' gender; '' → neutral/canonical).
   _reciprocalType(type, gender = '') {
     return RelationshipTaxonomy.genderedReciprocal(type, gender);
+  }
+
+  // First token of a name — suggestion text reads better with first names
+  // ("Avery" not "Avery Judd") and must never say "you" for a non-self card.
+  _firstName(name) {
+    const s = String(name || '').trim();
+    return s.split(/\s+/)[0] || s;
+  }
+
+  // Possessive pronoun for suggestion text, by gender ('M'→his, 'F'→her, else they/their).
+  _possessivePronoun(gender) {
+    return gender === 'M' ? 'his' : gender === 'F' ? 'her' : 'their';
   }
 
   /**

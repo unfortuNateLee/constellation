@@ -164,8 +164,15 @@ class GenderWizardMixin {
   _genderWizardKeydown(e) {
     const modal = document.getElementById('gender-wizard-modal');
     if (!modal || modal.classList.contains('hidden')) return;
-    const tag = (e.target.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    // Only ignore the hotkeys inside real text-entry fields — a focused tile
+    // checkbox (after ticking it) must NOT swallow m/f/u.
+    const el = e.target;
+    const tag = (el.tagName || '').toLowerCase();
+    const isTextEntry =
+      tag === 'textarea' ||
+      tag === 'select' ||
+      (tag === 'input' && !['checkbox', 'radio', 'button'].includes(el.type));
+    if (isTextEntry) return;
     const map = { m: 'M', f: 'F', u: '' };
     if (!(e.key.toLowerCase() in map)) return;
     e.preventDefault();
