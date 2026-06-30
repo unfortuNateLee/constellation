@@ -106,13 +106,177 @@ class EditingMixin {
     this._showToast(`Created real contact for ${contact.fn}`, 'success');
   }
 
+  // ── Inline edit of a displayed value (view mode) ─────────────────
+  /**
+   * Like _detailRowHtml, but the value becomes click-to-edit when `editSpec` is
+   * given: { type:'text'|'date'|'select', value, options?, placeholder?, commit(v) }.
+   * commit() applies the change and refreshes the panel (see _commitInlineFieldEdit).
+   */
+  _editableDetailRow(icon, displayHtml, label, editSpec) {
+    const row = this._detailRowHtml(icon, displayHtml, label);
+    if (!editSpec) return row;
+    const valueEl = row.querySelector('.detail-value');
+    valueEl.classList.add('detail-value-editable');
+    valueEl.title = 'Click to edit';
+    valueEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._enterInlineFieldEdit(valueEl, editSpec);
+    });
+    return row;
+  }
+
+  /** Swap a detail value for an inline editor (control + ✓/✕). */
+  _enterInlineFieldEdit(valueEl, spec) {
+    if (valueEl.dataset.editing) return;
+    valueEl.dataset.editing = '1';
+    const original = valueEl.innerHTML;
+    valueEl.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'inline-field-edit';
+
+    let control;
+    if (spec.type === 'select') {
+      control = document.createElement('select');
+      control.className = 'form-control';
+      for (const o of spec.options || []) {
+        const opt = document.createElement('option');
+        opt.value = o.value;
+        opt.textContent = o.label;
+        if (o.value === (spec.value || '')) opt.selected = true;
+        control.appendChild(opt);
+      }
+    } else {
+      control = document.createElement('input');
+      control.className = 'form-control';
+      control.type = spec.type === 'date' ? 'date' : 'text';
+      control.value = spec.value || '';
+      if (spec.placeholder) control.placeholder = spec.placeholder;
+    }
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = 'btn-edit-confirm';
+    confirmBtn.title = 'Save';
+    confirmBtn.textContent = '✓';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn-edit-cancel';
+    cancelBtn.title = 'Cancel';
+    cancelBtn.textContent = '✕';
+
+    wrap.append(control, confirmBtn, cancelBtn);
+    valueEl.appendChild(wrap);
+    control.focus();
+    if (typeof control.select === 'function') control.select();
+
+    const cancel = () => {
+      valueEl.removeAttribute('data-editing');
+      valueEl.innerHTML = original;
+    };
+    const commit = () => spec.commit(control.value); // commit re-renders the panel
+    confirmBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      commit();
+    });
+    cancelBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cancel();
+    });
+    control.addEventListener('click', (e) => e.stopPropagation());
+    control.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commit();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancel();
+      }
+    });
+  }
+
+  /** Apply one inline field change, then refresh card + graph + persist. */
+  _commitInlineFieldEdit(contact, mutate) {
+    mutate();
+    this._rewriteEditableFields(contact);
+    // A name/org change affects the graph; rebuild also re-renders the detail
+    // panel for the still-selected node (so it shows the committed value).
+    this.builder = new RelationshipBuilder(this.contacts);
+    this._rebuildGraph();
+    void this._persistSession();
+    this._showToast('Contact updated', 'success');
+  }
+
+  // Build a {type:'text'|'date'} edit spec for a scalar contact field.
+  _scalarFieldSpec(contact, key, type = 'text') {
+    return {
+      type,
+      value: contact[key] || '',
+      commit: (v) =>
+        this._commitInlineFieldEdit(contact, () => {
+          contact[key] = typeof v === 'string' ? v.trim() : v;
+        }),
+    };
+  }
+
+  // Edit spec for one instance value of a multi-instance field (emails/phones/urls).
+  _methodValueSpec(contact, listKey, index) {
+    const entry = (contact[listKey] || [])[index];
+    const current = typeof entry === 'string' ? entry : entry?.value || '';
+    return {
+      type: 'text',
+      value: current,
+      commit: (v) =>
+        this._commitInlineFieldEdit(contact, () => {
+          const val = (v || '').trim();
+          if (typeof contact[listKey][index] === 'string') contact[listKey][index] = val;
+          else if (contact[listKey][index]) contact[listKey][index].value = val;
+        }),
+    };
+  }
+
   _renderReadOnlyContactInfo(contactInfo, node) {
     contactInfo.innerHTML = '';
+    // Inline edit targets the real contact; virtual placeholders aren't editable.
+    const contact = this._contact(node.id);
+    const ed = !!contact && !node.isVirtual;
+    // Build an edit spec only when editable (avoids touching a null contact).
+    const spec = (build) => (ed ? build() : null);
 
-    contactInfo.appendChild(this._detailRow('👤', node.name, 'Full Name'));
-    if (node.nickname) contactInfo.appendChild(this._detailRow('🙂', node.nickname, 'Nickname'));
+    contactInfo.appendChild(
+      this._editableDetailRow(
+        '👤',
+        this._escapeHtml(node.name),
+        'Full Name',
+        spec(() => ({
+          type: 'text',
+          value: (contact && contact.fn) || node.name || '',
+          placeholder: 'Full name',
+          commit: (v) =>
+            this._commitInlineFieldEdit(contact, () => {
+              const t = (v || '').trim();
+              if (t) contact.fn = t; // never blank out the display name
+            }),
+        })),
+      ),
+    );
+    if (node.nickname)
+      contactInfo.appendChild(
+        this._editableDetailRow(
+          '🙂',
+          this._escapeHtml(node.nickname),
+          'Nickname',
+          spec(() => this._scalarFieldSpec(contact, 'nickname')),
+        ),
+      );
     if (node.maidenName)
-      contactInfo.appendChild(this._detailRow('👤', node.maidenName, 'Maiden Name'));
+      contactInfo.appendChild(
+        this._editableDetailRow(
+          '👤',
+          this._escapeHtml(node.maidenName),
+          'Maiden Name',
+          spec(() => this._scalarFieldSpec(contact, 'maidenName')),
+        ),
+      );
     if (node.phoneticFirst || node.phoneticLast)
       contactInfo.appendChild(
         this._detailRow(
@@ -121,39 +285,87 @@ class EditingMixin {
           'Phonetic Name',
         ),
       );
-    if (node.org) contactInfo.appendChild(this._detailRow('🏢', node.org, 'Organization'));
+    if (node.org)
+      contactInfo.appendChild(
+        this._editableDetailRow(
+          '🏢',
+          this._escapeHtml(node.org),
+          'Organization',
+          spec(() => this._scalarFieldSpec(contact, 'org')),
+        ),
+      );
     if (node.department)
-      contactInfo.appendChild(this._detailRow('🏬', node.department, 'Department'));
+      contactInfo.appendChild(
+        this._editableDetailRow(
+          '🏬',
+          this._escapeHtml(node.department),
+          'Department',
+          spec(() => this._scalarFieldSpec(contact, 'department')),
+        ),
+      );
     if (node.phoneticOrg)
-      contactInfo.appendChild(this._detailRow('🔤', node.phoneticOrg, 'Phonetic Org'));
-    if (node.title) contactInfo.appendChild(this._detailRow('💼', node.title, 'Title'));
+      contactInfo.appendChild(
+        this._editableDetailRow(
+          '🔤',
+          this._escapeHtml(node.phoneticOrg),
+          'Phonetic Org',
+          spec(() => this._scalarFieldSpec(contact, 'phoneticOrg')),
+        ),
+      );
+    if (node.title)
+      contactInfo.appendChild(
+        this._editableDetailRow(
+          '💼',
+          this._escapeHtml(node.title),
+          'Title',
+          spec(() => this._scalarFieldSpec(contact, 'title')),
+        ),
+      );
     if (node.gender === 'M' || node.gender === 'F')
       contactInfo.appendChild(
-        this._detailRow('⚧', node.gender === 'M' ? 'Male' : 'Female', 'Gender'),
+        this._editableDetailRow(
+          '⚧',
+          node.gender === 'M' ? 'Male' : 'Female',
+          'Gender',
+          spec(() => ({
+            type: 'select',
+            value: (contact && contact.gender) || '',
+            options: [
+              { value: '', label: 'Unspecified' },
+              { value: 'M', label: 'Male' },
+              { value: 'F', label: 'Female' },
+            ],
+            commit: (v) => this._commitInlineFieldEdit(contact, () => (contact.gender = v)),
+          })),
+        ),
       );
 
-    for (const email of node.emails || []) {
+    (node.emails || []).forEach((email, i) => {
       const emailValue = String(email.value || '').replace(/[\r\n]/g, '');
-      const row = this._detailRowHtml(
-        '✉️',
-        `<a href="mailto:${this._escapeHtml(emailValue)}">${this._escapeHtml(emailValue)}</a>`,
-        email.label ||
-          (email.types || []).filter((t) => !['INTERNET', 'PREF'].includes(t)).join(', ') ||
-          'Email',
+      contactInfo.appendChild(
+        this._editableDetailRow(
+          '✉️',
+          `<a href="mailto:${this._escapeHtml(emailValue)}">${this._escapeHtml(emailValue)}</a>`,
+          email.label ||
+            (email.types || []).filter((t) => !['INTERNET', 'PREF'].includes(t)).join(', ') ||
+            'Email',
+          spec(() => this._methodValueSpec(contact, 'emails', i)),
+        ),
       );
-      contactInfo.appendChild(row);
-    }
+    });
 
-    for (const phone of node.phones || []) {
-      const row = this._detailRow(
-        '📞',
-        phone.value,
-        phone.label ||
-          (phone.types || []).filter((t) => !['VOICE', 'PREF'].includes(t)).join(', ') ||
-          'Phone',
+    (node.phones || []).forEach((phone, i) => {
+      contactInfo.appendChild(
+        this._editableDetailRow(
+          '📞',
+          this._escapeHtml(phone.value || ''),
+          phone.label ||
+            (phone.types || []).filter((t) => !['VOICE', 'PREF'].includes(t)).join(', ') ||
+            'Phone',
+          spec(() => this._methodValueSpec(contact, 'phones', i)),
+        ),
       );
-      contactInfo.appendChild(row);
-    }
+    });
 
     for (const address of node.addresses || []) {
       const lines = [
@@ -173,24 +385,25 @@ class EditingMixin {
       );
     }
 
-    for (const urlEntry of node.urls || []) {
+    (node.urls || []).forEach((urlEntry, i) => {
       const urlValue = typeof urlEntry === 'string' ? urlEntry : urlEntry.value;
-      if (!urlValue) continue;
+      if (!urlValue) return;
       const safeUrl = this._escapeHtml(urlValue);
       const safeHref = this._safeExternalHref(urlValue);
       const types =
         typeof urlEntry === 'string' ? [] : this._visibleTypes('url', urlEntry.types || []);
       const urlLabel = typeof urlEntry === 'string' ? '' : urlEntry.label;
       contactInfo.appendChild(
-        this._detailRowHtml(
+        this._editableDetailRow(
           '🔗',
           safeHref
             ? `<a href="${this._escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`
             : safeUrl,
           urlLabel || types.join(', ') || 'Website',
+          spec(() => this._methodValueSpec(contact, 'urls', i)),
         ),
       );
-    }
+    });
 
     for (const im of node.ims || []) {
       if (!im?.value) continue;
@@ -220,24 +433,49 @@ class EditingMixin {
 
     if (node.birthday)
       contactInfo.appendChild(
-        this._detailRow('🎂', this._formatBirthday(node.birthday), 'Birthday'),
-      );
-    if (node.altBirthday)
-      contactInfo.appendChild(this._detailRow('🌙', node.altBirthday, 'Alternate Birthday'));
-    if (node.anniversary)
-      contactInfo.appendChild(
-        this._detailRow('💍', this._formatDateWithYears(node.anniversary), 'Anniversary'),
-      );
-    for (const dateEntry of node.dates || []) {
-      if (!dateEntry?.value) continue;
-      contactInfo.appendChild(
-        this._detailRow(
-          '📅',
-          this._formatDateWithYears(dateEntry.value),
-          dateEntry.label || 'Date',
+        this._editableDetailRow(
+          '🎂',
+          this._escapeHtml(this._formatBirthday(node.birthday)),
+          'Birthday',
+          spec(() => this._scalarFieldSpec(contact, 'birthday', 'date')),
         ),
       );
-    }
+    if (node.altBirthday)
+      contactInfo.appendChild(
+        this._editableDetailRow(
+          '🌙',
+          this._escapeHtml(node.altBirthday),
+          'Alternate Birthday',
+          spec(() => this._scalarFieldSpec(contact, 'altBirthday')),
+        ),
+      );
+    if (node.anniversary)
+      contactInfo.appendChild(
+        this._editableDetailRow(
+          '💍',
+          this._escapeHtml(this._formatDateWithYears(node.anniversary)),
+          'Anniversary',
+          spec(() => this._scalarFieldSpec(contact, 'anniversary', 'date')),
+        ),
+      );
+    (node.dates || []).forEach((dateEntry, i) => {
+      if (!dateEntry?.value) return;
+      contactInfo.appendChild(
+        this._editableDetailRow(
+          '📅',
+          this._escapeHtml(this._formatDateWithYears(dateEntry.value)),
+          dateEntry.label || 'Date',
+          spec(() => ({
+            type: 'date',
+            value: dateEntry.value || '',
+            commit: (v) =>
+              this._commitInlineFieldEdit(contact, () => {
+                if (contact.dates[i]) contact.dates[i].value = (v || '').trim();
+              }),
+          })),
+        ),
+      );
+    });
     this._renderReadOnlyCustomFields(contactInfo, node);
   }
 
