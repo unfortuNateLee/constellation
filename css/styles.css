@@ -1163,6 +1163,10 @@ body.resizing-col {
   fill: rgba(214, 236, 255, 0.96);
 }
 
+.hull-label-organization {
+  fill: rgba(214, 255, 240, 0.96);
+}
+
 /* ── Detail panel ────────────────────────────────────────────────── */
 .detail-panel {
   width: var(--detail-w);

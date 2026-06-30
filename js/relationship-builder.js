@@ -159,6 +159,7 @@ export class RelationshipBuilder {
     });
 
     // ── 3. Inferred (ORG-based) relationships ─────────────────────
+    const orgHullSeeds = [];
     if (includeInferred) {
       const orgGroups = new Map();
       for (const c of this.contacts) {
@@ -172,6 +173,16 @@ export class RelationshipBuilder {
       for (const [org, members] of orgGroups) {
         // Only connect reasonably sized groups (skip generic mega-orgs)
         if (members.length < 2 || members.length > 30) continue;
+
+        // A labeled cluster hull so the user can see WHY these are grouped (org name).
+        orgHullSeeds.push({
+          id: `hull__org__${org}`,
+          label: org,
+          memberIds: members.map((m) => m.id),
+          kind: 'organization',
+          depth: 1,
+          color: '#00b894',
+        });
 
         const edgeSet = new Set(edges.map((e) => `${this._pairKey(e.source, e.target)}:${e.type}`));
         for (let i = 0; i < members.length; i++) {
@@ -210,6 +221,7 @@ export class RelationshipBuilder {
         depth: 1,
         color: '#e17055',
       },
+      ...orgHullSeeds,
     ];
 
     if (includeLikelyFamily || includeLikelyConnections) {
