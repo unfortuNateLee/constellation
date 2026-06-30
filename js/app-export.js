@@ -37,6 +37,46 @@ class ExportMixin {
     this._showToast('Downloaded TSV template', 'success');
   }
 
+  /**
+   * Export every contact as its own self-contained .vcf, named for the person.
+   * Uses the directory picker where available (all files land in one chosen
+   * folder); otherwise falls back to individual downloads.
+   */
+  async _exportAllIndividualVCards() {
+    const used = new Map(); // base name → count, to disambiguate duplicate names
+    const files = [];
+    for (const contact of this.contacts) {
+      const blob = this.vcardAdapter.exportBlob(this.contacts, [contact.id]);
+      if (!blob) continue; // skip anything with no exportable vCard content
+      const base = this._safeFileBase(contact.fn || 'contact');
+      const n = (used.get(base) || 0) + 1;
+      used.set(base, n);
+      files.push({ name: `${n > 1 ? `${base} (${n})` : base}.vcf`, blob });
+    }
+    if (!files.length) {
+      this._showToast('No exportable contacts found', 'error');
+      return;
+    }
+    const status = await this._saveFilesSeparately(files);
+    if (status === 'cancelled') return;
+    const verb = status === 'saved' ? 'Saved' : 'Downloaded';
+    this._showToast(
+      `${verb} ${files.length} individual vCard${files.length !== 1 ? 's' : ''}`,
+      'success',
+    );
+  }
+
+  /** Sanitize a person's name into a safe, non-empty file base name. */
+  _safeFileBase(name) {
+    let s = String(name || '')
+      .replace(/[/\\:*?"<>|]/g, '-') // illegal path chars (spaces kept)
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^\.+/, ''); // no leading dots (hidden files / . / ..)
+    if (!s) s = 'contact';
+    return s.slice(0, 120);
+  }
+
   _exportWithAdapter(adapter, ids, filename) {
     const blob = adapter.exportBlob(this.contacts, ids);
     if (!blob) {

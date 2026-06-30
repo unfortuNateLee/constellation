@@ -317,6 +317,10 @@ export class ContactRelationshipApp {
           ),
       },
       {
+        label: 'Export All as Individual vCards',
+        onSelect: () => void this._exportAllIndividualVCards(),
+      },
+      {
         label: 'Export All as Markdown',
         onSelect: () =>
           void this._exportMarkdownScope(
