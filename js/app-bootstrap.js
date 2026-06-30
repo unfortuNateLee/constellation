@@ -41,6 +41,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // ── Gender Assignment Wizard ──
+  document.getElementById('gender-wizard-cancel').addEventListener('click', () => {
+    window.app._closeGenderWizard();
+  });
+  document.getElementById('gender-wizard-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('gender-wizard-modal')) {
+      window.app._closeGenderWizard();
+    }
+  });
+  document.getElementById('gender-wizard-commit').addEventListener('click', () => {
+    window.app._genderWizardCommit();
+  });
+  document.getElementById('gender-wizard-reset').addEventListener('click', () => {
+    window.app._genderWizardReset();
+  });
+  document.getElementById('gender-wizard-clear').addEventListener('click', () => {
+    window.app._genderWizardClearSelection();
+  });
+  // Keyboard m/f/u assignment (no-op unless the wizard is open; see the handler).
+  document.addEventListener('keydown', (e) => window.app?._genderWizardKeydown(e));
+
   document.getElementById('bulk-action-type').addEventListener('change', (e) => {
     if (!window.app._bulkRuleState) return;
     window.app._bulkRuleState.action.type = e.target.value;

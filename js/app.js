@@ -239,6 +239,10 @@ export class ContactRelationshipApp {
       this._openBulkNormalizeModal();
     });
 
+    document.getElementById('btn-gender-wizard').addEventListener('click', () => {
+      this._openGenderWizard();
+    });
+
     // Center the graph on the currently displayed contact
     document.getElementById('btn-center-contact').addEventListener('click', () => {
       if (this._selectedNodeId) this.graph.centerOnContact(this._selectedNodeId);

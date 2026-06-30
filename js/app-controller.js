@@ -12,6 +12,7 @@ import { ContactRelationshipApp } from './app.js';
 import './app-notes.js';
 import './app-session.js';
 import './app-bulk.js';
+import './app-gender-wizard.js';
 import './app-export.js';
 import './app-table.js';
 import './app-sidebar.js';

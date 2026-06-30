@@ -16,7 +16,7 @@
         <div class="build-stamp" title="Last edited build marker">
           <span class="build-stamp-label">Updated</span>
           <span class="build-stamp-date">2026-06-29</span>
-          <span class="build-stamp-time">21:15:37 EDT</span>
+          <span class="build-stamp-time">21:24:16 EDT</span>
         </div>
         <div class="app-title">Constellation</div>
         <div class="header-divider"></div>
@@ -50,6 +50,13 @@
           title="Normalize values across the full contact set"
         >
           Bulk Normalize
+        </button>
+        <button
+          class="btn btn-ghost"
+          id="btn-gender-wizard"
+          title="Quickly assign Male / Female / Unknown gender to contacts"
+        >
+          Assign Gender
         </button>
         <button
           class="btn btn-ghost"
@@ -566,6 +573,55 @@
         <div class="modal-footer">
           <button class="btn btn-ghost" id="bulk-cancel">Cancel</button>
           <button class="btn btn-primary" id="bulk-apply">Apply Rule</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Gender Assignment Wizard ─────────────────────────────────── -->
+    <div class="modal-backdrop hidden" id="gender-wizard-modal">
+      <div
+        class="modal gender-wizard-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="gender-wizard-title"
+      >
+        <div class="modal-header">
+          <span class="modal-title" id="gender-wizard-title">Assign Gender</span>
+        </div>
+        <div class="modal-body">
+          <div class="gender-wizard-help">
+            Drag contacts between columns, or select them (click, ⌘/Ctrl-click, or checkboxes) and
+            press <kbd>M</kbd> (Male), <kbd>F</kbd> (Female), or <kbd>U</kbd> (Unknown). Changes are
+            queued — nothing is saved until you press <strong>Commit Changes</strong>.
+            <span id="gender-wizard-pending" class="gender-wizard-pending"></span>
+          </div>
+          <div class="gender-wizard-columns">
+            <div class="gender-col" data-gender="M">
+              <div class="gender-col-header">
+                Male <span class="gender-col-count" data-count="M">0</span>
+              </div>
+              <div class="gender-col-body" data-gender="M"></div>
+            </div>
+            <div class="gender-col" data-gender="">
+              <div class="gender-col-header">
+                Unknown <span class="gender-col-count" data-count="U">0</span>
+              </div>
+              <div class="gender-col-body" data-gender=""></div>
+            </div>
+            <div class="gender-col" data-gender="F">
+              <div class="gender-col-header">
+                Female <span class="gender-col-count" data-count="F">0</span>
+              </div>
+              <div class="gender-col-body" data-gender="F"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer gender-wizard-footer">
+          <button class="btn btn-ghost" id="gender-wizard-clear">Clear Selection</button>
+          <button class="btn btn-ghost" id="gender-wizard-reset">Reset</button>
+          <span class="gender-wizard-footer-spacer"></span>
+          <button class="btn btn-ghost" id="gender-wizard-cancel">Cancel</button>
+          <button class="btn btn-primary" id="gender-wizard-commit">Commit Changes</button>
         </div>
       </div>
     </div>
