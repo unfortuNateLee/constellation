@@ -793,6 +793,9 @@ export class ConstellationGraph {
 
     // Ring
     this._nodeG.selectAll('g.node .node-ring').attr('opacity', (d) => (d.id === id ? 1 : 0));
+    // Recolor so the selected node takes the "selected" fill immediately (it's
+    // encoded in _nodeColor); previously this only happened on the next full render.
+    this._nodeG.selectAll('circle.node-circle').attr('fill', (d) => this._nodeColor(d));
 
     if (emit) {
       const nodeData = this._nodeById.get(id);
@@ -810,6 +813,8 @@ export class ConstellationGraph {
       .selectAll('text.hull-label')
       .attr('opacity', (d) => this._hullLabelOpacity(d, this._nodes));
     this._nodeG.selectAll('.node-ring').attr('opacity', 0);
+    // Revert the previously-selected node's fill back to its normal color.
+    this._nodeG.selectAll('circle.node-circle').attr('fill', (d) => this._nodeColor(d));
     this.emit('nodeDeselect', null);
   }
 

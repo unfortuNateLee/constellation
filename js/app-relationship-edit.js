@@ -10,9 +10,46 @@ import { makeSearchable } from './searchable-select.js';
  * updates) plus the add-relationship modal. Extracted from app.js verbatim.
  */
 class RelationshipEditMixin {
-  /** Returns <option> HTML for all known relationship types, with selectedType pre-selected. */
+  /** Distinct custom (non-taxonomy) relationship types already used across the graph. */
+  _customRelTypesInGraph() {
+    const set = new Set();
+    for (const c of this.contacts || []) {
+      for (const rel of c.related || []) {
+        const t = rel.type;
+        if (
+          t &&
+          t !== RelationshipTaxonomy.CUSTOM_OPTION_VALUE &&
+          !RelationshipTaxonomy.isKnown(t)
+        ) {
+          set.add(t);
+        }
+      }
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }
+
+  /**
+   * <option> HTML for the relationship-type picker: the known taxonomy types, then
+   * any custom types already in use across the graph, then the "Custom…" add-new
+   * escape hatch (so existing custom labels are reusable without retyping).
+   */
   _relTypeOptionsHtml(selectedType) {
-    return RelationshipTaxonomy.optionsHtml(selectedType);
+    const knownHtml = RelationshipTaxonomy.optionsHtml(selectedType, false);
+    const customTypes = this._customRelTypesInGraph();
+    const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+    const customHtml = customTypes
+      .map(
+        (t) =>
+          `<option value="${this._escapeHtml(t)}"${t === selectedType ? ' selected' : ''}>${this._escapeHtml(cap(t))}</option>`,
+      )
+      .join('');
+    const listed = new Set([
+      ...RelationshipTaxonomy.pickerOptions().map((o) => o.value),
+      ...customTypes,
+    ]);
+    const isUnknown = selectedType && !listed.has(selectedType);
+    const customEscape = `<option value="${RelationshipTaxonomy.CUSTOM_OPTION_VALUE}"${isUnknown ? ' selected' : ''}>Custom…</option>`;
+    return knownHtml + customHtml + customEscape;
   }
 
   /**

@@ -127,6 +127,10 @@ class EditingMixin {
     if (node.phoneticOrg)
       contactInfo.appendChild(this._detailRow('🔤', node.phoneticOrg, 'Phonetic Org'));
     if (node.title) contactInfo.appendChild(this._detailRow('💼', node.title, 'Title'));
+    if (node.gender === 'M' || node.gender === 'F')
+      contactInfo.appendChild(
+        this._detailRow('⚧', node.gender === 'M' ? 'Male' : 'Female', 'Gender'),
+      );
 
     for (const email of node.emails || []) {
       const emailValue = String(email.value || '').replace(/[\r\n]/g, '');
