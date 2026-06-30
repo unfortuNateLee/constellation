@@ -258,6 +258,9 @@ export class ContactRelationshipApp {
     document
       .getElementById('btn-graph-reset')
       ?.addEventListener('click', () => this.graph.resetView());
+    document
+      .getElementById('btn-graph-relayout')
+      ?.addEventListener('click', () => this.graph.relayout());
 
     // Close detail panel
     document.getElementById('btn-close-detail').addEventListener('click', () => {

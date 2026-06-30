@@ -273,6 +273,35 @@ export class ConstellationGraph {
     this._svg.transition().duration(600).call(this._zoom.transform, t);
   }
 
+  /**
+   * Re-run the force layout from a fresh, centered seed — for when the graph has
+   * drifted apart or settled awkwardly. Releases any pinned (dragged) nodes,
+   * discards saved positions, reheats the simulation, and fits the view once it
+   * settles.
+   */
+  relayout() {
+    if (!this._simulation) return;
+    this._measure();
+    const cx = this.width / 2;
+    const cy = this.height / 2;
+    const spreadX = Math.min(this.width, 600) * 0.5;
+    const spreadY = Math.min(this.height, 600) * 0.5;
+    const nodes = [...(this._nodeById?.values() || [])];
+    this._nodePositions?.clear?.();
+    for (const n of nodes) {
+      n.fx = null;
+      n.fy = null;
+      n.vx = 0;
+      n.vy = 0;
+      n.x = cx + (Math.random() - 0.5) * spreadX;
+      n.y = cy + (Math.random() - 0.5) * spreadY;
+    }
+    this._simulation.force('center', d3.forceCenter(cx, cy));
+    this._simulation.alpha(1).restart();
+    clearTimeout(this._relayoutFitTimer);
+    this._relayoutFitTimer = setTimeout(() => this.fitView(), 1400);
+  }
+
   /** Zoom/center on a contact node without changing the current selection.
    *  Returns true if the node was found and centered, false otherwise. */
   centerOnContact(id) {
