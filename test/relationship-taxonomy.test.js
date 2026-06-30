@@ -14,7 +14,11 @@ test('taxonomy is the single source of truth that the legacy methods delegate to
   assert.equal(builder._edgeCategory('colleague'), T.category('colleague'));
   assert.equal(builder._isValidReciprocal('mother', 'son'), T.isValidReciprocal('mother', 'son'));
   assert.equal(parser._normalizeRelType('co-worker'), T.normalize('co-worker'));
-  assert.equal(app._reciprocalType.call(null, 'husband'), T.reciprocal('husband'));
+  // _reciprocalType now genders the reciprocal by the holder's gender; with no
+  // gender it returns the neutral reciprocal where one exists ('husband' → 'spouse').
+  assert.equal(app._reciprocalType.call(null, 'husband'), T.genderedReciprocal('husband'));
+  assert.equal(app._reciprocalType.call(null, 'husband'), 'spouse');
+  assert.equal(app._reciprocalType.call(null, 'child', 'M'), 'father');
   assert.equal(app._typeToVCardLabel.call(null, 'uncle/aunt'), T.vcardLabel('uncle/aunt'));
   assert.equal(app._isKnownRelationshipType.call(null, 'cousin'), T.isKnown('cousin'));
 });

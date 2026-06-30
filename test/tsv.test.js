@@ -21,6 +21,7 @@ test('TSV import parses a row into the contact model', () => {
       'Dr. Jane Q. Doe', // display_name
       'Example Labs',
       'Principal',
+      'F', // gender
       'FALSE',
       '[home] jane@x.com | [work] jane@y.com', // emails
       '[cell] 555-0100', // phones
@@ -45,6 +46,7 @@ test('TSV import parses a row into the contact model', () => {
   assert.equal(c.name.given, 'Jane');
   assert.equal(c.name.family, 'Doe');
   assert.equal(c.org, 'Example Labs');
+  assert.equal(c.gender, 'F');
   assert.equal(c.isCompany, false);
   assert.deepEqual(plain(c.emails), [
     { value: 'jane@x.com', types: ['HOME'] },

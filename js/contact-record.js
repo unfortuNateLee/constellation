@@ -30,6 +30,9 @@ export class ContactRecord {
     { key: 'department', default: () => '' },
     { key: 'phoneticOrg', default: () => '' },
     { key: 'title', default: () => '' },
+    // vCard GENDER sex component: 'M' | 'F' | '' (unset/unknown). Drives gendered
+    // relationship suggestions and the Gender Assignment wizard.
+    { key: 'gender', default: () => '' },
     { key: 'isCompany', default: () => false },
     // Apple alternate/lunar birthday (X-ALTBDAY). Display + preserve only — the
     // raw line (incl. CALSCALE) is kept verbatim through edits, not regenerated.

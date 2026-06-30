@@ -78,6 +78,7 @@ export class VCardAdapter {
     }
     if (contact.phoneticOrg) lines.push(`X-PHONETIC-ORG:${this._escape(contact.phoneticOrg)}`);
     if (contact.title) lines.push(`TITLE:${this._escape(contact.title)}`);
+    if (contact.gender) lines.push(`GENDER:${this._escape(contact.gender)}`);
 
     // Non-system tags (markdown / in-app) → standard CATEGORIES so they aren't
     // dropped on export. 'company' is already represented by X-ABSHOWAS.

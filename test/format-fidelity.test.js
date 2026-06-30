@@ -4,6 +4,27 @@ import { loadBrowserClasses } from './helpers/load-app.js';
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
 
+test('Gender (vCard GENDER) round-trips through vCard and Markdown', () => {
+  const { VCFParser, VCardAdapter, MarkdownAdapter } = loadBrowserClasses();
+  const parser = new VCFParser();
+  // vCard parse maps M/F; other sex codes (O/N/U) → '' (unknown).
+  const [m] = parser.parse('BEGIN:VCARD\nVERSION:3.0\nFN:Al\nN:;Al;;;\nGENDER:M\nEND:VCARD');
+  const [f] = parser.parse('BEGIN:VCARD\nVERSION:3.0\nFN:Bo\nN:;Bo;;;\nGENDER:F;she\nEND:VCARD');
+  const [o] = parser.parse('BEGIN:VCARD\nVERSION:3.0\nFN:Cy\nN:;Cy;;;\nGENDER:O\nEND:VCARD');
+  assert.equal(m.gender, 'M');
+  assert.equal(f.gender, 'F'); // sex code before the ";text" component
+  assert.equal(o.gender, '');
+
+  // vCard serialize
+  assert.match(new VCardAdapter().serialize([m]), /GENDER:M/);
+
+  // Markdown shows human labels and round-trips back to the code.
+  const md = new MarkdownAdapter();
+  const out = md.serialize([f]);
+  assert.match(out, /- \*\*Gender:\*\* Female/);
+  assert.equal(md.parse(out)[0].gender, 'F');
+});
+
 test('Markdown round-trips a fully-populated contact across every field group', () => {
   const { MarkdownAdapter } = loadBrowserClasses();
   const md = new MarkdownAdapter();

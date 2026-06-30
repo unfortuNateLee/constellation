@@ -28,7 +28,9 @@ class SuggestionsMixin {
       });
 
       if (!alreadyListed) {
-        const reciprocal = this._reciprocalType(rel.type);
+        // The suggested back-link is node's own role on targetContact's card, so
+        // gender it by node's gender (e.g. a Male node → "Father"/"Uncle").
+        const reciprocal = this._reciprocalType(rel.type, node.gender);
         const key = `${targetContact.id}→${node.name}:${reciprocal}`;
         if (!seen.has(key) && !this._dismissedSuggestions.has(key)) {
           seen.add(key);
@@ -362,7 +364,9 @@ class SuggestionsMixin {
       });
       if (alreadyHas) continue;
 
-      const recipType = this._reciprocalType(rel.type);
+      // The suggested type describes otherContact's role on node's card → gender
+      // it by otherContact's gender.
+      const recipType = this._reciprocalType(rel.type, otherContact.gender);
       const key = `${node.id}→${otherContact.fn}:${recipType}:inbound`;
       if (!seen.has(key) && !this._dismissedSuggestions.has(key)) {
         seen.add(key);
@@ -563,8 +567,10 @@ class SuggestionsMixin {
     );
   }
 
-  _reciprocalType(type) {
-    return RelationshipTaxonomy.reciprocal(type);
+  // Reciprocal type, gendered by the gender of whoever will hold that reciprocal
+  // role (pass their 'M'/'F' gender; '' → neutral/canonical).
+  _reciprocalType(type, gender = '') {
+    return RelationshipTaxonomy.genderedReciprocal(type, gender);
   }
 
   /**

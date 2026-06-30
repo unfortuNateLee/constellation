@@ -188,6 +188,14 @@ export class VCFParser {
           contact.title = this._decode(value);
           break;
 
+        case 'GENDER': {
+          // vCard 4.0 GENDER: a sex component (M/F/O/N/U) optionally followed by
+          // ";text". We model only Male/Female/unknown → map M→M, F→F, else ''.
+          const sex = this._decode(value).split(';')[0].trim().toUpperCase();
+          contact.gender = sex === 'M' ? 'M' : sex === 'F' ? 'F' : '';
+          break;
+        }
+
         case 'X-ABSHOWAS':
           if (value.toUpperCase() === 'COMPANY') contact.isCompany = true;
           break;

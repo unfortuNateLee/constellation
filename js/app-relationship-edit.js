@@ -155,7 +155,10 @@ class RelationshipEditMixin {
     // the X-ABRELATEDNAMES item group by hand — contact.related is the source.
     this._rewriteEditableFields(contact);
 
-    const reciprocalType = this._reciprocalType(newType);
+    // The reciprocal is the contact's own role on the related person's card, so
+    // gender it by the contact's gender (e.g. contact is Male + relates a child →
+    // "Father"; relates a niece → "Uncle"). Unknown gender → neutral/canonical.
+    const reciprocalType = this._reciprocalType(newType, contact.gender);
     const sameTarget =
       (oldTarget && newTarget && oldTarget.id === newTarget.id) ||
       oldName.trim().toLowerCase() === newName.trim().toLowerCase();

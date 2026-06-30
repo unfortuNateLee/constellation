@@ -288,6 +288,7 @@ class EditingMixin {
       this._editField('Phonetic Org', 'edit-phonetic-org', contact.phoneticOrg || ''),
     );
     grid.appendChild(this._editField('Title', 'edit-title', contact.title || ''));
+    grid.appendChild(this._editGenderField(contact.gender || ''));
     grid.appendChild(this._editField('Birthday', 'edit-bday', contact.birthday || '', 'date'));
     grid.appendChild(
       this._editField('Anniversary', 'edit-anniversary', contact.anniversary || '', 'date'),
@@ -414,6 +415,22 @@ class EditingMixin {
       <input class="form-control" type="${type}" id="${id}">
     `;
     row.querySelector('input').value = value || '';
+    return row;
+  }
+
+  // Gender select — vCard sex code stored as the option value ('M'/'F'/'').
+  _editGenderField(value) {
+    const row = document.createElement('div');
+    row.className = 'detail-edit-row';
+    const sel = (v) => (value === v ? ' selected' : '');
+    row.innerHTML = `
+      <label class="detail-edit-label" for="edit-gender">Gender</label>
+      <select class="form-control" id="edit-gender">
+        <option value=""${sel('')}>Unspecified</option>
+        <option value="M"${sel('M')}>Male</option>
+        <option value="F"${sel('F')}>Female</option>
+      </select>
+    `;
     return row;
   }
 
@@ -970,6 +987,7 @@ class EditingMixin {
     contact.department = document.getElementById('edit-department')?.value.trim() || '';
     contact.phoneticOrg = document.getElementById('edit-phonetic-org')?.value.trim() || '';
     contact.title = document.getElementById('edit-title')?.value.trim() || '';
+    contact.gender = document.getElementById('edit-gender')?.value || '';
     contact.birthday = document.getElementById('edit-bday')?.value || null;
     contact.anniversary = document.getElementById('edit-anniversary')?.value || null;
     contact.dates = this._collectEditedDates();
@@ -1211,6 +1229,7 @@ class EditingMixin {
     if (contact.phoneticOrg)
       generated.push(`X-PHONETIC-ORG:${this._vCardEscape(contact.phoneticOrg)}`);
     if (contact.title) generated.push(`TITLE:${this._vCardEscape(contact.title)}`);
+    if (contact.gender) generated.push(`GENDER:${this._vCardEscape(contact.gender)}`);
     generated.push(...this._photoLines(contact.photo));
     // Emit a contact field as a plain line, or — when the entry carries an Apple
     // custom label — as an item group with an X-ABLabel (so the label survives).

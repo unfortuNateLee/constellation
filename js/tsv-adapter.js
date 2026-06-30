@@ -29,6 +29,7 @@ export class TsvAdapter {
       'display_name',
       'organization',
       'title',
+      'gender',
       'is_company',
       'emails',
       'phones',
@@ -94,6 +95,7 @@ export class TsvAdapter {
     contact.fn = row.display_name || this._composeDisplayName(contact.name) || row.uid || 'Contact';
     contact.org = row.organization || '';
     contact.title = row.title || '';
+    contact.gender = /^m/i.test(row.gender || '') ? 'M' : /^f/i.test(row.gender || '') ? 'F' : '';
     contact.isCompany = /^(true|yes|1)$/i.test(row.is_company || '');
     contact.emails = this._parseTypedList(row.emails).map((e) => ({
       value: e.value,
@@ -203,6 +205,7 @@ export class TsvAdapter {
       display_name: contact.fn || '',
       organization: contact.org || '',
       title: contact.title || '',
+      gender: contact.gender || '',
       is_company: contact.isCompany ? 'TRUE' : 'FALSE',
       emails: this._formatTypedList(contact.emails),
       phones: this._formatTypedList(contact.phones),

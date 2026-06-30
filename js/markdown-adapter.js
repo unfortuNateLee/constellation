@@ -29,10 +29,15 @@ const IDENTITY_FIELDS = [
   ['Department', 'department'],
   ['Phonetic Org', 'phoneticOrg'],
   ['Title', 'title'],
+  ['Gender', 'gender'],
 ];
 const IDENTITY_BY_LABEL = new Map(
   IDENTITY_FIELDS.map(([label, key]) => [label.toLowerCase(), key]),
 );
+
+// Human-readable gender labels in Markdown; stored as vCard sex codes ('M'/'F').
+const GENDER_TO_LABEL = { M: 'Male', F: 'Female' };
+const GENDER_FROM_LABEL = { male: 'M', m: 'M', female: 'F', f: 'F' };
 
 // IM service → URI scheme, to reconstruct the stored value from a readable handle.
 const IM_SCHEMES = {
@@ -155,6 +160,8 @@ export class MarkdownAdapter {
       } else if (key && key.startsWith('name.')) {
         contact.name[key.slice(5)] = value;
         sawNameBullet = true;
+      } else if (key === 'gender') {
+        contact.gender = GENDER_FROM_LABEL[value.toLowerCase()] || '';
       } else if (key) {
         contact[key] = value;
       } else if (value) {
@@ -492,7 +499,8 @@ export class MarkdownAdapter {
     if (contact.uid) idBullets.push(['UID', contact.uid]);
     for (const [label, key] of IDENTITY_FIELDS) {
       if (key === 'uid') continue;
-      const value = key.startsWith('name.') ? name[key.slice(5)] : contact[key];
+      let value = key.startsWith('name.') ? name[key.slice(5)] : contact[key];
+      if (key === 'gender') value = GENDER_TO_LABEL[value] || ''; // 'M'/'F' → Male/Female
       if (value) idBullets.push([label, value]);
     }
     if (contact.isCompany) idBullets.push(['Company', 'Yes']);

@@ -271,6 +271,75 @@ export class RelationshipTaxonomy {
     return this.TYPES[type]?.reciprocal || type;
   }
 
+  // Gendered relationship concepts: concept → { neutral, M, F }. `neutral` is ''
+  // where no gender-neutral term exists (aunt/uncle, niece/nephew).
+  static GENDER_GROUPS = {
+    spouse: { neutral: 'spouse', M: 'husband', F: 'wife' },
+    parent: { neutral: 'parent', M: 'father', F: 'mother' },
+    stepparent: { neutral: 'stepparent', M: 'stepfather', F: 'stepmother' },
+    child: { neutral: 'child', M: 'son', F: 'daughter' },
+    stepchild: { neutral: 'stepchild', M: 'stepson', F: 'stepdaughter' },
+    sibling: { neutral: 'sibling', M: 'brother', F: 'sister' },
+    grandparent: { neutral: 'grandparent', M: 'grandfather', F: 'grandmother' },
+    grandchild: { neutral: 'grandchild', M: 'grandson', F: 'granddaughter' },
+    pibling: { neutral: '', M: 'uncle', F: 'aunt' },
+    nibling: { neutral: '', M: 'nephew', F: 'niece' },
+  };
+
+  // Any gendered/neutral type → its gender-group concept key.
+  static GENDER_CONCEPT = {
+    spouse: 'spouse',
+    husband: 'spouse',
+    wife: 'spouse',
+    parent: 'parent',
+    father: 'parent',
+    mother: 'parent',
+    stepparent: 'stepparent',
+    stepfather: 'stepparent',
+    stepmother: 'stepparent',
+    child: 'child',
+    son: 'child',
+    daughter: 'child',
+    stepchild: 'stepchild',
+    stepson: 'stepchild',
+    stepdaughter: 'stepchild',
+    sibling: 'sibling',
+    brother: 'sibling',
+    sister: 'sibling',
+    grandparent: 'grandparent',
+    grandfather: 'grandparent',
+    grandmother: 'grandparent',
+    grandchild: 'grandchild',
+    grandson: 'grandchild',
+    granddaughter: 'grandchild',
+    uncle: 'pibling',
+    aunt: 'pibling',
+    nephew: 'nibling',
+    niece: 'nibling',
+  };
+
+  /**
+   * Resolve `type` to the gendered variant for the given gender ('M'|'F'|'').
+   * Unknown gender → the neutral term if one exists, else the input unchanged.
+   */
+  static gendered(type, gender) {
+    const concept = this.GENDER_CONCEPT[type];
+    if (!concept) return type;
+    const group = this.GENDER_GROUPS[concept];
+    if (gender === 'M' && group.M) return group.M;
+    if (gender === 'F' && group.F) return group.F;
+    return group.neutral || type;
+  }
+
+  /**
+   * The reciprocal of `type`, gendered by the gender of whoever will hold the
+   * reciprocal role (i.e. the contact). Unknown gender → the neutral reciprocal
+   * where one exists, otherwise the canonical reciprocal (e.g. niece → aunt).
+   */
+  static genderedReciprocal(type, gender = '') {
+    return this.gendered(this.reciprocal(type), gender);
+  }
+
   static isKnown(type) {
     return Object.prototype.hasOwnProperty.call(this.TYPES, String(type || '').toLowerCase());
   }
