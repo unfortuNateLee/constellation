@@ -47,7 +47,9 @@ class SidebarMixin {
     name.textContent = this._formatContactListName(c);
     const sub = document.createElement('div');
     sub.className = 'contact-sub';
-    sub.textContent = c.org || c.category;
+    // Show the organization only; no fallback to the category ("other") so
+    // company-less contacts show nothing rather than a misleading label.
+    sub.textContent = c.org || '';
     info.appendChild(name);
     info.appendChild(sub);
 
