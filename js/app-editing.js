@@ -151,6 +151,19 @@ class EditingMixin {
       control.type = spec.type === 'date' ? 'date' : 'text';
       control.value = spec.value || '';
       if (spec.placeholder) control.placeholder = spec.placeholder;
+      // Optional suggestion list (e.g. existing org names) — type-or-pick.
+      if (Array.isArray(spec.datalist) && spec.datalist.length) {
+        this._inlineDlSeq = (this._inlineDlSeq || 0) + 1;
+        const dl = document.createElement('datalist');
+        dl.id = `inline-dl-${this._inlineDlSeq}`;
+        for (const v of spec.datalist) {
+          const o = document.createElement('option');
+          o.value = v;
+          dl.appendChild(o);
+        }
+        control.setAttribute('list', dl.id);
+        wrap.appendChild(dl);
+      }
     }
 
     const confirmBtn = document.createElement('button');
@@ -234,6 +247,16 @@ class EditingMixin {
     };
   }
 
+  /** Distinct organization values across all contacts (for the org picker/normalization). */
+  _allOrgsInGraph() {
+    const set = new Set();
+    for (const c of this.contacts || []) {
+      const o = (c.org || '').trim();
+      if (o) set.add(o);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }
+
   _renderReadOnlyContactInfo(contactInfo, node) {
     contactInfo.innerHTML = '';
     // Inline edit targets the real contact; virtual placeholders aren't editable.
@@ -291,7 +314,10 @@ class EditingMixin {
           '🏢',
           this._escapeHtml(node.org),
           'Organization',
-          spec(() => this._scalarFieldSpec(contact, 'org')),
+          spec(() => ({
+            ...this._scalarFieldSpec(contact, 'org'),
+            datalist: this._allOrgsInGraph(),
+          })),
         ),
       );
     if (node.department)
@@ -524,7 +550,15 @@ class EditingMixin {
     grid.appendChild(
       this._editCheckboxField('Treat as Company', 'edit-is-company', !!contact.isCompany),
     );
-    grid.appendChild(this._editField('Organization', 'edit-org', contact.org || ''));
+    grid.appendChild(
+      this._editField(
+        'Organization',
+        'edit-org',
+        contact.org || '',
+        'text',
+        this._allOrgsInGraph(),
+      ),
+    );
     grid.appendChild(this._editField('Department', 'edit-department', contact.department || ''));
     grid.appendChild(
       this._editField('Phonetic Org', 'edit-phonetic-org', contact.phoneticOrg || ''),
@@ -649,12 +683,21 @@ class EditingMixin {
     return wrap;
   }
 
-  _editField(label, id, value, type = 'text') {
+  _editField(label, id, value, type = 'text', datalistValues = null) {
     const row = document.createElement('div');
     row.className = 'detail-edit-row';
+    const hasList = Array.isArray(datalistValues) && datalistValues.length > 0;
+    const listId = hasList ? `${id}-list` : '';
     row.innerHTML = `
       <label class="detail-edit-label" for="${id}">${label}</label>
-      <input class="form-control" type="${type}" id="${id}">
+      <input class="form-control" type="${type}" id="${id}"${hasList ? ` list="${listId}"` : ''}>
+      ${
+        hasList
+          ? `<datalist id="${listId}">${datalistValues
+              .map((v) => `<option value="${this._escapeHtml(v)}"></option>`)
+              .join('')}</datalist>`
+          : ''
+      }
     `;
     row.querySelector('input').value = value || '';
     return row;
