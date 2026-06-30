@@ -245,7 +245,8 @@ class SuggestionsMixin {
           rule.bridgeTypes.includes(r.type),
         );
         for (const bridgeRel of bridgeRels) {
-          const thirdContact = this.builder.findContact(bridgeRel.name);
+          // The suggested third party may be a real OR a virtual contact.
+          const thirdContact = this._resolveSuggestParty(bridgeRel.name);
           if (!thirdContact) continue;
           if (thirdContact.id === node.id) continue; // skip self
 
@@ -323,7 +324,8 @@ class SuggestionsMixin {
       for (const childRel of (otherContact.related || []).filter((r) =>
         childRelTypes.has(r.type),
       )) {
-        const sibContact = this.builder.findContact(childRel.name);
+        // The suggested sibling may be a real OR a virtual contact.
+        const sibContact = this._resolveSuggestParty(childRel.name);
         if (!sibContact) continue;
         if (sibContact.id === node.id) continue; // skip self
 
@@ -583,6 +585,28 @@ class SuggestionsMixin {
   // Possessive pronoun for suggestion text, by gender ('M'→his, 'F'→her, else they/their).
   _possessivePronoun(gender) {
     return gender === 'M' ? 'his' : gender === 'F' ? 'her' : 'their';
+  }
+
+  // Resolve a related-party name to a uniform { id, fn, gender, isVirtual }: a real
+  // contact if one matches, otherwise an existing virtual node (a placeholder for a
+  // person referenced in a relationship but not imported). Lets suggestions point at
+  // virtual contacts the same way they point at real ones.
+  _resolveSuggestParty(name) {
+    const real = this.builder.findContact(name);
+    if (real) return { id: real.id, fn: real.fn, gender: real.gender || '', isVirtual: false };
+    const want = String(name || '')
+      .trim()
+      .toLowerCase();
+    if (!want) return null;
+    const vn = (this.graphData?.nodes || []).find(
+      (n) =>
+        n.isVirtual &&
+        !n.isGroupNode &&
+        String(n.name || '')
+          .trim()
+          .toLowerCase() === want,
+    );
+    return vn ? { id: vn.id, fn: vn.name, gender: vn.gender || '', isVirtual: true } : null;
   }
 
   /**

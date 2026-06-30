@@ -250,16 +250,26 @@ class RelationshipEditMixin {
       document.getElementById('modal-from-name').textContent = node.name;
     }
 
-    // Populate contact picker
+    // Populate contact picker with both real contacts and existing virtual
+    // contacts (placeholders for people referenced in a relationship but not yet
+    // imported). The save path resolves any node id by name, with a null UID for
+    // virtual targets, so they link by name just like real ones.
     const select = document.getElementById('modal-target-select');
     select.innerHTML = '<option value="">— Select contact —</option>';
-    const sorted = this.contacts
-      .filter((c) => c.id !== this._selectedNodeId)
-      .sort((a, b) => a.fn.localeCompare(b.fn));
-    for (const c of sorted) {
+    const items = [];
+    for (const c of this.contacts) {
+      if (c.id !== this._selectedNodeId) items.push({ id: c.id, name: c.fn, virtual: false });
+    }
+    for (const n of this.graphData?.nodes || []) {
+      if (n.isVirtual && !n.isGroupNode && n.id !== this._selectedNodeId) {
+        items.push({ id: n.id, name: n.name, virtual: true });
+      }
+    }
+    items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    for (const item of items) {
       const opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = c.fn;
+      opt.value = item.id;
+      opt.textContent = item.virtual ? `${item.name} (virtual)` : item.name;
       select.appendChild(opt);
     }
     makeSearchable(select, { placeholder: 'Search contacts…' });
