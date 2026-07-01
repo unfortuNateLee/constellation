@@ -171,8 +171,11 @@ export class RelationshipBuilder {
       }
 
       for (const [org, members] of orgGroups) {
-        // Only connect reasonably sized groups (skip generic mega-orgs)
-        if (members.length < 2 || members.length > 30) continue;
+        // Connect groups of 2+ members, but skip pathologically large buckets
+        // (e.g. a generic default org shared by hundreds) that would just produce
+        // a hairball. A real employer — even a few dozen colleagues, like a whole
+        // MITRE division — should still cluster.
+        if (members.length < 2 || members.length > 100) continue;
 
         // A labeled cluster hull so the user can see WHY these are grouped (org name).
         orgHullSeeds.push({
