@@ -134,6 +134,71 @@ class EditingMixin {
     const wrap = document.createElement('div');
     wrap.className = 'inline-field-edit';
 
+    // ── Composite (multi-field) editor, e.g. a postal address ──
+    if (Array.isArray(spec.fields)) {
+      wrap.classList.add('inline-field-edit-multi');
+      const inputs = {};
+      for (const f of spec.fields) {
+        const inp = document.createElement('input');
+        inp.className = 'form-control';
+        inp.type = 'text';
+        inp.value = f.value || '';
+        inp.placeholder = f.label || '';
+        inp.setAttribute('aria-label', f.label || '');
+        inp.addEventListener('click', (e) => e.stopPropagation());
+        inputs[f.key] = inp;
+        wrap.appendChild(inp);
+      }
+      const cCommit = document.createElement('button');
+      cCommit.type = 'button';
+      cCommit.className = 'btn-edit-confirm';
+      cCommit.title = 'Save';
+      cCommit.textContent = '✓';
+      const cCancel = document.createElement('button');
+      cCancel.type = 'button';
+      cCancel.className = 'btn-edit-cancel';
+      cCancel.title = 'Cancel';
+      cCancel.textContent = '✕';
+      const actions = document.createElement('div');
+      actions.className = 'inline-field-actions';
+      actions.append(cCommit, cCancel);
+      wrap.appendChild(actions);
+      valueEl.appendChild(wrap);
+
+      const revert = () => {
+        valueEl.removeAttribute('data-editing');
+        valueEl.innerHTML = original;
+      };
+      const save = () => {
+        const values = {};
+        for (const f of spec.fields) values[f.key] = inputs[f.key].value;
+        spec.commit(values);
+      };
+      cCommit.addEventListener('click', (e) => {
+        e.stopPropagation();
+        save();
+      });
+      cCancel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        revert();
+      });
+      wrap.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          save();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          revert();
+        }
+      });
+      const firstInput = inputs[spec.fields[0].key];
+      if (firstInput) {
+        firstInput.focus();
+        firstInput.select();
+      }
+      return;
+    }
+
     let control;
     if (spec.type === 'select') {
       control = document.createElement('select');
@@ -404,7 +469,7 @@ class EditingMixin {
       );
     });
 
-    for (const address of node.addresses || []) {
+    (node.addresses || []).forEach((address, i) => {
       const lines = [
         address.street,
         [address.city, address.state, address.zip].filter(Boolean).join(', '),
@@ -412,15 +477,34 @@ class EditingMixin {
       ].filter(Boolean);
       const html = `<div class="address-lines">${lines.map((line) => `<div>${this._escapeHtml(line)}</div>`).join('')}</div>`;
       contactInfo.appendChild(
-        this._detailRowHtml(
+        this._editableDetailRow(
           '📍',
           html,
           address.label ||
             this._visibleTypes('address', address.types || []).join(', ') ||
             'Address',
+          spec(() => ({
+            fields: [
+              { key: 'street', label: 'Street', value: address.street || '' },
+              { key: 'city', label: 'City', value: address.city || '' },
+              { key: 'state', label: 'State / Province', value: address.state || '' },
+              { key: 'zip', label: 'ZIP / Postal code', value: address.zip || '' },
+              { key: 'country', label: 'Country', value: address.country || '' },
+            ],
+            commit: (vals) =>
+              this._commitInlineFieldEdit(contact, () => {
+                const a = contact.addresses[i];
+                if (!a) return;
+                a.street = (vals.street || '').trim();
+                a.city = (vals.city || '').trim();
+                a.state = (vals.state || '').trim();
+                a.zip = (vals.zip || '').trim();
+                a.country = (vals.country || '').trim();
+              }),
+          })),
         ),
       );
-    }
+    });
 
     (node.urls || []).forEach((urlEntry, i) => {
       const urlValue = typeof urlEntry === 'string' ? urlEntry : urlEntry.value;
