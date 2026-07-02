@@ -391,6 +391,33 @@ class EditingMixin {
           })),
         ),
       );
+    // "Treat as Company" (Apple X-ABSHOWAS:COMPANY) — a live checkbox rather
+    // than click-to-edit: toggling commits immediately. Shown whenever it's
+    // relevant (the contact has an org, or is already marked as a company so
+    // it can be unmarked).
+    if (ed && (node.org || contact.isCompany)) {
+      const row = this._detailRowHtml('🏛️', '', 'Treat as Company');
+      const valueEl = row.querySelector('.detail-value');
+      const toggle = document.createElement('label');
+      toggle.className = 'detail-company-toggle';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !!contact.isCompany;
+      cb.setAttribute('aria-label', 'Treat as Company');
+      cb.addEventListener('click', (e) => e.stopPropagation());
+      cb.addEventListener('change', () => {
+        this._commitInlineFieldEdit(contact, () => {
+          contact.isCompany = cb.checked;
+          // Mirrors the full edit-form save: category tags derive from isCompany.
+          contact.tags = this.parser._inferTags(contact);
+        });
+      });
+      const text = document.createElement('span');
+      text.textContent = contact.isCompany ? 'Shown as a company card' : 'Shown as a person card';
+      toggle.append(cb, text);
+      valueEl.appendChild(toggle);
+      contactInfo.appendChild(row);
+    }
     if (node.department)
       contactInfo.appendChild(
         this._editableDetailRow(

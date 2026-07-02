@@ -1576,6 +1576,22 @@ body.resizing-col {
   color: var(--accent2);
   text-decoration: none;
 }
+/* Live "Treat as Company" checkbox on the contact card. */
+.detail-company-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  user-select: none;
+}
+.detail-company-toggle input[type='checkbox'] {
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+}
+.detail-company-toggle span {
+  color: var(--text2);
+}
 .detail-value a:hover {
   text-decoration: underline;
 }

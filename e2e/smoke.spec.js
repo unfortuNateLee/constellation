@@ -147,3 +147,32 @@ test('no console errors through import → select → view switches', async ({ p
   await page.locator('#graph-mode-select').selectOption({ index: 1 });
   expect(errors).toEqual([]);
 });
+
+test('"Treat as Company" checkbox on the card toggles and persists to export', async ({ page }) => {
+  await importFixture(page);
+
+  // A company contact shows the box checked.
+  await selectContact(page, 'Acme Corporation');
+  const acmeBox = page.locator('.detail-company-toggle input[type="checkbox"]');
+  await expect(acmeBox).toBeChecked();
+
+  // A person with an org shows it unchecked; ticking commits immediately.
+  await selectContact(page, 'Jane');
+  const janeBox = page.locator('.detail-company-toggle input[type="checkbox"]');
+  await expect(janeBox).not.toBeChecked();
+  await janeBox.check();
+  await expect(page.locator('#toast')).toContainText('Contact updated');
+  // The panel re-renders from the committed model — still checked.
+  await expect(page.locator('.detail-company-toggle input[type="checkbox"]')).toBeChecked();
+
+  // And the change reaches the vCard export (Acme + Jane).
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#btn-export-all-menu').click();
+  await page.locator('.menu-popover .menu-item', { hasText: 'Export All as vCard' }).click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const content = Buffer.concat(chunks).toString('utf8');
+  expect(content.match(/X-ABSHOWAS:COMPANY/g)).toHaveLength(2);
+});
