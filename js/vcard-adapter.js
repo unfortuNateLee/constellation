@@ -1,6 +1,6 @@
 import { VCFParser } from './vcf-parser.js';
 import { ContactRecord } from './contact-record.js';
-import { VCardUtils } from './vcard-utils.js';
+import { VCardSerializer } from './vcard-serializer.js';
 
 /**
  * vCard format adapter.
@@ -41,7 +41,10 @@ export class VCardAdapter {
     const blocks = [];
     for (const contact of contacts || []) {
       if (selectedIds && !selectedIds.has(contact.id)) continue;
-      const block = contact.rawVCard || this._serializeContactFallback(contact);
+      // The raw card (kept in sync by the edit paths) is the source of truth;
+      // contacts without one (Markdown/TSV imports) are generated from the
+      // model by the shared serializer.
+      const block = VCardSerializer.serializeContact(contact);
       if (block) blocks.push(block.trim());
     }
     return blocks.length ? `${blocks.join('\r\n')}\r\n` : '';
@@ -51,161 +54,5 @@ export class VCardAdapter {
     const content = this.serialize(contacts, ids);
     if (!content) return null;
     return new Blob([content], { type: this.mimeType });
-  }
-
-  _serializeContactFallback(contact) {
-    if (!contact) return '';
-    const name = contact.name || {};
-    const lines = ['BEGIN:VCARD', 'VERSION:3.0'];
-
-    if (contact.uid) lines.push(`UID:${this._escape(contact.uid)}`);
-    lines.push(`FN:${this._escape(contact.fn || this._composeDisplayName(name) || 'Contact')}`);
-    lines.push(
-      `N:${this._escape(name.family || '')};${this._escape(name.given || '')};${this._escape(name.additional || '')};${this._escape(name.prefix || '')};${this._escape(name.suffix || '')}`,
-    );
-    if (contact.nickname) lines.push(`NICKNAME:${this._escape(contact.nickname)}`);
-    if (contact.maidenName) lines.push(`X-MAIDENNAME:${this._escape(contact.maidenName)}`);
-    if (contact.phoneticFirst)
-      lines.push(`X-PHONETIC-FIRST-NAME:${this._escape(contact.phoneticFirst)}`);
-    if (contact.phoneticLast)
-      lines.push(`X-PHONETIC-LAST-NAME:${this._escape(contact.phoneticLast)}`);
-    if (contact.isCompany) lines.push('X-ABSHOWAS:COMPANY');
-    if (contact.org || contact.department) {
-      const orgValue = contact.department
-        ? `${this._escape(contact.org || '')};${this._escape(contact.department)}`
-        : this._escape(contact.org || '');
-      lines.push(`ORG:${orgValue}`);
-    }
-    if (contact.phoneticOrg) lines.push(`X-PHONETIC-ORG:${this._escape(contact.phoneticOrg)}`);
-    if (contact.title) lines.push(`TITLE:${this._escape(contact.title)}`);
-    if (contact.gender) lines.push(`GENDER:${this._escape(contact.gender)}`);
-
-    // Non-system tags (markdown / in-app) → standard CATEGORIES so they aren't
-    // dropped on export. 'company' is already represented by X-ABSHOWAS.
-    const categories = (contact.tags || []).filter((tag) => tag && tag !== 'company');
-    if (categories.length) {
-      lines.push(`CATEGORIES:${categories.map((tag) => this._escape(tag)).join(',')}`);
-    }
-
-    // Emit a contact field as a plain line, or — when it has an Apple custom
-    // label — as an item group with an X-ABLabel. itemIndex is shared with the
-    // anniversary/relationship groups below.
-    let itemIndex = 1;
-    const pushLabeled = (prop, params, value, label) => {
-      if (label) {
-        lines.push(`item${itemIndex}.${prop}${params}:${value}`);
-        lines.push(`item${itemIndex}.X-ABLabel:${this._wrapLabel(label)}`);
-        itemIndex += 1;
-      } else {
-        lines.push(`${prop}${params}:${value}`);
-      }
-    };
-
-    for (const email of contact.emails || []) {
-      if (email?.value)
-        pushLabeled('EMAIL', this._typeParams(email.types), this._escape(email.value), email.label);
-    }
-    for (const phone of contact.phones || []) {
-      if (phone?.value)
-        pushLabeled('TEL', this._typeParams(phone.types), this._escape(phone.value), phone.label);
-    }
-    for (const address of contact.addresses || []) {
-      if (!address) continue;
-      const hasAddress =
-        address.pobox ||
-        address.ext ||
-        address.street ||
-        address.city ||
-        address.state ||
-        address.zip ||
-        address.country;
-      if (!hasAddress) continue;
-      const value = `${this._escape(address.pobox || '')};${this._escape(address.ext || '')};${this._escape(address.street || '')};${this._escape(address.city || '')};${this._escape(address.state || '')};${this._escape(address.zip || '')};${this._escape(address.country || '')}`;
-      pushLabeled('ADR', this._typeParams(address.types), value, address.label);
-    }
-    for (const urlEntry of contact.urls || []) {
-      const value = typeof urlEntry === 'string' ? urlEntry : urlEntry?.value;
-      const types = typeof urlEntry === 'string' ? [] : urlEntry?.types;
-      const label = typeof urlEntry === 'string' ? '' : urlEntry?.label;
-      if (value) pushLabeled('URL', this._typeParams(types), this._escape(value), label);
-    }
-    for (const im of contact.ims || []) {
-      if (!im?.value) continue;
-      const svc = im.service ? `;X-SERVICE-TYPE=${VCardUtils.encodeParamValue(im.service)}` : '';
-      pushLabeled('IMPP', svc + this._typeParams(im.types || []), this._escape(im.value), im.label);
-    }
-    for (const sp of contact.socialProfiles || []) {
-      if (!sp?.url) continue;
-      let params = '';
-      if (sp.service) params += `;TYPE=${VCardUtils.encodeParamValue(sp.service)}`;
-      if (sp.username) params += `;X-USER=${VCardUtils.encodeParamValue(sp.username)}`;
-      pushLabeled('X-SOCIALPROFILE', params, this._escape(sp.url), sp.label);
-    }
-    if (contact.birthday) lines.push(`BDAY:${this._escape(contact.birthday)}`);
-    for (const note of contact.notes || []) {
-      if (note) lines.push(`NOTE:${this._escape(note)}`);
-    }
-
-    if (contact.anniversary) {
-      lines.push(`item${itemIndex}.X-ABDATE:${this._escape(contact.anniversary)}`);
-      lines.push(`item${itemIndex}.X-ABLabel:_$!<Anniversary>!$_`);
-      itemIndex += 1;
-    }
-    for (const dateEntry of contact.dates || []) {
-      if (!dateEntry?.value) continue;
-      lines.push(`item${itemIndex}.X-ABDATE:${this._escape(dateEntry.value)}`);
-      lines.push(`item${itemIndex}.X-ABLabel:${this._wrapLabel(dateEntry.label || 'Date')}`);
-      itemIndex += 1;
-    }
-    for (const rel of contact.related || []) {
-      if (!rel?.name) continue;
-      lines.push(`item${itemIndex}.X-ABRELATEDNAMES:${this._escape(rel.name)}`);
-      lines.push(
-        `item${itemIndex}.X-ABLabel:${this._relationshipLabel(rel.type || rel.rawType || 'related')}`,
-      );
-      itemIndex += 1;
-    }
-
-    // Preserve format-neutral custom fields so non-vCard-origin contacts
-    // (e.g. Markdown imports) don't silently lose data on vCard export. The
-    // markdown body is already carried as NOTE, so it's skipped here. These
-    // are read back by VCFParser's X-CONSTELLATION-FIELD case.
-    const customFields = contact.customFields || contact.record?.fields || {};
-    for (const [key, field] of Object.entries(customFields)) {
-      if (key === 'markdown_body') continue;
-      const payload = JSON.stringify({ key, type: field?.type, value: field?.value });
-      lines.push(`X-CONSTELLATION-FIELD:${this._escape(payload)}`);
-    }
-
-    lines.push('END:VCARD');
-    return VCardUtils.foldLines(lines);
-  }
-
-  _escape(value) {
-    return VCardUtils.encodeValue(value);
-  }
-
-  _typeParams(types = []) {
-    return VCardUtils.buildTypeParams(types);
-  }
-
-  _wrapLabel(label) {
-    return VCardUtils.formatXABLabel(label);
-  }
-
-  _relationshipLabel(type) {
-    const raw = String(type || 'related').trim();
-    if (/^_\$!<.+>!\$_$/.test(raw)) return raw;
-    const friendly =
-      raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase()) || 'Related';
-    return `_$!<${this._escape(friendly)}>!$_`;
-  }
-
-  _composeDisplayName(name = {}) {
-    return [name.prefix, name.given, name.additional, name.family, name.suffix]
-      .filter(Boolean)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
   }
 }

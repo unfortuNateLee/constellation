@@ -218,3 +218,37 @@ test('TSV still keeps a single note with internal newlines intact', () => {
   const re = tsv.parse(tsv.serialize([contact]))[0];
   assert.deepEqual(plain(re.notes), ['line one\nline two']);
 });
+
+test('vCard export includes the photo for contacts without a raw card', () => {
+  const { VCardAdapter } = loadBrowserClasses();
+  const contact = {
+    id: 'c1',
+    fn: 'Photo Person',
+    photo: 'data:image/jpeg;base64,/9j/AAAA',
+  };
+  const out = new VCardAdapter().serialize([contact]);
+  assert.match(out, /PHOTO;ENCODING=b;TYPE=JPEG:\/9j\/AAAA/);
+});
+
+test('rewriting a card with GENDER does not duplicate the GENDER line', () => {
+  const { VCFParser, VCardSerializer } = loadBrowserClasses();
+  const [contact] = new VCFParser().parse(
+    'BEGIN:VCARD\nVERSION:3.0\nFN:Gen\nN:;Gen;;;\nGENDER:M\nEND:VCARD',
+  );
+  contact.rawVCard = VCardSerializer.rewriteVCard(contact);
+  contact.rawVCard = VCardSerializer.rewriteVCard(contact);
+  assert.equal((contact.rawVCard.match(/^GENDER:/gm) || []).length, 1);
+});
+
+test('editing a custom field updates its X-CONSTELLATION-FIELD line on rewrite', () => {
+  const { VCFParser, VCardSerializer } = loadBrowserClasses();
+  const payload = JSON.stringify({ key: 'color', type: 'string', value: 'blue' });
+  const [contact] = new VCFParser().parse(
+    `BEGIN:VCARD\nVERSION:3.0\nFN:CF\nN:;CF;;;\nX-CONSTELLATION-FIELD:${payload.replace(/,/g, '\\,')}\nEND:VCARD`,
+  );
+  contact.customFields.color.value = 'red';
+  contact.rawVCard = VCardSerializer.rewriteVCard(contact);
+  const re = new VCFParser().parse(contact.rawVCard)[0];
+  assert.equal(re.customFields.color.value, 'red');
+  assert.equal((contact.rawVCard.match(/X-CONSTELLATION-FIELD/g) || []).length, 1);
+});

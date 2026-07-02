@@ -10,6 +10,7 @@ import { ContactRecord } from '../../js/contact-record.js';
 import { RelationshipTaxonomy } from '../../js/relationship-taxonomy.js';
 import { VCFParser } from '../../js/vcf-parser.js';
 import { VCardAdapter } from '../../js/vcard-adapter.js';
+import { VCardSerializer } from '../../js/vcard-serializer.js';
 import { MarkdownAdapter } from '../../js/markdown-adapter.js';
 import { TsvAdapter } from '../../js/tsv-adapter.js';
 import { RelationshipBuilder } from '../../js/relationship-builder.js';
@@ -132,6 +133,7 @@ export function loadBrowserClasses() {
     RelationshipTaxonomy,
     VCFParser,
     VCardAdapter,
+    VCardSerializer,
     MarkdownAdapter,
     TsvAdapter,
     RelationshipBuilder,

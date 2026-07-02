@@ -537,19 +537,11 @@ class SuggestionsMixin {
       return;
     }
 
-    // Find highest item number already in use
-    const usedItems = [...contact.rawVCard.matchAll(/^item(\d+)\./gim)].map((m) => parseInt(m[1]));
-    const nextItem = usedItems.length > 0 ? Math.max(...usedItems) + 1 : 1;
-
+    // Mutate the model, then regenerate the raw card through the shared
+    // serializer — contact.related is the source of truth, never raw patching.
     const label = this._typeToVCardLabel(suggestion.relType);
-    const newLines = this._joinVCardLines([
-      `item${nextItem}.X-ABRELATEDNAMES:${this._vCardEscape(suggestion.relName)}`,
-      `item${nextItem}.X-ABLabel:${label}`,
-    ]);
-    contact.rawVCard = this._insertBeforeEndVCard(contact.rawVCard, newLines);
-
-    // Update parsed data
     contact.related.push({ name: suggestion.relName, type: suggestion.relType, rawType: label });
+    this._rewriteEditableFields(contact);
 
     // Mark dismissed so it won't reappear
     this._dismissedSuggestions.add(suggestion.key);

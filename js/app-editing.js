@@ -2,6 +2,7 @@ import { ContactRelationshipApp } from './app.js';
 import { applyMixin } from './apply-mixin.js';
 import { RelationshipBuilder } from './relationship-builder.js';
 import { VCardUtils } from './vcard-utils.js';
+import { VCardSerializer } from './vcard-serializer.js';
 import { typeTaxonomy } from './contact-types.js';
 
 /**
@@ -1502,257 +1503,18 @@ class EditingMixin {
   }
 
   _photoLines(dataUrl) {
-    if (!dataUrl || !dataUrl.startsWith('data:')) return [];
-    const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-    if (!m) return [];
-
-    const mime = m[1].toLowerCase();
-    const base64 = m[2].replace(/\s+/g, '');
-    const type =
-      {
-        'image/png': 'PNG',
-        'image/gif': 'GIF',
-        'image/webp': 'WEBP',
-        'image/heic': 'HEIC',
-        'image/heif': 'HEIF',
-        'image/bmp': 'BMP',
-        'image/tiff': 'TIFF',
-      }[mime] || 'JPEG';
-    const firstChunk = base64.slice(0, 72);
-    const rest = base64.slice(72);
-    const lines = [`PHOTO;ENCODING=b;TYPE=${type}:${firstChunk}`];
-    for (let i = 0; i < rest.length; i += 72) {
-      lines.push(` ${rest.slice(i, i + 72)}`);
-    }
-    return lines;
+    return VCardSerializer._photoLines(dataUrl);
   }
 
+  /**
+   * Regenerate the raw vCard's modeled properties from the contact model.
+   * The actual serialization lives in VCardSerializer (the single serializer
+   * shared with the export fallback); this wrapper just applies it and keeps
+   * the attached ContactRecord in sync.
+   */
   _rewriteEditableFields(contact) {
     if (!contact.rawVCard) return;
-
-    const lines = VCardUtils.unfold(contact.rawVCard).split(/\r\n|\n/);
-    const keptSimple = [];
-    const itemGroups = new Map();
-    let begin = 'BEGIN:VCARD';
-    let end = 'END:VCARD';
-    let version = null;
-    let nextItem = 1;
-
-    for (const line of lines) {
-      if (!line) continue;
-      if (/^BEGIN:VCARD/i.test(line)) {
-        begin = line;
-        continue;
-      }
-      if (/^END:VCARD/i.test(line)) {
-        end = line;
-        continue;
-      }
-      if (/^VERSION:/i.test(line)) {
-        version = line;
-        continue;
-      }
-
-      const itemMatch = line.match(/^(item\d+)\./i);
-      if (itemMatch) {
-        const key = itemMatch[1];
-        nextItem = Math.max(nextItem, parseInt(key.replace(/^item/i, ''), 10) + 1);
-        if (!itemGroups.has(key)) itemGroups.set(key, []);
-        itemGroups.get(key).push(line);
-        continue;
-      }
-
-      const prop = line.split(':', 1)[0].split(';', 1)[0].toUpperCase();
-      if (
-        [
-          'FN',
-          'N',
-          'NICKNAME',
-          'X-MAIDENNAME',
-          'X-PHONETIC-FIRST-NAME',
-          'X-PHONETIC-LAST-NAME',
-          'X-PHONETIC-ORG',
-          'ORG',
-          'TITLE',
-          'EMAIL',
-          'TEL',
-          'ADR',
-          'BDAY',
-          'NOTE',
-          'URL',
-          'IMPP',
-          'X-SOCIALPROFILE',
-          'PHOTO',
-          'X-ABSHOWAS',
-        ].includes(prop)
-      )
-        continue;
-      keptSimple.push(line);
-    }
-
-    const keptItemLines = [];
-    for (const groupLines of itemGroups.values()) {
-      const props = new Set(
-        groupLines.map((line) => {
-          const lhs = line.split(':', 1)[0];
-          const m = lhs.match(/^item\d+\.(.+)$/i);
-          return m ? m[1].split(';', 1)[0].toUpperCase() : '';
-        }),
-      );
-      const editableContactGroup =
-        props.has('EMAIL') ||
-        props.has('TEL') ||
-        props.has('ADR') ||
-        props.has('URL') ||
-        props.has('IMPP') ||
-        props.has('X-SOCIALPROFILE');
-      const dateGroup = props.has('X-ABDATE');
-      const relatedGroup = props.has('X-ABRELATEDNAMES');
-      // Drop the groups we regenerate from the model below (editable contact
-      // fields, dates, relationships); keep everything else (obscure Apple item
-      // groups) verbatim.
-      if (!editableContactGroup && !dateGroup && !relatedGroup) {
-        keptItemLines.push(...groupLines);
-      }
-    }
-
-    const generated = [];
-    const name = contact.name || this._namePartsFromDisplayName(contact.fn || '');
-    generated.push(`FN:${this._vCardEscape(contact.fn || '')}`);
-    generated.push(
-      `N:${this._vCardEscape(name.family || '')};${this._vCardEscape(name.given || '')};${this._vCardEscape(name.additional || '')};${this._vCardEscape(name.prefix || '')};${this._vCardEscape(name.suffix || '')}`,
-    );
-    if (contact.nickname) generated.push(`NICKNAME:${this._vCardEscape(contact.nickname)}`);
-    if (contact.maidenName) generated.push(`X-MAIDENNAME:${this._vCardEscape(contact.maidenName)}`);
-    if (contact.phoneticFirst)
-      generated.push(`X-PHONETIC-FIRST-NAME:${this._vCardEscape(contact.phoneticFirst)}`);
-    if (contact.phoneticLast)
-      generated.push(`X-PHONETIC-LAST-NAME:${this._vCardEscape(contact.phoneticLast)}`);
-    if (contact.isCompany) generated.push('X-ABSHOWAS:COMPANY');
-    if (contact.org || contact.department) {
-      const orgValue = contact.department
-        ? `${this._vCardEscape(contact.org || '')};${this._vCardEscape(contact.department)}`
-        : this._vCardEscape(contact.org || '');
-      generated.push(`ORG:${orgValue}`);
-    }
-    if (contact.phoneticOrg)
-      generated.push(`X-PHONETIC-ORG:${this._vCardEscape(contact.phoneticOrg)}`);
-    if (contact.title) generated.push(`TITLE:${this._vCardEscape(contact.title)}`);
-    if (contact.gender) generated.push(`GENDER:${this._vCardEscape(contact.gender)}`);
-    generated.push(...this._photoLines(contact.photo));
-    // Emit a contact field as a plain line, or — when the entry carries an Apple
-    // custom label — as an item group with an X-ABLabel (so the label survives).
-    const pushLabeledField = (prop, params, value, label) => {
-      if (label) {
-        generated.push(`item${nextItem}.${prop}${params}:${value}`);
-        generated.push(`item${nextItem}.X-ABLabel:${this._wrapLabel(label)}`);
-        nextItem += 1;
-      } else {
-        generated.push(`${prop}${params}:${value}`);
-      }
-    };
-    // Hybrid raw preservation: if this instance is unchanged since parse (its
-    // content key still maps to original raw line(s)), re-emit those bytes
-    // verbatim — preserving Apple's exact TYPE casing/order (e.g. the
-    // iPhone TEL;type=IPHONE;type=CELL;type=VOICE;type=pref line). Only edited
-    // instances are regenerated from the model.
-    const rawByKey = contact._rawByKey || {};
-    const pushMethod = (kind, entry, regenerate) => {
-      const raw = rawByKey[VCardUtils.contactMethodKey(kind, entry)];
-      if (raw && raw.length) generated.push(...raw);
-      else regenerate();
-    };
-    for (const email of contact.emails || []) {
-      pushMethod('email', email, () =>
-        pushLabeledField(
-          'EMAIL',
-          this._buildTypeParams(email.types),
-          this._vCardEscape(email.value),
-          email.label,
-        ),
-      );
-    }
-    for (const phone of contact.phones || []) {
-      pushMethod('phone', phone, () =>
-        pushLabeledField(
-          'TEL',
-          this._buildTypeParams(phone.types),
-          this._vCardEscape(phone.value),
-          phone.label,
-        ),
-      );
-    }
-    for (const address of contact.addresses || []) {
-      pushMethod('address', address, () => {
-        const params = this._buildTypeParams(address.types);
-        const value = `${this._vCardEscape(address.pobox || '')};${this._vCardEscape(address.ext || '')};${this._vCardEscape(address.street || '')};${this._vCardEscape(address.city || '')};${this._vCardEscape(address.state || '')};${this._vCardEscape(address.zip || '')};${this._vCardEscape(address.country || '')}`;
-        pushLabeledField('ADR', params, value, address.label);
-      });
-    }
-    for (const urlEntry of contact.urls || []) {
-      const entry =
-        typeof urlEntry === 'string' ? { value: urlEntry, types: [], label: '' } : urlEntry;
-      if (!entry.value) continue;
-      pushMethod('url', entry, () =>
-        pushLabeledField(
-          'URL',
-          this._buildTypeParams(entry.types || []),
-          this._vCardEscape(entry.value),
-          entry.label,
-        ),
-      );
-    }
-    for (const im of contact.ims || []) {
-      if (!im || !im.value) continue;
-      pushMethod('im', im, () => {
-        const svc = im.service ? `;X-SERVICE-TYPE=${VCardUtils.encodeParamValue(im.service)}` : '';
-        const params = svc + this._buildTypeParams(im.types || []);
-        pushLabeledField('IMPP', params, this._vCardEscape(im.value), im.label);
-      });
-    }
-    for (const sp of contact.socialProfiles || []) {
-      if (!sp || !sp.url) continue;
-      pushMethod('social', sp, () => {
-        let params = '';
-        if (sp.service) params += `;TYPE=${VCardUtils.encodeParamValue(sp.service)}`;
-        if (sp.username) params += `;X-USER=${VCardUtils.encodeParamValue(sp.username)}`;
-        pushLabeledField('X-SOCIALPROFILE', params, this._vCardEscape(sp.url), sp.label);
-      });
-    }
-    if (contact.birthday) generated.push(`BDAY:${contact.birthday}`);
-    for (const note of contact.notes || []) {
-      generated.push(`NOTE:${this._vCardEscape(note)}`);
-    }
-    if (contact.anniversary) {
-      generated.push(`item${nextItem}.X-ABDATE:${contact.anniversary}`);
-      generated.push(`item${nextItem}.X-ABLabel:_$!<Anniversary>!$_`);
-      nextItem += 1;
-    }
-    for (const dateEntry of contact.dates || []) {
-      if (!dateEntry || !dateEntry.value) continue;
-      generated.push(`item${nextItem}.X-ABDATE:${dateEntry.value}`);
-      generated.push(`item${nextItem}.X-ABLabel:${this._wrapLabel(dateEntry.label || 'Date')}`);
-      nextItem += 1;
-    }
-    // Relationships regenerated from the model — contact.related is the single
-    // source of truth; the raw X-ABRELATEDNAMES groups are derived, not patched.
-    for (const rel of contact.related || []) {
-      if (!rel || !rel.name) continue;
-      const label = rel.rawType || this._typeToVCardLabel(rel.type);
-      generated.push(`item${nextItem}.X-ABRELATEDNAMES:${this._vCardEscape(rel.name)}`);
-      generated.push(`item${nextItem}.X-ABLabel:${label}`);
-      nextItem += 1;
-    }
-
-    const body = [
-      begin,
-      version || 'VERSION:3.0',
-      ...keptSimple,
-      ...generated,
-      ...keptItemLines,
-      end,
-    ];
-    contact.rawVCard = this._joinVCardLines(body);
+    contact.rawVCard = VCardSerializer.rewriteVCard(contact);
     this._syncContactRecord(contact);
   }
 
@@ -1835,23 +1597,7 @@ class EditingMixin {
   }
 
   _namePartsFromDisplayName(displayName) {
-    const parts = String(displayName || '')
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
-    if (parts.length === 0) {
-      return { family: '', given: '', additional: '', prefix: '', suffix: '' };
-    }
-    if (parts.length === 1) {
-      return { family: '', given: parts[0], additional: '', prefix: '', suffix: '' };
-    }
-    return {
-      family: parts[parts.length - 1],
-      given: parts[0],
-      additional: parts.slice(1, -1).join(' '),
-      prefix: '',
-      suffix: '',
-    };
+    return VCardSerializer._namePartsFromDisplayName(displayName);
   }
 
   /**
