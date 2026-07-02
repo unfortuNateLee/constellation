@@ -99,8 +99,7 @@ constellation/
     app-bootstrap.js         Entry module: startup + modal wiring
   test/                      Node test suite + fixtures
   docs/
-    DESIGN_SPEC.md           Reimplementation spec
-    DESIGN_SPEC_CLAUDE.md    Codebase-grounded spec
+    DESIGN_SPEC.md           Reimplementation spec + implementation appendix
     APPLE_CONTACTS_ROUNDTRIP_CHECKLIST.md  Manual round-trip validation steps
 ```
 
