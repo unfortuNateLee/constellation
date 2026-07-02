@@ -1,6 +1,6 @@
 {
   "name": "constellation",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Browser-only, offline contact relationship explorer and editor (vCard + Markdown import, D3 graph, table view, bulk-normalize, IndexedDB session persistence).",
   "license": "MIT",
   "private": true,

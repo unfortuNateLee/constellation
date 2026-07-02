@@ -7,6 +7,8 @@ contacts and relationships inline, run rule-based bulk normalization, and export
 back to any of those formats. Everything runs client-side — no server, no
 backend, no CDN (D3 is vendored locally), and your data never leaves the browser.
 
+![Constellation — dark theme, relationship graph with detail panel](docs/images/screenshot-dark.png)
+
 ## Features
 
 - **Import** vCard, Markdown, or TSV contact files (single files or multi-contact
@@ -52,15 +54,30 @@ scripts to ES modules.)
 Requires Node.js 20+ (22 recommended) for the test suite and tooling.
 
 ```sh
-npm install        # install dev tooling (ESLint, Prettier)
-npm test           # run the test suite (node --test)
+npm install        # install dev tooling (ESLint, Prettier, Playwright)
+npm test           # unit/integration suite (node --test)
+npm run test:e2e   # browser smoke suite (Playwright; chromium)
 npm run lint       # lint
 npm run format     # auto-format with Prettier
 npm run format:check
 ```
 
+For the end-to-end suite, install the browser once with
+`npx playwright install chromium`. `ALL_BROWSERS=1 npm run test:e2e` adds a
+WebKit + Firefox cross-engine pass (used before releases).
+
 > Note: the app code itself has **no runtime dependencies** — `npm install`
 > only pulls in dev tooling. The app keeps working offline with no install.
+
+## Contributing
+
+Small project, standard flow: branch, make the change, keep `npm test`,
+`npm run test:e2e`, `npm run lint`, and `npm run format:check` green, and open
+a PR. Behavior contracts live in `docs/DESIGN_SPEC.md` — update it alongside
+behavior changes (the relationship-taxonomy tables are regenerated with
+`node scripts/gen-taxonomy-doc.js`). vCard-fidelity changes should also pass
+the manual `docs/APPLE_CONTACTS_ROUNDTRIP_CHECKLIST.md` against real Apple
+Contacts. Never commit real contact data — synthetic fixtures only.
 
 ## Project layout
 
@@ -72,10 +89,12 @@ constellation/
     vendor/d3.v7.min.js      Vendored D3 v7 (classic global)
     # — data layer / shared singletons —
     vcard-utils.js           RFC 6350 escaping / folding helpers
+    dom-utils.js             Shared HTML escaping
     palette.js               Reads CSS --cat-* tokens (single source for colors)
     contact-record.js        Format-neutral record + STANDARD_FIELDS shape registry
     relationship-taxonomy.js Single source for relationship types/labels/reciprocals
     vcf-parser.js            vCard parser
+    vcard-serializer.js      THE vCard serializer (raw-preserving rewrite + full generate)
     vcard-adapter.js         vCard import/export adapter
     markdown-adapter.js      Markdown import/export adapter
     tsv-adapter.js           TSV import/export adapter (+ template)
@@ -91,13 +110,15 @@ constellation/
     app-table.js             Editable table view
     app-detail.js            Detail panel render / node select
     app-suggestions.js       Relationship suggestion engine
-    app-editing.js           Field editors + raw-vCard regeneration
+    app-editing.js           Field editors; delegates card rewrites to vcard-serializer
     app-relationship-edit.js Inline relationship CRUD + add-rel modal
     app-bulk.js              Bulk-normalize modal (nested AND/OR rule engine)
     app-export.js            vCard / Markdown / TSV export + template
     app-theme.js             Light/dark theme toggle + persistence
     app-bootstrap.js         Entry module: startup + modal wiring
   test/                      Node test suite + fixtures
+  e2e/                       Playwright browser smoke suite
+  scripts/                   gen-taxonomy-doc.js (spec table generator)
   docs/
     DESIGN_SPEC.md           Reimplementation spec + implementation appendix
     APPLE_CONTACTS_ROUNDTRIP_CHECKLIST.md  Manual round-trip validation steps

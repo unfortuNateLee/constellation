@@ -2750,3 +2750,17 @@ textarea:focus-visible,
     font-size: 12px;
   }
 }
+
+/* ── Reduced motion ─────────────────────────────────────────────────────────
+   Honor the OS-level preference: collapse UI transitions/animations to
+   near-instant. (The D3 force layout itself is data movement, not decorative
+   animation, and stays.) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

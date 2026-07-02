@@ -16,7 +16,7 @@
         <div class="build-stamp" title="Last edited build marker">
           <span class="build-stamp-label">Updated</span>
           <span class="build-stamp-date">2026-07-02</span>
-          <span class="build-stamp-time">15:24:32 EDT</span>
+          <span class="build-stamp-time">15:44:51 EDT</span>
         </div>
         <div class="app-title">Constellation</div>
         <div class="header-divider"></div>
@@ -295,20 +295,43 @@
 
           <!-- Graph controls -->
           <div class="graph-controls">
-            <button class="btn btn-ghost btn-icon" id="btn-graph-zoom-in" title="Zoom in">+</button>
-            <button class="btn btn-ghost btn-icon" id="btn-graph-zoom-out" title="Zoom out">
+            <button
+              class="btn btn-ghost btn-icon"
+              id="btn-graph-zoom-in"
+              title="Zoom in"
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+            <button
+              class="btn btn-ghost btn-icon"
+              id="btn-graph-zoom-out"
+              title="Zoom out"
+              aria-label="Zoom out"
+            >
               −
             </button>
-            <button class="btn btn-ghost btn-icon" id="btn-graph-fit" title="Fit graph to screen">
+            <button
+              class="btn btn-ghost btn-icon"
+              id="btn-graph-fit"
+              title="Fit graph to screen"
+              aria-label="Fit graph to screen"
+            >
               ⊡
             </button>
-            <button class="btn btn-ghost btn-icon" id="btn-graph-reset" title="Reset zoom">
+            <button
+              class="btn btn-ghost btn-icon"
+              id="btn-graph-reset"
+              title="Reset zoom"
+              aria-label="Reset zoom"
+            >
               ⟲
             </button>
             <button
               class="btn btn-ghost btn-icon"
               id="btn-graph-relayout"
               title="Re-layout graph (re-run the force layout when it gets spread out)"
+              aria-label="Re-layout graph"
             >
               ❖
             </button>
@@ -356,10 +379,18 @@
                 class="btn btn-ghost btn-icon"
                 id="btn-center-contact"
                 title="Center graph on this contact"
+                aria-label="Center graph on this contact"
               >
                 ⊙
               </button>
-              <button class="btn btn-ghost btn-icon" id="btn-close-detail" title="Close">✕</button>
+              <button
+                class="btn btn-ghost btn-icon"
+                id="btn-close-detail"
+                title="Close"
+                aria-label="Close details"
+              >
+                ✕
+              </button>
             </div>
           </div>
 
@@ -420,7 +451,7 @@
     <!-- /.app -->
 
     <!-- ── Toast ──────────────────────────────────────────────────────── -->
-    <div class="toast" id="toast"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <div class="tag-autocomplete hidden" id="tag-autocomplete"></div>
 
     <!-- ── Add Relationship Modal ─────────────────────────────────────── -->

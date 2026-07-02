@@ -54,6 +54,7 @@ export function attachMenu(trigger, getItems) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'menu-item' + (item.danger ? ' menu-item-danger' : '');
+      b.setAttribute('role', 'menuitem');
       b.textContent = item.label;
       const disabled = typeof item.disabled === 'function' ? item.disabled() : !!item.disabled;
       if (disabled) {

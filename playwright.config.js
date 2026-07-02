@@ -32,7 +32,17 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:7899',
     trace: 'on-first-retry',
   },
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  // Chromium is the everyday/CI target; ALL_BROWSERS=1 adds WebKit + Firefox
+  // for a cross-engine sanity pass (run before releases).
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium' } },
+    ...(process.env.ALL_BROWSERS
+      ? [
+          { name: 'webkit', use: { browserName: 'webkit' } },
+          { name: 'firefox', use: { browserName: 'firefox' } },
+        ]
+      : []),
+  ],
   webServer: {
     command: 'python3 -m http.server 7899 --bind 127.0.0.1',
     url: 'http://127.0.0.1:7899',
