@@ -28,11 +28,13 @@ export default [
   },
   {
     // Node-side files: tests, helpers, and tooling config (also ES modules).
-    files: ['test/**/*.js', 'eslint.config.js'],
+    // The e2e specs also get browser globals: page.evaluate / waitForFunction
+    // callbacks execute in the page, so they legitimately reference window.
+    files: ['test/**/*.js', 'e2e/**/*.js', 'eslint.config.js', 'playwright.config.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
-      globals: { ...globals.node },
+      globals: { ...globals.node, ...globals.browser },
     },
     rules: {
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],

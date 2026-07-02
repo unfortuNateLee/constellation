@@ -18,6 +18,10 @@ npm-debug.log*
 yarn-error.log*
 .eslintcache
 
+# --- Playwright (artifacts normally go to tmpdir; belt-and-braces) ---
+test-results/
+playwright-report/
+
 # --- Local editor / agent settings ---
 .claude/
 .vscode/

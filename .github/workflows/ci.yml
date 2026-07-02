@@ -20,3 +20,17 @@ jobs:
         run: npm run lint
       - name: Check formatting
         run: npm run format:check
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run smoke suite
+        run: npm run test:e2e
