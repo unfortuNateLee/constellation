@@ -430,7 +430,17 @@ class TableMixin {
           const country = item.querySelector('[data-addr="country"]')?.value.trim() || '';
           if (!street && !city && !state && !zip && !country) return null;
           const { types, label } = this._collectTypesFromItem(item);
-          return { pobox: '', ext: '', street, city, state, zip, country, types, label };
+          return {
+            pobox: item.dataset.pobox || '',
+            ext: item.dataset.ext || '',
+            street,
+            city,
+            state,
+            zip,
+            country,
+            types,
+            label,
+          };
         })
         .filter(Boolean);
       this._ensureSinglePreferred(nextAddresses);
@@ -440,6 +450,9 @@ class TableMixin {
     const addItem = (address = null) => {
       const item = document.createElement('div');
       item.className = 'table-metadata-item table-address-item';
+      // No inputs exist for ADR pobox / extended-address; stash so edits keep them.
+      item.dataset.pobox = address?.pobox || '';
+      item.dataset.ext = address?.ext || '';
 
       const fields = document.createElement('div');
       fields.className = 'table-address-grid';

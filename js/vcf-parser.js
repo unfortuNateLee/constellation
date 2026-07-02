@@ -44,7 +44,17 @@ export class VCFParser {
         continue;
       }
 
-      const mimeType = /TYPE=PNG/i.test(firstLine) ? 'image/png' : 'image/jpeg';
+      const typeM = firstLine.match(/TYPE=([A-Za-z0-9-]+)/i);
+      const mimeType =
+        {
+          PNG: 'image/png',
+          GIF: 'image/gif',
+          WEBP: 'image/webp',
+          HEIC: 'image/heic',
+          HEIF: 'image/heif',
+          BMP: 'image/bmp',
+          TIFF: 'image/tiff',
+        }[typeM?.[1]?.toUpperCase()] || 'image/jpeg';
       photos.push(`data:${mimeType};base64,${b64}`);
     }
 

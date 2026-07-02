@@ -1,4 +1,5 @@
 import { Palette } from './palette.js';
+import { escapeHtml } from './dom-utils.js';
 
 // `d3` is the vendored UMD global, loaded as a classic script before this module
 // (declared as a global in eslint.config.js).
@@ -1046,7 +1047,7 @@ export class ConstellationGraph {
   }
 
   _escapeHtml(str) {
-    return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return escapeHtml(str);
   }
 
   _indexNodes(nodes = []) {

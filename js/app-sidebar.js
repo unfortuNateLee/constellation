@@ -283,7 +283,7 @@ class SidebarMixin {
       btn.dataset.cat = cat;
       btn.style.setProperty('--filter-accent', accent);
       btn.style.setProperty('--filter-active-fg', this._bestTextColor(accent));
-      btn.innerHTML = `<span class="filter-dot"></span>${label} <span class="filter-count">${count}</span>`;
+      btn.innerHTML = `<span class="filter-dot"></span>${this._escapeHtml(label)} <span class="filter-count">${count}</span>`;
       if (this._activeFilters.has(cat)) btn.classList.add('active');
       if (cat === 'family' && !this._selfContactId) btn.title = 'Choose "me" to enable My Family';
 

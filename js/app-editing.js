@@ -1301,6 +1301,10 @@ class EditingMixin {
       const item = document.createElement('div');
       item.className = 'detail-edit-item';
       item.dataset.kind = 'address';
+      // The form has no inputs for the rarely-used ADR pobox / extended-address
+      // components; stash them so an edit round-trip doesn't lose them.
+      item.dataset.pobox = address?.pobox || '';
+      item.dataset.ext = address?.ext || '';
       const grid = document.createElement('div');
       grid.className = 'detail-edit-grid';
 
@@ -1442,8 +1446,8 @@ class EditingMixin {
         if (!street) return null;
         const { types, label } = this._collectTypesFromItem(item);
         return {
-          pobox: '',
-          ext: '',
+          pobox: item.dataset.pobox || '',
+          ext: item.dataset.ext || '',
           street: street.value.trim(),
           city: item.querySelector('[data-addr="city"]').value.trim(),
           state: item.querySelector('[data-addr="state"]').value.trim(),
@@ -1504,7 +1508,16 @@ class EditingMixin {
 
     const mime = m[1].toLowerCase();
     const base64 = m[2].replace(/\s+/g, '');
-    const type = mime === 'image/png' ? 'PNG' : mime === 'image/gif' ? 'GIF' : 'JPEG';
+    const type =
+      {
+        'image/png': 'PNG',
+        'image/gif': 'GIF',
+        'image/webp': 'WEBP',
+        'image/heic': 'HEIC',
+        'image/heif': 'HEIF',
+        'image/bmp': 'BMP',
+        'image/tiff': 'TIFF',
+      }[mime] || 'JPEG';
     const firstChunk = base64.slice(0, 72);
     const rest = base64.slice(72);
     const lines = [`PHOTO;ENCODING=b;TYPE=${type}:${firstChunk}`];
@@ -1672,7 +1685,7 @@ class EditingMixin {
     for (const address of contact.addresses || []) {
       pushMethod('address', address, () => {
         const params = this._buildTypeParams(address.types);
-        const value = `;;${this._vCardEscape(address.street || '')};${this._vCardEscape(address.city || '')};${this._vCardEscape(address.state || '')};${this._vCardEscape(address.zip || '')};${this._vCardEscape(address.country || '')}`;
+        const value = `${this._vCardEscape(address.pobox || '')};${this._vCardEscape(address.ext || '')};${this._vCardEscape(address.street || '')};${this._vCardEscape(address.city || '')};${this._vCardEscape(address.state || '')};${this._vCardEscape(address.zip || '')};${this._vCardEscape(address.country || '')}`;
         pushLabeledField('ADR', params, value, address.label);
       });
     }

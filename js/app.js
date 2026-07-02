@@ -5,6 +5,7 @@ import { RelationshipBuilder } from './relationship-builder.js';
 import { ConstellationGraph } from './graph.js';
 import { ContactRecord } from './contact-record.js';
 import { attachMenu } from './menu-button.js';
+import { escapeHtml } from './dom-utils.js';
 
 /**
  * Main application controller
@@ -1061,12 +1062,7 @@ export class ContactRelationshipApp {
   }
 
   _escapeHtml(str) {
-    return String(str || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+    return escapeHtml(str);
   }
 
   /**

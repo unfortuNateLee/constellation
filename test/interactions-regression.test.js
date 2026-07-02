@@ -463,3 +463,32 @@ test('vCard folding respects UTF-8 byte limits without corrupting text', () => {
   }
   assert.equal(VCardUtils.unfold(folded), source);
 });
+
+test('editing an address preserves its ADR pobox and extended-address components', () => {
+  const { context } = setup();
+  const vcf = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    'FN:Box Holder',
+    'N:Holder;Box;;;',
+    'ADR;TYPE=HOME:PO Box 12;Suite 3;123 Main St;Anytown;AL;12345;USA',
+    'END:VCARD',
+  ].join('\n');
+  const contacts = new context.VCFParser().parse(vcf);
+  const app = makeTestApp(context, contacts);
+  const contact = app.contacts[0];
+
+  assert.equal(contact.addresses[0].pobox, 'PO Box 12');
+  assert.equal(contact.addresses[0].ext, 'Suite 3');
+
+  // Simulate an edit that touches only the street (the form exposes no
+  // pobox/ext inputs — they must survive the rewrite regardless).
+  contact.addresses[0].street = '456 Oak Ave';
+  app._rewriteEditableFields(contact);
+
+  const reparsed = app.parser.parse(contact.rawVCard)[0];
+  assert.equal(reparsed.addresses[0].pobox, 'PO Box 12');
+  assert.equal(reparsed.addresses[0].ext, 'Suite 3');
+  assert.equal(reparsed.addresses[0].street, '456 Oak Ave');
+  assert.equal(reparsed.addresses[0].city, 'Anytown');
+});
