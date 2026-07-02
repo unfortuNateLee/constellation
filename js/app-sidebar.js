@@ -399,6 +399,8 @@ class SidebarMixin {
       const swatch = document.createElement('span');
       swatch.className = item.type === 'line' ? 'legend-line' : 'legend-dot';
       if (item.type === 'hull') swatch.className = 'legend-hull';
+      // Companies render as rounded squares on the graph; mirror that here.
+      if (item.shape === 'square') swatch.classList.add('legend-dot-square');
       if (item.style) swatch.style.cssText = item.style;
       else if (item.color) swatch.style.background = item.color;
       row.appendChild(swatch);

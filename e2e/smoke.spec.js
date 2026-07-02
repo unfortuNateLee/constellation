@@ -151,6 +151,9 @@ test('no console errors through import → select → view switches', async ({ p
 test('"Treat as Company" checkbox on the card toggles and persists to export', async ({ page }) => {
   await importFixture(page);
 
+  // Companies render as rounded squares on the graph (one in the fixture).
+  await expect(page.locator('#graph-container svg g.node rect.node-circle')).toHaveCount(1);
+
   // A company contact shows the box checked.
   await selectContact(page, 'Acme Corporation');
   const acmeBox = page.locator('.detail-company-toggle input[type="checkbox"]');
@@ -164,6 +167,8 @@ test('"Treat as Company" checkbox on the card toggles and persists to export', a
   await expect(page.locator('#toast')).toContainText('Contact updated');
   // The panel re-renders from the committed model — still checked.
   await expect(page.locator('.detail-company-toggle input[type="checkbox"]')).toBeChecked();
+  // Jane's node swaps its circle for the company rounded square live.
+  await expect(page.locator('#graph-container svg g.node rect.node-circle')).toHaveCount(2);
 
   // And the change reaches the vCard export (Acme + Jane).
   const downloadPromise = page.waitForEvent('download');

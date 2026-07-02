@@ -88,8 +88,8 @@ export class ConstellationGraph {
     this._colorScheme = this._buildColorScheme();
     if (!this._svg) return;
     const scheme = this._colorScheme;
-    this._styleNodeCircle(this._nodeG.selectAll('circle.node-circle'));
-    this._nodeG.selectAll('circle.node-ring').attr('stroke', scheme.node.selected);
+    this._styleNodeCircle(this._nodeG.selectAll('.node-circle'));
+    this._nodeG.selectAll('.node-ring').attr('stroke', scheme.node.selected);
     this._linkG.selectAll('g.link line').attr('stroke', (d) => this._edgeColor(d));
     this._svg.selectAll('defs marker').each((_, i, nodesArr) => {
       const marker = nodesArr[i];
@@ -517,129 +517,14 @@ export class ConstellationGraph {
             .on('mouseover', (e, d) => this._onHover(e, d, true))
             .on('mouseout', (e, d) => this._onHover(e, d, false));
 
-          // Outer glow ring (shown on select)
-          g.append('circle')
-            .attr('class', 'node-ring')
-            .attr('r', (d) => nodeRadius(d) + 5)
-            .attr('fill', 'none')
-            .attr('stroke', this._colorScheme.node.selected)
-            .attr('stroke-width', 2)
-            .attr('opacity', 0);
-
-          // Main circle (solid for real contacts, ghosted for virtual ones)
-          this._styleNodeCircle(
-            g
-              .append('circle')
-              .attr('class', 'node-circle')
-              .attr('r', (d) => nodeRadius(d)),
-          );
-
-          // Clip path for circular photo crop
-          g.append('clipPath')
-            .attr('id', (d) => `node-clip-${d.id}`)
-            .append('circle')
-            .attr('r', (d) => nodeRadius(d));
-
-          // Photo (shown instead of initials when available)
-          g.filter((d) => d.photo)
-            .append('image')
-            .attr('href', (d) => d.photo)
-            .attr('x', (d) => -nodeRadius(d))
-            .attr('y', (d) => -nodeRadius(d))
-            .attr('width', (d) => nodeRadius(d) * 2)
-            .attr('height', (d) => nodeRadius(d) * 2)
-            .attr('clip-path', (d) => `url(#node-clip-${d.id})`)
-            .attr('preserveAspectRatio', 'xMidYMid slice')
-            .attr('pointer-events', 'none');
-
-          // Initials text (only when no photo)
-          g.filter((d) => !d.isCompany && !d.photo && !d.isGroupNode)
-            .append('text')
-            .attr('class', 'node-initials')
-            .attr('text-anchor', 'middle')
-            .attr('dominant-baseline', 'central')
-            .attr('font-size', (d) => Math.max(7, nodeRadius(d) * 0.55) + 'px')
-            .attr('fill', 'rgba(255,255,255,0.85)')
-            .attr('pointer-events', 'none')
-            .attr('font-weight', '600')
-            .text((d) => this._initials(d.name));
-
-          // Company icon (only when no photo)
-          g.filter((d) => d.isCompany && !d.photo && !d.isGroupNode)
-            .append('text')
-            .attr('class', 'node-company-icon')
-            .attr('text-anchor', 'middle')
-            .attr('dominant-baseline', 'central')
-            .attr('font-size', (d) => nodeRadius(d) * 0.9 + 'px')
-            .attr('fill', '#fff')
-            .attr('pointer-events', 'none')
-            .text('🏢');
-
-          g.filter((d) => d.isGroupNode)
-            .append('text')
-            .attr('class', 'node-group-icon')
-            .attr('text-anchor', 'middle')
-            .attr('dominant-baseline', 'central')
-            .attr('font-size', (d) => Math.max(11, nodeRadius(d) * 0.62) + 'px')
-            .attr('fill', '#fff')
-            .attr('pointer-events', 'none')
-            .text((d) => this._groupGlyph(d));
-
+          this._buildNodeVisuals(g, nodeRadius);
           return g;
         },
         (update) => {
-          this._styleNodeCircle(update.select('.node-circle').attr('r', (d) => nodeRadius(d)));
-          update.select('.node-ring').attr('r', (d) => nodeRadius(d) + 5);
-          update.select('clipPath circle').attr('r', (d) => nodeRadius(d));
-
-          update.each((d, i, nodes) => {
-            const g = d3.select(nodes[i]);
-
-            g.selectAll('image').remove();
-            g.selectAll('text.node-initials').remove();
-            g.selectAll('text.node-company-icon').remove();
-            g.selectAll('text.node-group-icon').remove();
-
-            if (d.photo) {
-              g.append('image')
-                .attr('href', (d) => d.photo)
-                .attr('x', (d) => -nodeRadius(d))
-                .attr('y', (d) => -nodeRadius(d))
-                .attr('width', (d) => nodeRadius(d) * 2)
-                .attr('height', (d) => nodeRadius(d) * 2)
-                .attr('clip-path', (d) => `url(#node-clip-${d.id})`)
-                .attr('preserveAspectRatio', 'xMidYMid slice')
-                .attr('pointer-events', 'none');
-            } else if (d.isGroupNode) {
-              g.append('text')
-                .attr('class', 'node-group-icon')
-                .attr('text-anchor', 'middle')
-                .attr('dominant-baseline', 'central')
-                .attr('font-size', (d) => Math.max(11, nodeRadius(d) * 0.62) + 'px')
-                .attr('fill', '#fff')
-                .attr('pointer-events', 'none')
-                .text((d) => this._groupGlyph(d));
-            } else if (d.isCompany) {
-              g.append('text')
-                .attr('class', 'node-company-icon')
-                .attr('text-anchor', 'middle')
-                .attr('dominant-baseline', 'central')
-                .attr('font-size', (d) => nodeRadius(d) * 0.9 + 'px')
-                .attr('fill', '#fff')
-                .attr('pointer-events', 'none')
-                .text('🏢');
-            } else {
-              g.append('text')
-                .attr('class', 'node-initials')
-                .attr('text-anchor', 'middle')
-                .attr('dominant-baseline', 'central')
-                .attr('font-size', (d) => Math.max(7, nodeRadius(d) * 0.55) + 'px')
-                .attr('fill', 'rgba(255,255,255,0.85)')
-                .attr('pointer-events', 'none')
-                .attr('font-weight', '600')
-                .text((d) => this._initials(d.name));
-            }
-          });
+          // Full visual rebuild: radius, photo, AND shape can all change
+          // between renders (a contact can become a company via the card
+          // checkbox, which swaps its circle for a rounded square).
+          this._buildNodeVisuals(update, nodeRadius);
           return update;
         },
         (exit) => exit.remove(),
@@ -825,7 +710,7 @@ export class ConstellationGraph {
     this._nodeG.selectAll('g.node .node-ring').attr('opacity', (d) => (d.id === id ? 1 : 0));
     // Recolor so the selected node takes the "selected" fill immediately (it's
     // encoded in _nodeColor); previously this only happened on the next full render.
-    this._nodeG.selectAll('circle.node-circle').attr('fill', (d) => this._nodeColor(d));
+    this._nodeG.selectAll('.node-circle').attr('fill', (d) => this._nodeColor(d));
 
     if (emit) {
       const nodeData = this._nodeById.get(id);
@@ -844,7 +729,7 @@ export class ConstellationGraph {
       .attr('opacity', (d) => this._hullLabelOpacity(d, this._nodes));
     this._nodeG.selectAll('.node-ring').attr('opacity', 0);
     // Revert the previously-selected node's fill back to its normal color.
-    this._nodeG.selectAll('circle.node-circle').attr('fill', (d) => this._nodeColor(d));
+    this._nodeG.selectAll('.node-circle').attr('fill', (d) => this._nodeColor(d));
     this.emit('nodeDeselect', null);
   }
 
@@ -926,10 +811,118 @@ export class ConstellationGraph {
   }
 
   /**
-   * Style the main node circle. Real contacts are solid, fully-filled circles;
-   * virtual contacts render as a "ghost" — a hollow, translucent fill with a
-   * dashed muted outline — so they read as placeholders (people referenced by a
-   * relationship but not in the contacts) while keeping their smaller size.
+   * (Re)build a node's full visual: selection ring, main shape, photo clip,
+   * and content (photo / initials / glyph). People and group nodes are
+   * circles; companies are ROUNDED SQUARES so they're identifiable by
+   * silhouette alone — including when a photo/logo hides the 🏢 glyph (the
+   * photo is square-cropped). Idempotent (clears previous visuals first) and
+   * shared by the enter and update join paths, since a contact can become a
+   * company at runtime via the card checkbox.
+   */
+  _buildNodeVisuals(g, nodeRadius) {
+    const self = this;
+    const scheme = this._colorScheme;
+    const selectedId = this._selectedNode ? this._selectedNode.id : null;
+    g.each(function (d) {
+      const sel = d3.select(this);
+      sel.selectAll('.node-ring, .node-circle, clipPath, image, text').remove();
+      const r = nodeRadius(d);
+      const square = !!d.isCompany && !d.isGroupNode;
+      const corner = (rad) => rad * 0.32; // rounded-square corner radius
+
+      // Outer glow ring (shown on select) — matches the node's silhouette.
+      const ring = square
+        ? sel
+            .append('rect')
+            .attr('x', -(r + 5))
+            .attr('y', -(r + 5))
+            .attr('width', (r + 5) * 2)
+            .attr('height', (r + 5) * 2)
+            .attr('rx', corner(r + 5))
+        : sel.append('circle').attr('r', r + 5);
+      ring
+        .attr('class', 'node-ring')
+        .attr('fill', 'none')
+        .attr('stroke', scheme.node.selected)
+        .attr('stroke-width', 2)
+        .attr('opacity', d.id === selectedId ? 1 : 0);
+
+      // Main shape (keeps the historical .node-circle class either way).
+      const shape = square
+        ? sel
+            .append('rect')
+            .attr('x', -r)
+            .attr('y', -r)
+            .attr('width', r * 2)
+            .attr('height', r * 2)
+            .attr('rx', corner(r))
+        : sel.append('circle').attr('r', r);
+      self._styleNodeCircle(shape.attr('class', 'node-circle'));
+
+      // Photo crop follows the shape.
+      const clip = sel.append('clipPath').attr('id', `node-clip-${d.id}`);
+      if (square)
+        clip
+          .append('rect')
+          .attr('x', -r)
+          .attr('y', -r)
+          .attr('width', r * 2)
+          .attr('height', r * 2)
+          .attr('rx', corner(r));
+      else clip.append('circle').attr('r', r);
+
+      if (d.photo) {
+        sel
+          .append('image')
+          .attr('href', d.photo)
+          .attr('x', -r)
+          .attr('y', -r)
+          .attr('width', r * 2)
+          .attr('height', r * 2)
+          .attr('clip-path', `url(#node-clip-${d.id})`)
+          .attr('preserveAspectRatio', 'xMidYMid slice')
+          .attr('pointer-events', 'none');
+      } else if (d.isGroupNode) {
+        sel
+          .append('text')
+          .attr('class', 'node-group-icon')
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'central')
+          .attr('font-size', Math.max(11, r * 0.62) + 'px')
+          .attr('fill', '#fff')
+          .attr('pointer-events', 'none')
+          .text(self._groupGlyph(d));
+      } else if (d.isCompany) {
+        sel
+          .append('text')
+          .attr('class', 'node-company-icon')
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'central')
+          .attr('font-size', r * 0.9 + 'px')
+          .attr('fill', '#fff')
+          .attr('pointer-events', 'none')
+          .text('🏢');
+      } else {
+        sel
+          .append('text')
+          .attr('class', 'node-initials')
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'central')
+          .attr('font-size', Math.max(7, r * 0.55) + 'px')
+          .attr('fill', 'rgba(255,255,255,0.85)')
+          .attr('pointer-events', 'none')
+          .attr('font-weight', '600')
+          .text(self._initials(d.name));
+      }
+    });
+  }
+
+  /**
+   * Style the main node shape (circle, or rounded square for companies).
+   * Real contacts are solid, fully-filled; virtual contacts render as a
+   * "ghost" — a hollow, translucent fill with a dashed muted outline — so
+   * they read as placeholders (people referenced by a relationship but not in
+   * the contacts) while keeping their smaller size.
    */
   _styleNodeCircle(sel) {
     sel
@@ -1082,7 +1075,7 @@ export class ConstellationGraph {
     if (mode === 'connections' || mode === 'likely-connections' || mode === 'likely-family') {
       return [
         { label: 'Contact', color: node.other, type: 'node' },
-        { label: 'Company', color: node.company, type: 'node' },
+        { label: 'Company', color: node.company, type: 'node', shape: 'square' },
         { label: 'Virtual', color: node.virtual, type: 'node' },
         { label: 'Likely cluster hull', type: 'hull', style: hullStyle },
         { label: 'Likely family', type: 'line', style: dashed(edge.family, 5, 9) },
@@ -1102,7 +1095,7 @@ export class ConstellationGraph {
     }
     return [
       { label: 'Contact', color: node.other, type: 'node' },
-      { label: 'Company', color: node.company, type: 'node' },
+      { label: 'Company', color: node.company, type: 'node', shape: 'square' },
       { label: 'Virtual', color: node.virtual, type: 'node' },
       { label: 'Family rel.', type: 'line', style: `background: ${edge.family};` },
       { label: 'Inferred (org)', type: 'line', style: dashed(edge.inferred, 4, 7) },
