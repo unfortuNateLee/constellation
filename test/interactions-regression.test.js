@@ -492,3 +492,69 @@ test('editing an address preserves its ADR pobox and extended-address components
   assert.equal(reparsed.addresses[0].street, '456 Oak Ave');
   assert.equal(reparsed.addresses[0].city, 'Anytown');
 });
+
+test('transitive suggestions skip virtual children both spouses already list', () => {
+  const { context } = setup();
+  const card = (fn, n, uid, gender, rels) =>
+    [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${fn}`,
+      `N:${n}`,
+      `UID:${uid}`,
+      `GENDER:${gender}`,
+      ...rels.flatMap((r, i) => [
+        `item${i + 1}.X-ABRELATEDNAMES:${r[0]}`,
+        `item${i + 1}.X-ABLabel:_$!<${r[1]}>!$_`,
+      ]),
+      'END:VCARD',
+    ].join('\n');
+
+  // Married couple; both list the same two VIRTUAL children (no cards of
+  // their own). The two-hop spouse rule used to re-suggest those children
+  // because its already-listed check bailed when findContact() returned null
+  // (virtual targets only ever match by name).
+  const vcf = [
+    card('Jessica Myers', 'Myers;Jessica;;;', 'jessica', 'F', [
+      ['Garrett Myers', 'Husband'],
+      ['Lochlan Myers', 'Son'],
+      ['Garrison Myers', 'Son'],
+    ]),
+    card('Garrett Myers', 'Myers;Garrett;;;', 'garrett', 'M', [
+      ['Jessica Myers', 'Wife'],
+      ['Lochlan Myers', 'Son'],
+      ['Garrison Myers', 'Son'],
+    ]),
+  ].join('\n');
+
+  const app = makeTestApp(context, new context.VCFParser().parse(vcf));
+  for (const contact of app.contacts) {
+    const suggestions = app._findRelationshipSuggestions(app._node(contact.id));
+    assert.deepEqual(
+      suggestions.map((s) => `${s.relName}:${s.relType}`),
+      [],
+      `unexpected suggestions on ${contact.fn}`,
+    );
+  }
+
+  // Positive control: when one spouse is genuinely missing a child, the
+  // suggestion must still fire.
+  const vcfMissing = [
+    card('Jessica Myers', 'Myers;Jessica;;;', 'jessica', 'F', [
+      ['Garrett Myers', 'Husband'],
+      ['Lochlan Myers', 'Son'],
+      ['Garrison Myers', 'Son'],
+    ]),
+    card('Garrett Myers', 'Myers;Garrett;;;', 'garrett', 'M', [
+      ['Jessica Myers', 'Wife'],
+      ['Lochlan Myers', 'Son'],
+    ]),
+  ].join('\n');
+  const app2 = makeTestApp(context, new context.VCFParser().parse(vcfMissing));
+  const garrett = app2.contacts.find((c) => c.uid === 'garrett');
+  const suggs = app2._findRelationshipSuggestions(app2._node(garrett.id));
+  assert.ok(
+    suggs.some((s) => s.relName === 'Garrison Myers' && s.relType === 'son'),
+    'genuinely missing virtual child should still be suggested',
+  );
+});

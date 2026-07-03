@@ -73,7 +73,8 @@ class SuggestionsMixin {
 
         const spouseHasChild = (spouseNode.related || []).some((r) => {
           const rc = this.builder.findContact(r.name);
-          return rc && rc.id === childContact.id;
+          if (rc && rc.id === childContact.id) return true;
+          return r.name.toLowerCase().trim() === childContact.fn.toLowerCase().trim();
         });
 
         if (!spouseHasChild) {
@@ -254,12 +255,13 @@ class SuggestionsMixin {
             ? rule.typeMapper(bridgeRel.type)
             : rule.inferredType || bridgeRel.type;
 
-          // Skip if node already lists this person in any role
+          // Skip if node already lists this person in any role. The name-string
+          // fallback must run even when findContact misses — the third party is
+          // often a VIRTUAL contact (a child with no card of their own), and the
+          // node's own rel to them can only ever match by name.
           const alreadyHas = (node.related || []).some((r) => {
             const rc = this.builder.findContact(r.name);
-            if (!rc) return false;
-            if (rc.id === thirdContact.id) return true;
-            // Also match by name string directly in case findContact misses due to format difference
+            if (rc && rc.id === thirdContact.id) return true;
             return r.name.toLowerCase().trim() === thirdContact.fn.toLowerCase().trim();
           });
           if (alreadyHas) continue;
