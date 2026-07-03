@@ -403,7 +403,7 @@ class EditingMixin {
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = !!contact.isCompany;
-      cb.setAttribute('aria-label', 'Treat as Company');
+      cb.setAttribute('aria-label', 'Show as a company card');
       cb.addEventListener('click', (e) => e.stopPropagation());
       cb.addEventListener('change', () => {
         this._commitInlineFieldEdit(contact, () => {
@@ -413,7 +413,8 @@ class EditingMixin {
         });
       });
       const text = document.createElement('span');
-      text.textContent = contact.isCompany ? 'Shown as a company card' : 'Shown as a person card';
+      // Static action phrase — checked = company card, unchecked = person card.
+      text.textContent = 'Show as a company card';
       toggle.append(cb, text);
       valueEl.appendChild(toggle);
       contactInfo.appendChild(row);
