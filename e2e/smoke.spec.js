@@ -217,5 +217,22 @@ test('disconnected clusters settle apart (component-aware layout)', async ({ pag
 
   // Re-layout must also re-form the clusters apart.
   await page.locator('#btn-graph-relayout').click();
-  expect(disjoint(await clusterBoxes()), 'families overlap after re-layout').toBe(true);
+  const settled = await clusterBoxes();
+  expect(disjoint(settled), 'families overlap after re-layout').toBe(true);
+
+  // Mental-map preservation: an edit-triggered incremental rebuild must NOT
+  // drag settled clusters to new spots (homes anchor at current centroids).
+  const centroid = (b) => ({ x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 });
+  await page.locator('#contact-list .contact-item').filter({ hasText: 'Alma Aster' }).click();
+  await page.locator('#btn-edit-contact').click();
+  await page.locator('#edit-title').fill('Matriarch');
+  await page.locator('#btn-save-contact').click();
+  const after = await clusterBoxes();
+  expect(disjoint(after), 'families overlap after an edit rebuild').toBe(true);
+  for (const fam of ['aster', 'birch']) {
+    const before = centroid(settled[fam]);
+    const now = centroid(after[fam]);
+    const drift = Math.hypot(now.x - before.x, now.y - before.y);
+    expect(drift, `${fam} cluster migrated ${drift.toFixed(0)}px after an edit`).toBeLessThan(120);
+  }
 });

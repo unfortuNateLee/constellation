@@ -181,6 +181,112 @@ export class ConstellationGraph {
     return homes;
   }
 
+  /**
+   * Position-aware home assignment for graphs that ALREADY have a layout:
+   * every component's home starts at its members' current centroid (so a
+   * settled cluster's pull is ~zero and nothing migrates), then overlapping
+   * home circles are pushed apart with minimal movement (lighter components
+   * yield first). Components with no known positions are ring-packed into
+   * clear space. This preserves the user's mental map — ring-packing from
+   * scratch (packComponentHomes) is only for fresh layouts, where there are
+   * no current positions to respect.
+   *
+   * `posOf(id)` → {x, y} | null. Returns Map<nodeId, {x, y, r}>.
+   */
+  static anchorComponentHomes(components, posOf, { cx, cy }) {
+    const GAP = 40;
+    const radiusFor = (count) => 30 + 24 * Math.sqrt(count);
+
+    // 1. Anchor components with known positions at their centroid; radius is
+    //    the larger of the size estimate and the actual settled spread.
+    const circles = [];
+    const unplaced = [];
+    for (const comp of components) {
+      const pts = comp.map(posOf).filter((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y));
+      if (pts.length === 0) {
+        unplaced.push(comp);
+        continue;
+      }
+      const mx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+      const my = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+      const spread = pts.reduce((m, p) => Math.max(m, Math.hypot(p.x - mx, p.y - my)), 0);
+      circles.push({
+        x: mx,
+        y: my,
+        r: Math.max(radiusFor(comp.length), spread * 0.8 + 20),
+        weight: comp.length,
+        comp,
+      });
+    }
+
+    // 2. Ring-pack position-less components (new imports mid-session) into
+    //    space clear of the anchored circles.
+    unplaced.forEach((comp, idx) => {
+      const r = radiusFor(comp.length);
+      const clears = (x, y) => circles.every((p) => Math.hypot(x - p.x, y - p.y) >= r + p.r + GAP);
+      let x = cx;
+      let y = cy;
+      if (circles.length > 0 && !clears(x, y)) {
+        let ring = Math.max(...circles.map((p) => p.r)) + r + GAP;
+        const startAngle = idx * 2.399963229;
+        let found = false;
+        while (!found) {
+          for (let i = 0; i < 24 && !found; i++) {
+            const a = startAngle + (i * Math.PI) / 12;
+            const tx = cx + ring * Math.cos(a);
+            const ty = cy + ring * Math.sin(a);
+            if (clears(tx, ty)) {
+              x = tx;
+              y = ty;
+              found = true;
+            }
+          }
+          ring += Math.max(GAP, r * 0.8);
+        }
+      }
+      circles.push({ x, y, r, weight: comp.length, comp });
+    });
+
+    // 3. Minimal-movement declump: push apart only the circles that overlap,
+    //    heavier (bigger) components moving less. Deterministic.
+    for (let iter = 0; iter < 200; iter++) {
+      let moved = false;
+      for (let i = 0; i < circles.length; i++) {
+        for (let j = i + 1; j < circles.length; j++) {
+          const a = circles[i];
+          const b = circles[j];
+          let dx = b.x - a.x;
+          let dy = b.y - a.y;
+          let d = Math.hypot(dx, dy);
+          if (d === 0) {
+            // Coincident centroids: separate along a deterministic direction.
+            const ang = (i + j) * 2.399963229;
+            dx = Math.cos(ang);
+            dy = Math.sin(ang);
+            d = 1;
+          }
+          const need = a.r + b.r + GAP;
+          if (d >= need) continue;
+          const push = (need - d) / d;
+          const total = a.weight + b.weight;
+          a.x -= dx * push * (b.weight / total);
+          a.y -= dy * push * (b.weight / total);
+          b.x += dx * push * (a.weight / total);
+          b.y += dy * push * (a.weight / total);
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+
+    const homes = new Map();
+    for (const c of circles) {
+      const home = { x: c.x, y: c.y, r: c.r };
+      for (const id of c.comp) homes.set(id, home);
+    }
+    return homes;
+  }
+
   /** A node's layout home; canvas center for unknown ids (defensive). */
   _homeFor(id) {
     return (
@@ -192,12 +298,25 @@ export class ConstellationGraph {
     );
   }
 
-  /** Recompute homes from the current node/edge set (resize, re-layout). */
-  _recomputeHomes() {
-    this._componentHomes = ConstellationGraph.packComponentHomes(
-      ConstellationGraph.computeComponents(this._nodes || [], this._edges || []),
-      { cx: this.width / 2, cy: this.height / 2 },
-    );
+  /**
+   * Recompute homes from the current node/edge set. Default: anchor at each
+   * component's current position (live node, else position cache) so settled
+   * clusters stay put and only overlaps separate. `{ fresh: true }` ignores
+   * positions and ring-packs from scratch (Re-layout).
+   */
+  _recomputeHomes({ fresh = false } = {}) {
+    const components = ConstellationGraph.computeComponents(this._nodes || [], this._edges || []);
+    const origin = { cx: this.width / 2, cy: this.height / 2 };
+    if (fresh) {
+      this._componentHomes = ConstellationGraph.packComponentHomes(components, origin);
+    } else {
+      const posOf = (id) => {
+        const live = this._nodeById?.get(id);
+        if (live && Number.isFinite(live.x) && Number.isFinite(live.y)) return live;
+        return this._nodePositions.get(id) || null;
+      };
+      this._componentHomes = ConstellationGraph.anchorComponentHomes(components, posOf, origin);
+    }
     this._refreshHomeForces();
   }
 
@@ -392,7 +511,8 @@ export class ConstellationGraph {
   relayout() {
     if (!this._simulation) return;
     this._measure();
-    this._recomputeHomes();
+    // Fresh deterministic packing — Re-layout is the explicit "start over".
+    this._recomputeHomes({ fresh: true });
     const nodes = [...(this._nodeById?.values() || [])];
     this._nodePositions?.clear?.();
     for (const n of nodes) {
@@ -496,10 +616,14 @@ export class ConstellationGraph {
     });
 
     // Per-component layout homes — computed before seeding so brand-new nodes
-    // can spawn near their own cluster instead of the global center.
+    // can spawn near their own cluster instead of the global center. Anchored
+    // at each component's cached positions (a settled cluster's home is where
+    // it already sits; only overlapping clusters get pushed apart), falling
+    // back to fresh ring-packing when nothing has a position yet.
     this._measure();
-    this._componentHomes = ConstellationGraph.packComponentHomes(
+    this._componentHomes = ConstellationGraph.anchorComponentHomes(
       ConstellationGraph.computeComponents(nodes, validEdges),
+      (id) => this._nodePositions.get(id) || null,
       { cx: this.width / 2, cy: this.height / 2 },
     );
 
