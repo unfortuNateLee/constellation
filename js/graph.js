@@ -104,6 +104,115 @@ export class ConstellationGraph {
     return this._colorScheme.edge[d.category] || this._colorScheme.edge.other;
   }
 
+  // ── Component-aware layout ─────────────────────────────────────
+  // Disconnected components (unrelated families, isolated contacts) get their
+  // own layout "home" instead of all being pulled toward one global center —
+  // the cause of unrelated clusters settling on top of each other (charge
+  // repulsion is range-limited by distanceMax, so overlapped clusters could
+  // reach equilibrium interleaved).
+
+  /** Partition nodes into connected components (arrays of node ids), largest first. */
+  static computeComponents(nodes, edges) {
+    const parent = new Map();
+    const find = (a) => {
+      while (parent.get(a) !== a) {
+        parent.set(a, parent.get(parent.get(a)));
+        a = parent.get(a);
+      }
+      return a;
+    };
+    for (const n of nodes) parent.set(n.id, n.id);
+    for (const e of edges) {
+      const s = typeof e.source === 'object' ? e.source.id : e.source;
+      const t = typeof e.target === 'object' ? e.target.id : e.target;
+      if (!parent.has(s) || !parent.has(t)) continue;
+      const rs = find(s);
+      const rt = find(t);
+      if (rs !== rt) parent.set(rs, rt);
+    }
+    const groups = new Map();
+    for (const n of nodes) {
+      const root = find(n.id);
+      if (!groups.has(root)) groups.set(root, []);
+      groups.get(root).push(n.id);
+    }
+    return [...groups.values()].sort((a, b) => b.length - a.length);
+  }
+
+  /**
+   * Assign every component a home circle {x, y, r}: the largest sits at the
+   * canvas center, the rest pack deterministically on outward rings (golden-
+   * angle start per component, so consecutive components spread out) with a
+   * clearance gap so no two home circles overlap. Returns Map<nodeId, home>.
+   */
+  static packComponentHomes(components, { cx, cy }) {
+    const GAP = 40;
+    const homes = new Map();
+    const placed = [];
+    const radiusFor = (count) => 30 + 24 * Math.sqrt(count);
+    const clears = (x, y, r) => placed.every((p) => Math.hypot(x - p.x, y - p.y) >= r + p.r + GAP);
+
+    components.forEach((comp, idx) => {
+      const r = radiusFor(comp.length);
+      let x = cx;
+      let y = cy;
+      if (placed.length > 0) {
+        let ring = placed[0].r + r + GAP;
+        const startAngle = idx * 2.399963229; // golden angle, deterministic
+        let found = false;
+        while (!found) {
+          for (let i = 0; i < 24 && !found; i++) {
+            const a = startAngle + (i * Math.PI) / 12;
+            const tx = cx + ring * Math.cos(a);
+            const ty = cy + ring * Math.sin(a);
+            if (clears(tx, ty, r)) {
+              x = tx;
+              y = ty;
+              found = true;
+            }
+          }
+          ring += Math.max(GAP, r * 0.8);
+        }
+      }
+      placed.push({ x, y, r });
+      const home = { x, y, r }; // one shared object per component
+      for (const id of comp) homes.set(id, home);
+    });
+    return homes;
+  }
+
+  /** A node's layout home; canvas center for unknown ids (defensive). */
+  _homeFor(id) {
+    return (
+      (this._componentHomes && this._componentHomes.get(id)) || {
+        x: this.width / 2,
+        y: this.height / 2,
+        r: 60,
+      }
+    );
+  }
+
+  /** Recompute homes from the current node/edge set (resize, re-layout). */
+  _recomputeHomes() {
+    this._componentHomes = ConstellationGraph.packComponentHomes(
+      ConstellationGraph.computeComponents(this._nodes || [], this._edges || []),
+      { cx: this.width / 2, cy: this.height / 2 },
+    );
+    this._refreshHomeForces();
+  }
+
+  /**
+   * Re-point the home forces at the current homes map. d3's forceX/forceY
+   * cache the accessor result per node at initialization, so after homes
+   * change the accessors must be re-set (which re-initializes them).
+   */
+  _refreshHomeForces() {
+    const sim = this._simulation;
+    if (!sim) return;
+    sim.force('homeX')?.x((d) => this._homeFor(d.id).x);
+    sim.force('homeY')?.y((d) => this._homeFor(d.id).y);
+  }
+
   // ── Lifecycle ──────────────────────────────────────────────────
 
   _init() {
@@ -194,7 +303,7 @@ export class ConstellationGraph {
     this.width = w;
     this.height = h;
     if (this._simulation) {
-      this._simulation.force('center', d3.forceCenter(this.width / 2, this.height / 2));
+      this._recomputeHomes();
       this._simulation.alpha(0.3).restart();
     }
   }
@@ -283,10 +392,7 @@ export class ConstellationGraph {
   relayout() {
     if (!this._simulation) return;
     this._measure();
-    const cx = this.width / 2;
-    const cy = this.height / 2;
-    const spreadX = Math.min(this.width, 600) * 0.5;
-    const spreadY = Math.min(this.height, 600) * 0.5;
+    this._recomputeHomes();
     const nodes = [...(this._nodeById?.values() || [])];
     this._nodePositions?.clear?.();
     for (const n of nodes) {
@@ -294,10 +400,14 @@ export class ConstellationGraph {
       n.fy = null;
       n.vx = 0;
       n.vy = 0;
-      n.x = cx + (Math.random() - 0.5) * spreadX;
-      n.y = cy + (Math.random() - 0.5) * spreadY;
+      // Scatter each node around ITS component's home (spread scaled to the
+      // component's estimated radius) so unrelated clusters re-form apart
+      // instead of disentangling from one central blob.
+      const home = this._homeFor(n.id);
+      const spread = Math.max(60, home.r);
+      n.x = home.x + (Math.random() - 0.5) * spread;
+      n.y = home.y + (Math.random() - 0.5) * spread;
     }
-    this._simulation.force('center', d3.forceCenter(cx, cy));
     this._simulation.alpha(1).restart();
     clearTimeout(this._relayoutFitTimer);
     this._relayoutFitTimer = setTimeout(() => this.fitView(), 1400);
@@ -384,6 +494,14 @@ export class ConstellationGraph {
       const t = typeof e.target === 'object' ? e.target.id : e.target;
       return nodeIds.has(s) && nodeIds.has(t);
     });
+
+    // Per-component layout homes — computed before seeding so brand-new nodes
+    // can spawn near their own cluster instead of the global center.
+    this._measure();
+    this._componentHomes = ConstellationGraph.packComponentHomes(
+      ConstellationGraph.computeComponents(nodes, validEdges),
+      { cx: this.width / 2, cy: this.height / 2 },
+    );
 
     const hull = this._hullG
       .selectAll('path.cluster-hull')
@@ -562,10 +680,11 @@ export class ConstellationGraph {
         if (prev.fy != null) n.fy = prev.fy;
         seeded += 1;
       } else {
-        // New node: start near the center so it settles into view rather than
-        // crawling in from the origin.
-        n.x = this.width / 2 + (Math.random() - 0.5) * 80;
-        n.y = this.height / 2 + (Math.random() - 0.5) * 80;
+        // New node: start near its component's home so it settles into its own
+        // cluster rather than crawling in from the global center.
+        const home = this._homeFor(n.id);
+        n.x = home.x + (Math.random() - 0.5) * 80;
+        n.y = home.y + (Math.random() - 0.5) * 80;
       }
     }
     // Settle gently when the graph is largely unchanged (an edit); run a full
@@ -655,7 +774,12 @@ export class ConstellationGraph {
             .strength((d) => (d.isGroupNode ? -520 : d.isCompany ? -400 : -150))
             .distanceMax(400),
         )
-        .force('center', d3.forceCenter(this.width / 2, this.height / 2))
+        // Weak per-component "home" pull replaces the old single forceCenter:
+        // each disconnected component gravitates to its own packed home, so
+        // unrelated clusters can't settle on top of each other. Strength stays
+        // low so links/charge dominate the intra-cluster shape.
+        .force('homeX', d3.forceX((d) => this._homeFor(d.id).x).strength(0.06))
+        .force('homeY', d3.forceY((d) => this._homeFor(d.id).y).strength(0.06))
         .force(
           'collide',
           d3.forceCollide((d) => nodeRadius(d) + 8),
@@ -665,7 +789,7 @@ export class ConstellationGraph {
     const sim = this._simulation;
     sim.nodes(nodes);
     sim.force('link').links(validEdges);
-    sim.force('center', d3.forceCenter(this.width / 2, this.height / 2));
+    this._refreshHomeForces();
     sim.on('tick', tick);
     sim.alpha(incremental ? 0.3 : 1).restart();
   }

@@ -181,3 +181,41 @@ test('"Treat as Company" checkbox on the card toggles and persists to export', a
   const content = Buffer.concat(chunks).toString('utf8');
   expect(content.match(/X-ABSHOWAS:COMPANY/g)).toHaveLength(2);
 });
+
+test('disconnected clusters settle apart (component-aware layout)', async ({ page }) => {
+  const DISJOINT = path.resolve(__dirname, '..', 'test', 'fixtures', 'disjoint-clusters.vcf');
+  await page.goto('/');
+  await page.waitForFunction(() => !!window.app, null, { timeout: 45000 });
+  await page.setInputFiles('#file-input', DISJOINT);
+  await expect(page.locator('#contact-list .contact-item')).toHaveCount(10);
+
+  const clusterBoxes = async () => {
+    await page.waitForTimeout(2500); // let the simulation settle
+    return page.evaluate(() => {
+      const groups = { Aster: [], Birch: [] };
+      for (const g of document.querySelectorAll('#graph-container svg g.node')) {
+        const name = g.getAttribute('aria-label') || '';
+        const m = /translate\(([-\d.e]+),([-\d.e]+)\)/.exec(g.getAttribute('transform') || '');
+        if (!m) continue;
+        const pt = { x: parseFloat(m[1]), y: parseFloat(m[2]) };
+        if (name.includes('Aster')) groups.Aster.push(pt);
+        else if (name.includes('Birch')) groups.Birch.push(pt);
+      }
+      const box = (pts) => ({
+        minX: Math.min(...pts.map((p) => p.x)),
+        maxX: Math.max(...pts.map((p) => p.x)),
+        minY: Math.min(...pts.map((p) => p.y)),
+        maxY: Math.max(...pts.map((p) => p.y)),
+      });
+      return { aster: box(groups.Aster), birch: box(groups.Birch) };
+    });
+  };
+  const disjoint = ({ aster: a, birch: b }) =>
+    a.maxX < b.minX || b.maxX < a.minX || a.maxY < b.minY || b.maxY < a.minY;
+
+  expect(disjoint(await clusterBoxes()), 'families overlap after initial layout').toBe(true);
+
+  // Re-layout must also re-form the clusters apart.
+  await page.locator('#btn-graph-relayout').click();
+  expect(disjoint(await clusterBoxes()), 'families overlap after re-layout').toBe(true);
+});

@@ -1,0 +1,90 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Alma Aster
+N:Aster;Alma;;;
+UID:alma-aster
+GENDER:F
+item1.X-ABRELATEDNAMES:Bruno Aster
+item1.X-ABLabel:_$!<Husband>!$_
+item2.X-ABRELATEDNAMES:Cora Aster
+item2.X-ABLabel:_$!<Daughter>!$_
+item3.X-ABRELATEDNAMES:Dino Aster
+item3.X-ABLabel:_$!<Son>!$_
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Bruno Aster
+N:Aster;Bruno;;;
+UID:bruno-aster
+GENDER:M
+item1.X-ABRELATEDNAMES:Alma Aster
+item1.X-ABLabel:_$!<Wife>!$_
+item2.X-ABRELATEDNAMES:Cora Aster
+item2.X-ABLabel:_$!<Daughter>!$_
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Cora Aster
+N:Aster;Cora;;;
+UID:cora-aster
+item1.X-ABRELATEDNAMES:Alma Aster
+item1.X-ABLabel:_$!<Mother>!$_
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Dino Aster
+N:Aster;Dino;;;
+UID:dino-aster
+item1.X-ABRELATEDNAMES:Alma Aster
+item1.X-ABLabel:_$!<Mother>!$_
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Willa Birch
+N:Birch;Willa;;;
+UID:willa-birch
+GENDER:F
+item1.X-ABRELATEDNAMES:Xavier Birch
+item1.X-ABLabel:_$!<Husband>!$_
+item2.X-ABRELATEDNAMES:Yara Birch
+item2.X-ABLabel:_$!<Daughter>!$_
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Xavier Birch
+N:Birch;Xavier;;;
+UID:xavier-birch
+GENDER:M
+item1.X-ABRELATEDNAMES:Willa Birch
+item1.X-ABLabel:_$!<Wife>!$_
+item2.X-ABRELATEDNAMES:Zane Birch
+item2.X-ABLabel:_$!<Son>!$_
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Yara Birch
+N:Birch;Yara;;;
+UID:yara-birch
+item1.X-ABRELATEDNAMES:Willa Birch
+item1.X-ABLabel:_$!<Mother>!$_
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Zane Birch
+N:Birch;Zane;;;
+UID:zane-birch
+item1.X-ABRELATEDNAMES:Xavier Birch
+item1.X-ABLabel:_$!<Father>!$_
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Ines Solo
+N:Solo;Ines;;;
+UID:ines-solo
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Otto Alone
+N:Alone;Otto;;;
+UID:otto-alone
+END:VCARD
