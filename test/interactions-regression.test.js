@@ -558,3 +558,67 @@ test('transitive suggestions skip virtual children both spouses already list', (
     'genuinely missing virtual child should still be suggested',
   );
 });
+
+test('extended-family suggestions are hidden unless opted in; mirrors always show', () => {
+  const { context } = setup();
+  // Kid lists Dad; Dad lists his brother Bob → two-hop inference proposes
+  // "uncle Bob" on Kid's card (an EXTENDED type). Kid also lists a niece
+  // (Zoe, a real contact) who doesn't list Kid back → the reciprocal MIRROR
+  // proposes an extended type (aunt/uncle) on Zoe's card.
+  const vcf = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    'FN:Kid Kline',
+    'N:Kline;Kid;;;',
+    'UID:kid',
+    'item1.X-ABRELATEDNAMES:Dad Kline',
+    'item1.X-ABLabel:_$!<Father>!$_',
+    'item2.X-ABRELATEDNAMES:Zoe Kline',
+    'item2.X-ABLabel:_$!<Niece>!$_',
+    'END:VCARD',
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    'FN:Dad Kline',
+    'N:Kline;Dad;;;',
+    'UID:dad',
+    'GENDER:M',
+    'item1.X-ABRELATEDNAMES:Bob Kline',
+    'item1.X-ABLabel:_$!<Brother>!$_',
+    'END:VCARD',
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    'FN:Zoe Kline',
+    'N:Kline;Zoe;;;',
+    'UID:zoe',
+    'END:VCARD',
+  ].join('\n');
+  const app = makeTestApp(context, new context.VCFParser().parse(vcf));
+  const kid = app.contacts.find((c) => c.uid === 'kid');
+
+  const all = app._findRelationshipSuggestions(app._node(kid.id));
+  const uncleSugg = all.filter((s) => s.relType === 'uncle');
+  const mirrorSugg = all.filter((s) => s.kind === 'mutual');
+  assert.ok(uncleSugg.length >= 1, 'expected an inferred uncle suggestion');
+  assert.ok(mirrorSugg.length >= 1, 'expected a reciprocal mirror suggestion');
+
+  // Default (off): the inferred extended type is hidden, the mirror shows.
+  const off = app._partitionSuggestions(all);
+  assert.ok(
+    off.hidden.some((s) => s.relType === 'uncle'),
+    'inferred uncle hidden by default',
+  );
+  assert.ok(
+    off.shown.some((s) => s.kind === 'mutual'),
+    'reciprocal mirror shown by default',
+  );
+  assert.ok(
+    !off.shown.some((s) => s.relType === 'uncle' && s.kind !== 'mutual'),
+    'no inferred extended types shown by default',
+  );
+
+  // Opted in: everything shows.
+  app._suggestExtendedFamily = true;
+  const on = app._partitionSuggestions(all);
+  assert.equal(on.hidden.length, 0);
+  assert.equal(on.shown.length, all.length);
+});

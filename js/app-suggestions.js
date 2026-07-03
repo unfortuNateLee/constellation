@@ -5,6 +5,39 @@ import { RelationshipTaxonomy } from './relationship-taxonomy.js';
 import { makeSearchable } from './searchable-select.js';
 
 /**
+ * Immediate-family relationship types: spouses/partners, parents, children,
+ * and siblings (including step-variants). Inferred suggestions proposing any
+ * OTHER type (aunts/uncles, cousins, nephews/nieces, grandparents, generic
+ * "relative", …) are hidden unless the user opts into extended-family
+ * suggestions (`_suggestExtendedFamily`). Reciprocal mirrors of explicitly
+ * entered relationships (kind 'mutual') are always shown — they complete the
+ * user's own data rather than guess.
+ */
+const IMMEDIATE_FAMILY_TYPES = new Set([
+  'spouse',
+  'husband',
+  'wife',
+  'partner',
+  'mother',
+  'father',
+  'parent',
+  'stepmother',
+  'stepfather',
+  'stepparent',
+  'step-parent',
+  'son',
+  'daughter',
+  'child',
+  'stepson',
+  'stepdaughter',
+  'stepchild',
+  'step-child',
+  'brother',
+  'sister',
+  'sibling',
+]);
+
+/**
  * Relationship suggestion engine: infers reciprocal / missing / likely-cluster
  * relationships for the selected contact, renders the suggestion cards, and
  * applies an accepted suggestion. Extracted from app.js verbatim.
@@ -453,9 +486,25 @@ class SuggestionsMixin {
     return suggestions;
   }
 
+  /**
+   * Split suggestions into shown / hidden by the extended-family preference.
+   * Hidden = inferred suggestions proposing a non-immediate family type;
+   * 'mutual' reciprocal mirrors are always shown (see IMMEDIATE_FAMILY_TYPES).
+   */
+  _partitionSuggestions(suggestions) {
+    if (this._suggestExtendedFamily) return { shown: suggestions, hidden: [] };
+    const shown = [];
+    const hidden = [];
+    for (const s of suggestions) {
+      if (s.kind === 'mutual' || IMMEDIATE_FAMILY_TYPES.has(s.relType)) shown.push(s);
+      else hidden.push(s);
+    }
+    return { shown, hidden };
+  }
+
   _renderSuggestions(node, parentBody) {
-    const suggestions = this._findRelationshipSuggestions(node);
-    if (suggestions.length === 0) return;
+    const { shown, hidden } = this._partitionSuggestions(this._findRelationshipSuggestions(node));
+    if (shown.length === 0 && hidden.length === 0) return;
 
     // Suggested Additions is its own top-level collapsible section, a sibling
     // of the Relationships master (parentBody is detail-relationships).
@@ -464,11 +513,36 @@ class SuggestionsMixin {
       onToggle: (c) => {
         this._suggSectionCollapsed = c;
       },
-      badgeText: String(suggestions.length),
+      badgeText: String(shown.length),
       badgeClass: 'suggestions-badge',
     });
     parentBody.appendChild(sub.section);
     const el = sub.body;
+
+    // Granularity control — rendered whenever it's actionable (there are
+    // hidden extended-family suggestions, or the option is on and can be
+    // turned back off). Persisted with the session.
+    let extendedToggleRow = null;
+    if (hidden.length > 0 || this._suggestExtendedFamily) {
+      extendedToggleRow = document.createElement('label');
+      extendedToggleRow.className = 'suggestion-extended-toggle';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = this._suggestExtendedFamily;
+      cb.addEventListener('change', () => {
+        this._suggestExtendedFamily = cb.checked;
+        void this._persistSession();
+        const refreshed = this._node(node.id);
+        if (refreshed) this._onNodeSelect(refreshed);
+      });
+      const text = document.createElement('span');
+      text.textContent = this._suggestExtendedFamily
+        ? 'Include extended family (aunts, cousins, grandparents…)'
+        : `Include extended family — ${hidden.length} suggestion${hidden.length !== 1 ? 's' : ''} hidden`;
+      extendedToggleRow.append(cb, text);
+      el.appendChild(extendedToggleRow);
+    }
+    const suggestions = shown;
 
     for (const s of suggestions) {
       const item = document.createElement('div');
@@ -524,7 +598,8 @@ class SuggestionsMixin {
         this._dismissedSuggestions.add(s.key);
         item.remove();
         const remaining = el.querySelectorAll('.suggestion-item').length;
-        if (remaining === 0) sub.section.remove();
+        // Keep the section alive if the granularity toggle is showing.
+        if (remaining === 0 && !extendedToggleRow) sub.section.remove();
         else sub.setBadge(String(remaining));
       });
 

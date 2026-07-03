@@ -990,6 +990,8 @@ Normalization strips Apple's `_$!<Label>!$_` wrapper, lowercases, and maps alias
 
 For the selected contact node, the app computes relationship suggestions of six kinds. Every suggestion carries: a deduplication `key` (also used for dismissal), a `kind`, the `targetId`/`targetName` (whose card gains the relationship), the proposed `relName`/`relType`, and a human-readable `reason`. Dismissed keys are held in memory only (cleared on reload). Each rendered suggestion offers a type picker (searchable, with a Custom escape hatch) so the user can adjust the proposed type before applying. Applying a suggestion appends to the target contact's `related` list, regenerates that contact's card from the model, rebuilds the graph, and persists the session.
 
+**Granularity.** By default only suggestions proposing *immediate-family* types are shown — spouses/partners, parents, children, and siblings (including step-variants). Inferred suggestions proposing any other type (aunts/uncles, cousins, nephews/nieces, grandparents, the generic `relative`, …) are hidden behind an "Include extended family" checkbox rendered at the top of the Suggested Additions section, which also reports how many suggestions are hidden. Reciprocal *mirror* suggestions (kind `mutual`, kinds 1 and 5 below) are exempt from the filter regardless of type — they complete relationships the user explicitly entered rather than guess. The preference (`suggestExtendedFamily`, default off) persists with the session.
+
 | # | Kind | Trigger condition | Proposed relationship (and target card) |
 |---|---|---|---|
 | 1 | Mutual (outbound) | Selected contact A lists B (resolving to a real contact), but B's card does not list A back (by id or exact name). | Add A to **B's card** with `reciprocal(rel.type)`, gendered by **A's** gender. |
@@ -1740,7 +1742,7 @@ Shared UI helpers:
 ### A.3 Implementation-only constants and conventions
 
 - **Stable ids**: `c_` + FNV-1a hash over `uid:<uid>` (or `fn:<fn>`) plus an occurrence suffix for duplicates. Virtual nodes: `id = 'virtual__<sanitized_name>'`.
-- **IndexedDB**: database `constellation-db`, store `sessions`, key `constellation:last-session`. Payload keys: `fileLabel`, `formatId`, `content`, `savedAt`, `selfContactRef`, `showInferred`, `showLikelyFamily`, `showLikelyConnections`, `showIsolated`, `showVirtual`, `sidebarControlsCollapsed`, `contactSortMode`, `graphMode`, `mainViewMode`.
+- **IndexedDB**: database `constellation-db`, store `sessions`, key `constellation:last-session`. Payload keys: `fileLabel`, `formatId`, `content`, `savedAt`, `selfContactRef`, `showInferred`, `showLikelyFamily`, `showLikelyConnections`, `showIsolated`, `showVirtual`, `suggestExtendedFamily`, `sidebarControlsCollapsed`, `contactSortMode`, `graphMode`, `mainViewMode`.
 - **Theme**: localStorage key `constellation:theme`; CSS tokens on `:root` (dark default) with overrides under `:root[data-theme='light']` in `css/styles.css`. Representative dark tokens: `--cat-family` #e17055, `--cat-friend` #00b894, `--cat-work` #74b9ff, `--cat-neighbor` #fdcb6e, `--cat-company` #8e44ad (a violet reserved for companies), plus `--cat-node-default` / `--cat-group` / `--cat-selected` / `--cat-edge-inferred`; the stylesheet is authoritative.
 - **Geo hull colors** by depth: `{1:'#74b9ff', 2:'#55efc4', 3:'#fdcb6e', 4:'#fd79a8'}`.
 - **Edge dedup**: explicit mode uses a `pairSet` (`id1↔id2`, one edge per pair); org-inferred edges use `edgeSet` (`id1↔id2:type`); geographic mode dedups by `pairKey:edgeKind`.

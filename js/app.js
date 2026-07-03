@@ -42,6 +42,9 @@ export class ContactRelationshipApp {
     this._showLikelyConnections = true;
     this._showIsolated = true;
     this._showVirtual = true;
+    // Inferred suggestions proposing extended-family types (aunts, cousins,
+    // grandparents, …) are hidden until the user opts in (persisted).
+    this._suggestExtendedFamily = false;
     this._searchQuery = '';
     this._contactSortMode = 'first-last';
     this._graphMode = 'connections';

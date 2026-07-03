@@ -89,6 +89,7 @@ class SessionMixin {
         showLikelyConnections: this._showLikelyConnections,
         showIsolated: this._showIsolated,
         showVirtual: this._showVirtual,
+        suggestExtendedFamily: this._suggestExtendedFamily,
         sidebarControlsCollapsed: this._sidebarControlsCollapsed,
         contactSortMode: this._contactSortMode,
         graphMode: this._graphMode,
@@ -132,6 +133,7 @@ class SessionMixin {
         saved.showLikelyConnections !== false && saved.showLikely !== false;
       this._showIsolated = saved.showIsolated !== false;
       this._showVirtual = saved.showVirtual !== false;
+      this._suggestExtendedFamily = saved.suggestExtendedFamily === true; // default off
       this._sidebarControlsCollapsed = saved.sidebarControlsCollapsed === true;
       this._contactSortMode = saved.contactSortMode === 'last-first' ? 'last-first' : 'first-last';
       this._mainViewMode = saved.mainViewMode === 'table' ? 'table' : 'graph';
