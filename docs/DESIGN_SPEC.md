@@ -1315,8 +1315,7 @@ The graph renderer must:
 - support node selection without stale detail-body rendering
 - on selection, dim non-connected nodes and non-incident edges and show a selection halo on the selected node
 - preserve node positions across rebuilds: a position cache seeds each node's `x`/`y` from its previous layout so an edit does not re-scatter the graph. When most nodes are already placed the simulation resettles gently with a low alpha; a genuinely new node set lays out fresh.
-- provide a **re-layout** action that clears the position cache and any pinned positions, re-scatters each node around its connected component's packed home (spread scaled to the component's estimated radius), re-runs a full-energy layout, and auto-fits the view once it settles
-- keep disconnected components apart: each connected component is pulled toward its own packed home position (§15.1), so unrelated clusters must not settle overlapping one another
+- provide a **re-layout** action that clears the position cache and any pinned positions, re-scatters nodes near the center, re-runs a full-energy layout, and auto-fits the view once it settles
 
 Selecting a different node while the detail panel is open must fully rerender both header and body for the new node.
 
@@ -1342,15 +1341,13 @@ The following constants define the current look and feel and must be matched for
 | Charge — company nodes | −400 |
 | Charge — regular nodes | −150 |
 | Charge `distanceMax` | 400 |
-| Centering | per-component "home" pull: `forceX`/`forceY` toward the component's home, strength 0.06 (no global center force) |
-| Component homes — layouts with existing positions | **anchored at each component's current centroid** (radius = max of the size estimate and `0.8 × settled spread + 20`), then only *overlapping* home circles are pushed apart by iterative relaxation (heavier components move less) — settled clusters must not migrate on rebuild/resize |
-| Component homes — fresh layouts (first import, Re-layout) | largest connected component at container center; others packed deterministically on outward rings (component radius estimate `30 + 24√count`, clearance gap 40px, golden-angle start per component) so no two home circles overlap |
+| Centering force | container center |
 | Collision radius | node radius + 8 |
 | Node radius — group nodes | `max(12, 18 − groupDepth × 1.5)` |
 | Node radius — contact nodes | base (company 12, virtual 6, person 10) + `min(connectionCount × 1.5, 10)` |
 | Restart alpha — incremental rebuild | 0.3 |
 | Restart alpha — full layout | 1.0 |
-| Incremental-mode heuristic | ≥ 50% of incoming nodes have cached positions (new nodes seed near their component's home ± 40px) |
+| Incremental-mode heuristic | ≥ 50% of incoming nodes have cached positions (new nodes seed near center ± 40px) |
 | Zoom scale extent | 0.05 – 4 |
 | Node-label visibility threshold | labels visible only when zoom `k > 0.6` |
 | Edge-label positions | 32% (source) / 68% (target) along the edge when dual-labeled; 50% when single |
@@ -1752,7 +1749,7 @@ Shared UI helpers:
 - **Positional vCard indexing**: the parser pre-extracts raw blocks and base64 photos into positional arrays (photo bodies replaced with `PHOTO:__stripped__` before unfolding for speed); block *i* always pairs with raw/photo *i*, avoiding FN-collision overwrites.
 - **Raw-line capture for rewrite**: at parse time, each multi-value instance's original raw line(s) are captured in `contact._rawByKey`, keyed by `VCardUtils.contactMethodKey`; `VCardSerializer.rewriteVCard` re-emits untouched instances from it byte-for-byte (§13.1).
 - **SVG structure**: five layered `<g>` groups (hulls, hull-labels, links, nodes, labels); defs hold per-category arrow markers (`arrow-family` …) and a Gaussian-blur `glow` filter for selection. Each edge `<g>` holds a `<line>` + two `<text>` labels; each node `<g>` holds selection ring, main shape (`circle`, or `rect` with rounded corners for companies — both classed `node-circle`), optional clipPath+image (photo), and initials/company/group glyph text.
-- **Re-layout** (`graph.relayout()`, header `❖` button): clears `_nodePositions` and pins, re-scatters each node around its component's home (spread `max(60, home.r)`), restarts at alpha 1, and auto-runs `fitView()` after 1.4 s. Component homes come from `ConstellationGraph.computeComponents` (union-find) + `anchorComponentHomes` (centroid-anchored, minimal-movement declump — used on every render/resize so settled clusters stay put) or `packComponentHomes` (deterministic ring packing — Re-layout and position-less fallback); `forceX`/`forceY` accessors are re-set after recomputing because d3 caches accessor results per node at force initialization.
+- **Re-layout** (`graph.relayout()`, header `❖` button): clears `_nodePositions` and pins, re-scatters nodes within ±`min(dimension,600)/2` of center, restarts at alpha 1, and auto-runs `fitView()` after 1.4 s.
 - **Build stamp**: the `.build-stamp` block in `index.html` (Updated / date / time) is a hand-edited dev marker, **hidden from the UI** (`display:none` in CSS) but kept in the DOM and still updated on every edit run. The stylesheet link carries a `?v=` cache-buster that must be bumped when `styles.css` changes.
 - **`_rewriteEditableFields(contact)`** is the single controller chokepoint: mutate the model → call it → it delegates to `VCardSerializer.rewriteVCard` and then `_syncContactRecord(contact)` refreshes the attached `ContactRecord`. Relationship add/edit/delete and suggestion-apply only mutate `contact.related` and call this — no raw string surgery anywhere.
 - **Bulk retype note**: the relationship-type THEN action still uses dedicated "from type → to type" controls (`#bulk-rel-from`/`#bulk-rel-to`) rather than the plain Set/Clear form; reworking it is deferred pending a design decision.

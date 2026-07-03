@@ -14,7 +14,6 @@ import { VCardSerializer } from '../../js/vcard-serializer.js';
 import { MarkdownAdapter } from '../../js/markdown-adapter.js';
 import { TsvAdapter } from '../../js/tsv-adapter.js';
 import { RelationshipBuilder } from '../../js/relationship-builder.js';
-import { ConstellationGraph } from '../../js/graph.js';
 import { ContactRelationshipApp } from '../../js/app-controller.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -138,7 +137,6 @@ export function loadBrowserClasses() {
     MarkdownAdapter,
     TsvAdapter,
     RelationshipBuilder,
-    ConstellationGraph,
     ContactRelationshipApp,
     document,
     window: windowFake,
