@@ -41,6 +41,12 @@ public final class SessionStore {
     public let debounceInterval: Duration
 
     private var autosaveTask: Task<Void, Never>?
+    /// The in-flight background write, chained so successive saves can never
+    /// land on disk out of order.
+    private var pendingWrite: Task<Void, Never>?
+    /// Last theme written (or restored), so routine autosaves don't have to
+    /// re-read `session.json` from disk just to preserve the theme.
+    private var lastKnownTheme: ThemeOverride?
 
     public init(directory: URL? = nil, debounceInterval: Duration = .seconds(1)) {
         self.directory = directory ?? Self.defaultDirectory()
@@ -62,12 +68,12 @@ public final class SessionStore {
 
     // MARK: - File locations
 
-    private static let settingsFileName = "session.json"
-    private static let dataFileBaseName = "data"
+    private nonisolated static let settingsFileName = "session.json"
+    private nonisolated static let dataFileBaseName = "data"
 
     /// One adapter instance per known format id, keyed the same way
     /// `AppStore.activeFormatID` / `SessionSettings.formatID` are.
-    private static func adapter(for formatID: String) -> any ContactFormatAdapter {
+    private nonisolated static func adapter(for formatID: String) -> any ContactFormatAdapter {
         switch formatID {
         case "markdown": return MarkdownAdapter()
         case "tsv": return TSVAdapter()
@@ -101,16 +107,22 @@ public final class SessionStore {
     public func save(from store: AppStore, themeOverride: ThemeOverride? = nil) {
         guard !store.contacts.isEmpty else { return }
 
+        // Everything store-derived is snapshotted here on the main actor;
+        // serialization + disk IO then run off-main (M3 gate-review fix) —
+        // `Contact` and `SessionSettings` are value types and `Sendable`.
+        let contacts = store.contacts
         let formatID = store.activeFormatID
-        let adapter = Self.adapter(for: formatID)
-        let content = adapter.serialize(store.contacts)
 
         let resolvedTheme =
-            themeOverride ?? Self.readSettings(from: settingsURL)?.themeOverride ?? .system
+            themeOverride
+            ?? lastKnownTheme
+            ?? Self.readSettings(from: settingsURL)?.themeOverride
+            ?? .system
+        lastKnownTheme = resolvedTheme
 
         let settings = SessionSettings(
             fileLabel: store.fileLabel,
-            formatID: adapter.id,
+            formatID: Self.adapter(for: formatID).id,
             savedAt: Date(),
             selfContactRef: store.selfContactID.flatMap { id in
                 store.contact(id).map { SelfContactRef(uid: $0.uid, fn: $0.fn) }
@@ -128,19 +140,33 @@ public final class SessionStore {
             themeOverride: resolvedTheme
         )
 
-        do {
-            try Self.writeSession(
+        // Chain onto any in-flight write so saves land on disk in issue order,
+        // then serialize + write off the main actor. Best-effort like the JS
+        // `_persistSession` catch block: failures are swallowed.
+        let directory = self.directory
+        let settingsURL = self.settingsURL
+        let previousWrite = pendingWrite
+        pendingWrite = Task.detached(priority: .utility) {
+            await previousWrite?.value
+            let adapter = Self.adapter(for: formatID)
+            let content = adapter.serialize(contacts)
+            try? Self.writeSession(
                 content: content,
                 dataExtension: adapter.extensions.first ?? "vcf",
                 settings: settings,
                 directory: directory,
                 settingsURL: settingsURL,
-                dataURLProvider: { self.dataURL(extension: $0) }
+                dataURLProvider: { ext in
+                    directory.appendingPathComponent("\(Self.dataFileBaseName).\(ext)")
+                }
             )
-        } catch {
-            // Persistence is best-effort, exactly like the JS
-            // `_persistSession` catch block (which toasts and moves on).
         }
+    }
+
+    /// Awaits any in-flight background write — tests use this to make `save`
+    /// observable without sleeping.
+    public func flushPendingWrites() async {
+        await pendingWrite?.value
     }
 
     /// Debounced autosave: cancels any pending save and schedules a new one
@@ -178,6 +204,7 @@ public final class SessionStore {
         let parsed = adapter.parse(content)
         guard !parsed.contacts.isEmpty else { return false }
 
+        lastKnownTheme = settings.themeOverride
         store.loadContacts(parsed.contacts, fileLabel: settings.fileLabel, activeFormatID: adapter.id)
 
         store.setGraphMode(settings.graphMode)

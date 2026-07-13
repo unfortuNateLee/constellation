@@ -88,7 +88,7 @@ public final class AppViewModel {
     /// Import a set of file URLs (menu, drag-drop, or Finder/dock open). File IO
     /// runs off the main actor inside the coordinator; the store mutation hops back.
     public func importURLs(_ urls: [URL]) {
-        guard !urls.isEmpty else { return }
+        guard !urls.isEmpty, !isImporting else { return }
         // Sandbox: gain read access to user-selected / dropped files for the read.
         let accessed = urls.filter { $0.startAccessingSecurityScopedResource() }
         isImporting = true

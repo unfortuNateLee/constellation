@@ -27,7 +27,7 @@ private func comprehensiveStore() -> AppStore {
 }
 
 // ── Round-trip: contacts, settings, format ─────────────────────────────────────
-@Test @MainActor func sessionRoundTripPreservesContactsAndSettings() {
+@Test @MainActor func sessionRoundTripPreservesContactsAndSettings() async {
     let store = comprehensiveStore()
     let jane = store.contactsByUid["jane-doe-smith"]!
     store.setSelfContact(jane.id)
@@ -39,6 +39,7 @@ private func comprehensiveStore() -> AppStore {
     let dir = tempSessionDir()
     let session = SessionStore(directory: dir)
     session.save(from: store, themeOverride: .dark)
+    await session.flushPendingWrites()
 
     let fresh = AppStore()
     let restored = session.restore(into: fresh)
@@ -67,7 +68,7 @@ private func comprehensiveStore() -> AppStore {
 }
 
 // ── Markdown-format session round-trips ────────────────────────────────────────
-@Test @MainActor func markdownFormatSessionRoundTrips() {
+@Test @MainActor func markdownFormatSessionRoundTrips() async {
     let contacts = MarkdownAdapter().parse(FixtureLoader.contents(of: "markdown-ada.md")).contacts
     let store = AppStore()
     store.loadContacts(contacts, fileLabel: "markdown-ada.md", activeFormatID: "markdown")
@@ -75,6 +76,7 @@ private func comprehensiveStore() -> AppStore {
     let dir = tempSessionDir()
     let session = SessionStore(directory: dir)
     session.save(from: store)
+    await session.flushPendingWrites()
 
     #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("data.md").path))
 
@@ -86,18 +88,20 @@ private func comprehensiveStore() -> AppStore {
 }
 
 // ── Switching formats sweeps the stale data.<ext> (documented hygiene) ─────────
-@Test @MainActor func savingUnderNewFormatRemovesStaleDataFile() {
+@Test @MainActor func savingUnderNewFormatRemovesStaleDataFile() async {
     let dir = tempSessionDir()
     let session = SessionStore(directory: dir)
 
     let vcardStore = comprehensiveStore()
     session.save(from: vcardStore)
+    await session.flushPendingWrites()
     #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("data.vcf").path))
 
     let mdContacts = MarkdownAdapter().parse(FixtureLoader.contents(of: "markdown-ada.md")).contacts
     let mdStore = AppStore()
     mdStore.loadContacts(mdContacts, fileLabel: "markdown-ada.md", activeFormatID: "markdown")
     session.save(from: mdStore)
+    await session.flushPendingWrites()
 
     #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("data.md").path))
     #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("data.vcf").path))
@@ -137,13 +141,14 @@ private func comprehensiveStore() -> AppStore {
 }
 
 // ── Never persist an empty contact set (JS `_persistSession` guard) ────────────
-@Test @MainActor func emptyContactsSaveIsNoOp() {
+@Test @MainActor func emptyContactsSaveIsNoOp() async {
     let store = AppStore()
     #expect(store.contacts.isEmpty)
 
     let dir = tempSessionDir()
     let session = SessionStore(directory: dir)
     session.save(from: store)
+    await session.flushPendingWrites()
 
     #expect(!FileManager.default.fileExists(atPath: dir.path))
 }
@@ -174,11 +179,12 @@ private func comprehensiveStore() -> AppStore {
 }
 
 // ── clear() removes settings + data file ───────────────────────────────────────
-@Test @MainActor func clearRemovesSavedSession() {
+@Test @MainActor func clearRemovesSavedSession() async {
     let store = comprehensiveStore()
     let dir = tempSessionDir()
     let session = SessionStore(directory: dir)
     session.save(from: store)
+    await session.flushPendingWrites()
     #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("session.json").path))
 
     session.clear()
@@ -205,6 +211,7 @@ private func comprehensiveStore() -> AppStore {
     #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("session.json").path))
 
     try await Task.sleep(for: .milliseconds(150))
+    await session.flushPendingWrites()
 
     let settingsURL = dir.appendingPathComponent("session.json")
     #expect(FileManager.default.fileExists(atPath: settingsURL.path))
@@ -212,6 +219,7 @@ private func comprehensiveStore() -> AppStore {
 
     // No further writes happen on their own.
     try await Task.sleep(for: .milliseconds(100))
+    await session.flushPendingWrites()
     let secondSavedAt = SessionStore.readSettings(from: settingsURL)?.savedAt
     #expect(firstSavedAt == secondSavedAt)
 }
