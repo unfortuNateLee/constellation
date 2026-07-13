@@ -95,11 +95,16 @@ public struct RelatedValue: Codable, Equatable, Sendable {
     public var name: String
     public var type: String
     public var rawType: String
+    /// Rename-proof target reference (spec §8.1 `uid?`). Never emitted by the
+    /// parsers — set in-memory when a relationship edit picks a concrete
+    /// target, exactly like the JS. Not serialized to vCard.
+    public var uid: String?
 
-    public init(name: String = "", type: String = "", rawType: String = "") {
+    public init(name: String = "", type: String = "", rawType: String = "", uid: String? = nil) {
         self.name = name
         self.type = type
         self.rawType = rawType
+        self.uid = uid
     }
 }
 

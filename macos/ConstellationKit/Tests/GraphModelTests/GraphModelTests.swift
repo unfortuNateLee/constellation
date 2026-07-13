@@ -1,6 +1,3 @@
+// Test entry point for the GraphModel target. Real coverage lives in
+// RelationshipBuilderTests.swift (builder) and PaletteTests.swift (palette).
 import Testing
-@testable import ConstellationGraphModel
-
-@Test func placeholder() {
-    #expect(true)
-}

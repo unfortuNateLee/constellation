@@ -57,7 +57,9 @@ let package = Package(
         ),
         .testTarget(
             name: "GraphModelTests",
-            dependencies: ["ConstellationGraphModel"]
+            dependencies: [
+                "ConstellationGraphModel", "ConstellationFormats", "ConstellationTestSupport",
+            ]
         ),
         .testTarget(
             name: "StoreTests",
