@@ -34,3 +34,10 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run smoke suite
         run: npm run test:e2e
+
+  swift:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ConstellationKit tests
+        run: swift test --package-path macos/ConstellationKit

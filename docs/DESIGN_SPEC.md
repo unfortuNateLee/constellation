@@ -1585,7 +1585,7 @@ npm test          # node:test unit suites
 npm run test:e2e  # Playwright end-to-end smoke suite (chromium)
 ```
 
-The automated unit suite lives under `test/` and uses fixture VCF files under `test/fixtures/`; the e2e smoke suite lives under `e2e/` and drives the served app in a real browser (it also runs as a CI job). The primary fixture is `comprehensive.vcf`, which covers:
+The automated unit suite lives under `test/` and uses fixture VCF files under `fixtures/`; the e2e smoke suite lives under `e2e/` and drives the served app in a real browser (it also runs as a CI job). The primary fixture is `comprehensive.vcf`, which covers:
 
 - normal Apple-style contacts
 - duplicate display names
@@ -1756,7 +1756,7 @@ Shared UI helpers:
 
 ### A.4 Tests, tooling, CI
 
-- `npm test` — Node's built-in `node:test`. `test/helpers/load-app.js` installs fake browser globals (`document`/`window`/`indexedDB`) on `globalThis`, then imports the ES modules directly, so parser/builder/serializer/adapter/controller methods run without a browser. Fixtures in `test/fixtures/` (primary: `comprehensive.vcf`, plus Markdown samples).
+- `npm test` — Node's built-in `node:test`. `test/helpers/load-app.js` installs fake browser globals (`document`/`window`/`indexedDB`) on `globalThis`, then imports the ES modules directly, so parser/builder/serializer/adapter/controller methods run without a browser. Fixtures in `fixtures/` (primary: `comprehensive.vcf`, plus Markdown samples).
 - `npm run test:e2e` — Playwright smoke suite in `e2e/` (`smoke.spec.js`, `global-setup.js`), chromium; runs as a GitHub Actions CI job alongside unit tests, lint, and format checks.
 - `npm run lint` (ESLint flat config, ESM) and `npm run format` / `format:check` (Prettier). None require network access.
 - Browser requirements: ES modules, IndexedDB, FileReader, Blob/`URL.createObjectURL`, CSS Grid, `localStorage`; optionally the File System Access API (`showDirectoryPicker`) for grouped Markdown+image export and individual-vCard export (both fall back to sequential downloads).

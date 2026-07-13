@@ -21,8 +21,8 @@ export default async function globalSetup() {
   for (const name of fs.readdirSync(path.join(root, 'js'))) {
     if (name.endsWith('.js')) files.push(path.join(root, 'js', name));
   }
-  for (const name of fs.readdirSync(path.join(root, 'test', 'fixtures'))) {
-    files.push(path.join(root, 'test', 'fixtures', name));
+  for (const name of fs.readdirSync(path.join(root, 'fixtures'))) {
+    files.push(path.join(root, 'fixtures', name));
   }
   for (const file of files) {
     try {

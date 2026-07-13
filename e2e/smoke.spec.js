@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FIXTURE = path.resolve(__dirname, '..', 'test', 'fixtures', 'comprehensive.vcf');
+const FIXTURE = path.resolve(__dirname, '..', 'fixtures', 'comprehensive.vcf');
 
 /** Import the comprehensive fixture (7 contacts) through the real file input. */
 async function importFixture(page) {

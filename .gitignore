@@ -4,7 +4,7 @@
 .LSOverride
 
 # --- Personal contact data (never commit real exports) ---
-# Synthetic test fixtures under test/fixtures/ are intentionally
+# Synthetic test fixtures under fixtures/ are intentionally
 # NOT ignored (these patterns are anchored to the repo root only).
 /*.vcf
 /*.vcard
@@ -26,3 +26,8 @@ playwright-report/
 .claude/
 .vscode/
 .idea/
+
+# --- macOS native app (generated / build artifacts) ---
+macos/Constellation.xcodeproj/
+macos/ConstellationKit/.build/
+macos/DerivedData/

@@ -1,0 +1,30 @@
+name: Constellation
+
+options:
+  bundleIdPrefix: fun.teamlee
+
+packages:
+  ConstellationKit:
+    path: ConstellationKit
+
+targets:
+  Constellation:
+    type: application
+    platform: macOS
+    deploymentTarget: '14.0'
+    sources:
+      - path: App
+    dependencies:
+      - package: ConstellationKit
+        product: ConstellationKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: fun.teamlee.constellation
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: '-'
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_ENTITLEMENTS: App/Constellation.entitlements
+        INFOPLIST_FILE: App/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: '6.0'
+        MACOSX_DEPLOYMENT_TARGET: '14.0'

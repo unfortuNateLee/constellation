@@ -145,7 +145,7 @@ export function loadBrowserClasses() {
 }
 
 export function fixturePath(name) {
-  return path.join(root, 'test', 'fixtures', name);
+  return path.join(root, 'fixtures', name);
 }
 
 export function readFixture(name) {

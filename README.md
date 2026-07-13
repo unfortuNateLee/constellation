@@ -116,7 +116,8 @@ constellation/
     app-export.js            vCard / Markdown / TSV export + template
     app-theme.js             Light/dark theme toggle + persistence
     app-bootstrap.js         Entry module: startup + modal wiring
-  test/                      Node test suite + fixtures
+  test/                      Node test suite
+  fixtures/                  Synthetic vCard/Markdown fixtures used by tests
   e2e/                       Playwright browser smoke suite
   scripts/                   gen-taxonomy-doc.js (spec table generator)
   docs/
