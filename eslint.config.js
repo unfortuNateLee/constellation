@@ -45,6 +45,21 @@ export default [
       'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  {
+    // CommonJS tooling scripts (the physics-parity d3 ground-truth dumper must
+    // be `.cjs` to `require` the vendored UMD d3 build). ESLint auto-detects the
+    // CommonJS source type for `.cjs`, but Node-only globals (__dirname etc.)
+    // still need to be declared.
+    files: ['scripts/**/*.cjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'commonjs',
+      globals: { ...globals.node },
+    },
+    rules: {
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
   // Disable stylistic rules that conflict with Prettier (Prettier owns formatting).
   prettier,
 ];
