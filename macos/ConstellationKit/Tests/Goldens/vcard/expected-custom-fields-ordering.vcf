@@ -1,0 +1,21 @@
+BEGIN:VCARD
+VERSION:3.0
+UID:md-orderta-fields
+FN:Orderta Fields
+N:Fields;Orderta;;;
+ORG:Ordering Torture Lab
+TITLE:Insertion Order Auditor
+EMAIL;TYPE=WORK:orderta@example.test
+NOTE:Every custom field below is intentionally out of alphabetical order so
+  a sorted-key regression is impossible to miss.
+X-CONSTELLATION-FIELD:{"key":"zebra_priority"\,"type":"string"\,"value":"hi
+ gh"}
+X-CONSTELLATION-FIELD:{"key":"alpha_metrics"\,"type":"object"\,"value":{"th
+ roughput":128\,"accuracy":0.97\,"backlog":{"urgent":3\,"normal":12}\,"regi
+ ons":["west"\,"east"\,"central"]}}
+X-CONSTELLATION-FIELD:{"key":"mission_log"\,"type":"list"\,"value":["launch
+ "\,"orbit"\,"recovery"]}
+X-CONSTELLATION-FIELD:{"key":"beta_rank"\,"type":"number"\,"value":2}
+X-CONSTELLATION-FIELD:{"key":"omega_notes"\,"type":"string"\,"value":"final
+ "}
+END:VCARD

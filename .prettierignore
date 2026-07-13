@@ -4,6 +4,7 @@ js/vendor/
 
 # Exact-match test fixtures — formatting them would break round-trip tests.
 fixtures/
+macos/ConstellationKit/Tests/Goldens/
 
 # Xcode-owned asset catalogs — Xcode rewrites these in its own style.
 macos/App/Assets.xcassets/

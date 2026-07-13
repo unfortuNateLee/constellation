@@ -41,3 +41,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run ConstellationKit tests
         run: swift test --package-path macos/ConstellationKit
+
+  parity:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Cross-implementation parity gate (Node vs Swift)
+        run: scripts/parity/check.sh

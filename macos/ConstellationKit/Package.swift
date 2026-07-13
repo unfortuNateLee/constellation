@@ -10,6 +10,10 @@ let package = Package(
         .library(
             name: "ConstellationKit",
             targets: ["ConstellationUI", "ConstellationContactsSync"]
+        ),
+        .executable(
+            name: "constellation-dump",
+            targets: ["constellation-dump"]
         )
     ],
     targets: [
@@ -36,9 +40,20 @@ let package = Package(
             name: "ConstellationUI",
             dependencies: ["ConstellationModel", "ConstellationGraphModel", "ConstellationStore"]
         ),
+        .target(
+            name: "ConstellationTestSupport"
+        ),
+        .executableTarget(
+            name: "constellation-dump",
+            dependencies: ["ConstellationModel", "ConstellationFormats"]
+        ),
+        .testTarget(
+            name: "ModelTests",
+            dependencies: ["ConstellationModel"]
+        ),
         .testTarget(
             name: "FormatsTests",
-            dependencies: ["ConstellationFormats"]
+            dependencies: ["ConstellationFormats", "ConstellationTestSupport"]
         ),
         .testTarget(
             name: "GraphModelTests",
