@@ -6,6 +6,15 @@ struct ConstellationApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppViewModel()
 
+    init() {
+        #if DEBUG
+            // Debug-only visual verification: `--screenshot-graph <out.png>
+            // [--vcf <path>]` imports a VCF, settles the graph, writes a PNG,
+            // and quits without ever showing a window.
+            GraphScreenshotCommand.runIfRequested()
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView(model: model)
@@ -40,6 +49,70 @@ struct ConstellationApp: App {
         }
     }
 }
+
+#if DEBUG
+    import Foundation
+
+    /// Parses the `--screenshot-graph` launch flag and, when present, renders the
+    /// graph to a PNG and exits before any window appears. Debug builds only.
+    enum GraphScreenshotCommand {
+        static func runIfRequested() {
+            let args = CommandLine.arguments
+            if args.contains("--perf-graph") {
+                MainActor.assumeIsolated {
+                    FileHandle.standardError.write(Data(GraphScreenshot.perfReport().utf8))
+                    exit(0)
+                }
+            }
+            guard let outIdx = args.firstIndex(of: "--screenshot-graph"),
+                outIdx + 1 < args.count
+            else { return }
+            let outPath = args[outIdx + 1]
+            let synthetic = args.contains("--synthetic")
+            let vcfPath = value(of: "--vcf", in: args)
+
+            MainActor.assumeIsolated {
+                // The app is sandboxed, so read the VCF from stdin (`--vcf -`)
+                // and write the PNG to stdout (`--screenshot-graph -`) when a
+                // literal file path is out of reach; both handles are provided
+                // by the (unsandboxed) parent shell.
+                let data: Data?
+                if synthetic {
+                    data = GraphScreenshot.syntheticPNGData()
+                } else if let vcfPath {
+                    let text: String?
+                    if vcfPath == "-" {
+                        text = String(data: FileHandle.standardInput.readDataToEndOfFile(), encoding: .utf8)
+                    } else {
+                        text = try? String(contentsOfFile: vcfPath, encoding: .utf8)
+                    }
+                    data = text.flatMap { GraphScreenshot.pngData(vcfText: $0) }
+                } else {
+                    FileHandle.standardError.write(
+                        Data("--screenshot-graph needs --vcf <path|-> (or --synthetic)\n".utf8))
+                    data = nil
+                }
+
+                guard let data else { exit(1) }
+                if outPath == "-" {
+                    FileHandle.standardOutput.write(data)
+                } else {
+                    do { try data.write(to: URL(fileURLWithPath: outPath)) }
+                    catch {
+                        FileHandle.standardError.write(Data("screenshot: write failed: \(error)\n".utf8))
+                        exit(1)
+                    }
+                }
+                exit(0)
+            }
+        }
+
+        private static func value(of flag: String, in args: [String]) -> String? {
+            guard let idx = args.firstIndex(of: flag), idx + 1 < args.count else { return nil }
+            return args[idx + 1]
+        }
+    }
+#endif
 
 /// App delegate for Finder/dock file opens. NSApplicationDelegateAdaptor owns the
 /// instance, so the SwiftUI app hands it the view model via `attach(_:)`. URLs

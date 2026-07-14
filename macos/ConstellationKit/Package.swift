@@ -66,6 +66,10 @@ let package = Package(
             dependencies: ["ConstellationStore", "ConstellationFormats", "ConstellationTestSupport"]
         ),
         .testTarget(
+            name: "UITests",
+            dependencies: ["ConstellationUI", "ConstellationTestSupport", "ConstellationFormats"]
+        ),
+        .testTarget(
             name: "ContactsSyncTests",
             dependencies: ["ConstellationContactsSync"]
         ),

@@ -1,7 +1,8 @@
 // WorkspaceView — the content pane: a Table / Graph / Geographic switcher above
 // the active workspace. Table shows the read-only `ContactTableView`; the two
-// graph modes render a centered "arrives in M4" placeholder (the graph canvas is
-// a later milestone).
+// graph modes render the `GraphCanvasView` force-directed graph (M4). The
+// geographic pane drives the geographic graph build; both panes reuse the same
+// renderer (only the underlying graph model differs).
 
 import ConstellationStore
 import SwiftUI
@@ -26,32 +27,26 @@ struct WorkspaceView: View {
             switch store.workspaceMode {
             case .table:
                 ContactTableView(store: store)
-            case .graph:
-                GraphPlaceholder(
-                    title: "Graph view",
-                    detail: "The relationship graph arrives in M4.")
-            case .geographic:
-                GraphPlaceholder(
-                    title: "Geographic view",
-                    detail: "The geographic graph arrives in M4.")
+            case .graph, .geographic:
+                GraphCanvasView(store: store)
             }
         }
+        .onAppear { syncGraphMode(store.workspaceMode) }
+        .onChange(of: store.workspaceMode) { _, mode in syncGraphMode(mode) }
     }
-}
 
-/// Centered placeholder for the not-yet-built graph workspaces.
-private struct GraphPlaceholder: View {
-    let title: String
-    let detail: String
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "point.3.filled.connected.trianglepath.dotted")
-                .font(.system(size: 40))
-                .foregroundStyle(.tertiary)
-            Text(title).font(.title3.weight(.semibold))
-            Text(detail).foregroundStyle(.secondary)
+    /// Keep the graph *build* mode consistent with the visible pane: the
+    /// geographic pane builds the geographic graph; the graph pane builds an
+    /// explicit-relationship graph (js/app.js: geographic view sets
+    /// `_graphMode = 'geographic'`). Rebuild only when the mode actually flips.
+    private func syncGraphMode(_ mode: WorkspaceMode) {
+        switch mode {
+        case .geographic:
+            if store.graphMode != .geographic { store.setGraphMode(.geographic) }
+        case .graph:
+            if store.graphMode == .geographic { store.setGraphMode(.connections) }
+        case .table:
+            break
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
